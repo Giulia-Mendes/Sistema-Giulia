@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Capellato do Brasil</title>
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; }
+
+/* NAV */
+.nav { background: #fff; border-bottom: 1px solid #e5e3db; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; position: sticky; top: 0; z-index: 10; }
+.nav button { font-size: 13px; padding: 12px 14px; border: none; background: transparent; color: #888780; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; }
+.nav button.ativo { color: #1a1a18; border-bottom-color: #1a1a18; font-weight: 500; }
+
+/* LAYOUT */
+.container { max-width: 860px; margin: 0 auto; padding: 16px; }
+.tela { display: none; }
+.tela.ativo { display: block; }
+
+/* CARDS */
+.card { background: #fff; border: 1px solid #e5e3db; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.sec { font-size: 11px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+
+/* GRID */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media(max-width: 600px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+
+/* CAMPOS */
+.campo label { display: block; font-size: 12px; color: #888780; margin-bottom: 4px; }
+input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d3d1c7; border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; color: #1a1a18; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #7F77DD; }
+input[readonly] { background: #f5f4f0; color: #888780; }
+
+/* BOTÕES */
+.btn { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; border: none; }
+.btn-preto { background: #1a1a18; color: #fff; }
+.btn-preto:hover { opacity: .85; }
+.btn-branco { background: transparent; color: #1a1a18; border: 1px solid #d3d1c7; }
+.btn-branco:hover { background: #f5f4f0; }
+.btn-verde { background: transparent; color: #27500A; border: 1px solid #3B6D11; }
+.btn-verde:hover { background: #EAF3DE; }
+.btn-vermelho { background: transparent; color: #791F1F; border: 1px solid #A32D2D; }
+.btn-vermelho:hover { background: #FCEBEB; }
+.btn-roxo { background: transparent; color: #3C3489; border: 1px solid #AFA9EC; }
+.btn-roxo:hover { background: #EEEDFE; }
+
+/* BADGES */
+.badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+.badge-verde { background: #EAF3DE; color: #27500A; }
+.badge-amarelo { background: #FAEEDA; color: #633806; }
+.badge-vermelho { background: #FCEBEB; color: #791F1F; }
+.badge-cinza { background: #e5e3db; color: #5f5e5a; }
+.badge-roxo { background: #EEEDFE; color: #3C3489; }
+.badge-teal { background: #E1F5EE; color: #085041; }
+
+/* STATS */
+.stat { background: #f5f4f0; border-radius: 8px; padding: 10px 14px; }
+.stat .lbl { font-size: 12px; color: #888780; margin-bottom: 4px; }
+.stat .val { font-size: 17px; font-weight: 500; }
+.stat4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+@media(max-width: 600px) { .stat4 { grid-template-columns: repeat(2, 1fr); } }
+
+/* TIPO EVENTO */
+.tipo-wrap { display: flex; gap: 8px; margin-bottom: 12px; }
+.tipo-opt { flex: 1; padding: 10px; border: 2px solid #e5e3db; border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 500; }
+.tipo-opt.sel-visita { border-color: #7F77DD; background: #EEEDFE; color: #3C3489; }
+.tipo-opt.sel-inst { border-color: #1D9E75; background: #E1F5EE; color: #085041; }
+
+/* CHECKLIST */
+.ck-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e5e3db; }
+.ck-item:last-child { border-bottom: none; }
+.ck-box { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #d3d1c7; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; user-select: none; }
+.ck-box.feito { background: #27500A; border-color: #27500A; color: #fff; }
+.ck-label { flex: 1; font-size: 13px; }
+.ck-label.feito { text-decoration: line-through; color: #888780; }
+
+/* PROGRESSO */
+.prog-wrap { height: 5px; background: #e5e3db; border-radius: 3px; flex: 1; }
+.prog-bar { height: 5px; border-radius: 3px; background: #639922; }
+
+/* MARGEM */
+.margem-wrap { height: 7px; background: #e5e3db; border-radius: 4px; margin-top: 6px; }
+.margem-bar { height: 7px; border-radius: 4px; }
+
+/* TEXTO AGEND */
+.txt-agend { background: #f5f4f0; border-radius: 8px; padding: 12px 14px; font-size: 13px; white-space: pre-wrap; line-height: 1.8; margin-top: 8px; }
+
+/* PROPOSTA */
+.prop-box { background: #f5f4f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; margin-top: 10px; }
+
+/* TEC CHECK */
+.tec-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e5e3db; border-radius: 8px; cursor: pointer; margin-bottom: 6px; font-size: 13px; }
+.tec-item input { width: auto; padding: 0; }
+
+/* FOTOS */
+.foto-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.foto-item { position: relative; border-radius: 8px; overflow: hidden; background: #f5f4f0; aspect-ratio: 1; }
+.foto-item img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+.foto-rm { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.5); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.foto-add { border: 2px dashed #d3d1c7; border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-direction: column; gap: 4px; color: #888780; font-size: 12px; text-align: center; padding: 8px; }
+.foto-add:hover { border-color: #7F77DD; background: #f5f4f0; }
+@media(max-width: 600px) { .foto-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* ANEXOS */
+.anx-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #f5f4f0; border-radius: 8px; margin-bottom: 6px; }
+.anx-icone { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.anx-info { flex: 1; min-width: 0; }
+.anx-nome { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anx-size { font-size: 11px; color: #888780; }
+.anx-acoes { display: flex; gap: 4px; }
+.btn-icone { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 4px; }
+.btn-icone:hover { background: #e5e3db; }
+
+/* CALENDÁRIO */
+.cal-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.cal-views { display: flex; gap: 4px; }
+.cal-view-btn { font-size: 12px; padding: 5px 12px; border: 1px solid #d3d1c7; border-radius: 6px; cursor: pointer; background: transparent; color: #888780; font-family: inherit; }
+.cal-view-btn.ativo { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+.cal-titulo { font-size: 15px; font-weight: 500; min-width: 200px; text-align: center; }
+
+/* CALENDÁRIO MÊS */
+.cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.cal-header div { font-size: 11px; color: #888780; text-align: center; padding: 4px 0; font-weight: 500; }
+.cal-grid-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-dia { min-height: 68px; border-radius: 6px; border: 1px solid #e5e3db; padding: 4px 5px; background: #fff; }
+.cal-dia.outro-mes { opacity: .3; }
+.cal-dia.hoje { border-color: #7F77DD; background: #EEEDFE; }
+.cal-num { font-size: 11px; color: #888780; margin-bottom: 3px; font-weight: 500; }
+.cal-dia.hoje .cal-num { background: #7F77DD; color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+.cal-ev { font-size: 10px; border-radius: 3px; padding: 2px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.cal-ev.visita { background: #7F77DD; color: #fff; }
+.cal-ev.inst { background: #1D9E75; color: #fff; }
+
+/* CALENDÁRIO SEMANA */
+.cal-semana-wrap { overflow-x: auto; }
+.cal-semana { display: grid; grid-template-columns: 52px repeat(7, 1fr); min-width: 580px; }
+.cal-sem-header { grid-column: 1 / -1; display: grid; grid-template-columns: 52px repeat(7, 1fr); border-bottom: 1px solid #e5e3db; }
+.cal-sem-header-empty { border-right: 1px solid #e5e3db; }
+.cal-sem-dia-hdr { text-align: center; padding: 8px 2px; font-size: 12px; border-right: 1px solid #e5e3db; }
+.cal-sem-dia-hdr:last-child { border-right: none; }
+.cal-sem-dia-hdr.hoje { color: #7F77DD; font-weight: 700; }
+.cal-time-col { border-right: 1px solid #e5e3db; }
+.cal-time-slot { height: 48px; border-bottom: 1px solid #f0ede6; display: flex; align-items: flex-start; padding: 2px 4px 0 0; justify-content: flex-end; }
+.cal-time-slot span { font-size: 10px; color: #b4b2a9; }
+.cal-col { border-right: 1px solid #e5e3db; position: relative; }
+.cal-col:last-child { border-right: none; }
+.cal-col-inner { position: relative; }
+.cal-hora-line { height: 48px; border-bottom: 1px solid #f0ede6; }
+.cal-ev-week { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 5px; font-size: 11px; cursor: pointer; overflow: hidden; z-index: 2; line-height: 1.3; }
+.cal-ev-week.visita { background: #7F77DD; color: #fff; }
+.cal-ev-week.inst { background: #1D9E75; color: #fff; }
+
+/* POPUP CALENDÁRIO */
+.cal-popup { position: fixed; background: #fff; border: 1px solid #d3d1c7; border-radius: 12px; padding: 16px; z-index: 200; width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,.15); display: none; }
+
+/* MODAIS */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
+.modal-bg.aberto { display: flex; }
+.modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; }
+.modal-sm { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 360px; }
+
+/* LIGHTBOX */
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 300; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+.lightbox.aberto { display: flex; }
+.lightbox img { max-width: 90vw; max-height: 78vh; border-radius: 8px; }
+.lb-fechar { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.2); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 20px; }
+.lb-baixar { background: #fff; color: #1a1a18; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+
+/* CARD VISITA / INSTALAÇÃO */
+.item-card { background: #fff; border: 1px solid #e5e3db; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.item-header { padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.item-header:hover { background: #f9f8f5; }
+.item-body { padding: 0 16px 16px; border-top: 1px solid #e5e3db; }
+
+/* INFO PAG */
+.info-pag { background: #f5f4f0; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 13px; color: #888780; display: none; }
+
+/* LEGENDA CAL */
+.cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+.cal-legenda-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888780; }
+.cal-legenda-cor { width: 12px; height: 12px; border-radius: 2px; }
+
+/* LOGIN */
+.login-page { position: fixed; inset: 0; background: #f5f4f0; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="tela-login" style="position:fixed;inset:0;background:#f5f4f0;display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:#fff;border:1px solid #e5e3db;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.08)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:28px;margin-bottom:8px">🌊</div>
+      <p style="font-size:20px;font-weight:600;margin-bottom:4px">Capellato do Brasil</p>
+      <p style="font-size:13px;color:#888780">Sistema comercial</p>
+    </div>
+    <div class="campo" style="margin-bottom:12px"><label>Usuário</label><input type="text" id="login-usuario" placeholder="Ex: giulia" autocomplete="username"></div>
+    <div class="campo" style="margin-bottom:20px"><label>Senha</label><input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <button class="btn btn-preto" style="width:100%;padding:10px" onclick="fazerLogin()">Entrar</button>
+    <p id="login-erro" style="font-size:13px;color:#791F1F;text-align:center;margin-top:12px;display:none"></p>
+  </div>
+</div>
+
+
+<nav class="nav" id="nav-principal" style="display:none">
+  <button onclick="irPara('visita', this)">📅 Visita</button>
+  <button onclick="irPara('calendario', this)">🗓 Calendário</button>
+  <button onclick="irPara('proposta', this)" class="ativo">📄 Proposta</button>
+  <button onclick="irPara('aprovacao', this)">✅ Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></button>
+  <button onclick="irPara('instalacao', this)">🔧 Instalações</button>
+  <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none">🔍 Auditoria</button>
+  <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none">👥 Usuários</button>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;flex-shrink:0">
+    <span id="nav-usuario-nome" style="font-size:12px;color:#888780;white-space:nowrap"></span>
+    <button onclick="fazerLogout()" style="font-size:12px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;cursor:pointer;background:transparent;color:#888780;white-space:nowrap">Sair</button>
+  </div>
+</nav>
+
+<div class="container" id="app-container" style="display:none">
+
+<!-- ═══════════ VISITA ═══════════ -->
+<div id="tela-visita" class="tela">
+  <div class="card">
+    <p class="sec">Agendar nova visita / instalação</p>
+
+    <div class="campo" style="margin-bottom:12px">
+      <label>Tipo de evento</label>
+      <div class="tipo-wrap">
+        <div class="tipo-opt sel-visita" id="tipo-btn-visita" onclick="selecionarTipo('visita')">🔍 Visita técnica</div>
+        <div class="tipo-opt" id="tipo-btn-inst" onclick="selecionarTipo('instalacao')">🔧 Instalação</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="campo"><label>Nome do cliente</label><input type="text" id="v-nome" placeholder="Ex: Daniel Silva" oninput="gerarTexto()"></div>
+      <div class="campo"><label>Celular</label><input type="text" id="v-cel" placeholder="(21) 99999-9999" oninput="gerarTexto()"></div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Endereço</label><input type="text" id="v-end" placeholder="Rua, número, bairro" oninput="gerarTexto()"></div>
+      <div class="campo"><label>CEP</label><input type="text" id="v-cep" placeholder="00000-000" oninput="gerarTexto()"></div>
+    </div>
+    <div class="g3">
+      <div class="campo"><label>Data</label><input type="date" id="v-data" oninput="gerarTexto()"></div>
+      <div class="campo"><label>Das</label><input type="time" id="v-hora-ini" oninput="gerarTexto()"></div>
+      <div class="campo"><label>Até</label><input type="time" id="v-hora-fim" oninput="gerarTexto()"></div>
+    </div>
+    <div class="campo" style="margin-bottom:12px">
+      <label>Observação</label>
+      <input type="text" id="v-obs" placeholder="Ex: Trocador de Calor, Pedido #123..." oninput="gerarTexto()">
+    </div>
+
+    <div class="campo" style="margin-bottom:12px">
+      <label>Técnicos</label>
+      <label class="tec-item"><input type="checkbox" value="Joseilto da Silva Melo|05770641428" onchange="gerarTexto()"> Joseilto da Silva Melo — CPF 057.706.414-28</label>
+      <label class="tec-item"><input type="checkbox" value="José Wesley Mendes da Silva|15417106496" onchange="gerarTexto()"> José Wesley Mendes da Silva — CPF 154.171.064-96</label>
+      <label class="tec-item" id="outro-tec-label" style="display:none">
+        <input type="checkbox" id="outro-tec-check" onchange="gerarTexto()">
+        <span id="outro-tec-span"></span>
+      </label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input type="text" id="outro-tec-nome" placeholder="Outro técnico" style="flex:1">
+        <input type="text" id="outro-tec-cpf" placeholder="CPF" style="flex:1">
+        <button class="btn btn-branco" onclick="addTec()" style="padding:7px 10px;white-space:nowrap">+ Add</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-preto" onclick="agendarVisita()">📅 Agendar</button>
+      <button class="btn btn-branco" onclick="copiarTextoVisita()">📋 Copiar texto</button>
+    </div>
+
+    <div id="texto-visita-wrap" style="display:none">
+      <p class="sec" style="margin-top:14px">Texto gerado</p>
+      <div id="texto-visita" class="txt-agend"></div>
+    </div>
+  </div>
+
+  <div id="lista-visitas"></div>
+</div>
+
+<!-- ═══════════ CALENDÁRIO ═══════════ -->
+<div id="tela-calendario" class="tela">
+  <div class="card">
+    <div class="cal-toolbar">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-branco" onclick="mudarPeriodo(-1)" style="padding:6px 12px">←</button>
+        <span class="cal-titulo" id="cal-titulo"></span>
+        <button class="btn btn-branco" onclick="mudarPeriodo(1)" style="padding:6px 12px">→</button>
+        <button class="btn btn-branco" onclick="irHoje()" style="padding:6px 10px;font-size:12px">Hoje</button>
+      </div>
+      <div class="cal-views">
+        <button class="cal-view-btn" id="btn-semana" onclick="setView('semana')">Semana</button>
+        <button class="cal-view-btn ativo" id="btn-mes" onclick="setView('mes')">Mês</button>
+      </div>
+    </div>
+
+    <div id="cal-corpo"></div>
+
+    <div class="cal-legenda">
+      <div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#7F77DD"></div> Visita técnica</div>
+      <div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#1D9E75"></div> Instalação</div>
+    </div>
+  </div>
+</div>
+
+<!-- popup calendário (fora de qualquer tela) -->
+<div id="cal-popup" class="cal-popup"></div>
+
+<!-- ═══════════ PROPOSTA ═══════════ -->
+<div id="tela-proposta" class="tela ativo">
+  <div class="card">
+    <p class="sec">Dados do cliente</p>
+    <div class="g2">
+      <div class="campo"><label>Nome do cliente</label><input type="text" id="p-cliente" placeholder="Ex: Alexandre" oninput="gerarProposta()"></div>
+      <div class="campo">
+        <label>Vendedora</label>
+        <select id="p-vendedora" onchange="toggleOutroVend()">
+          <option value="">Selecione</option>
+          <option>Vitória</option><option>Aline/Marcia</option><option>Joseilto</option>
+          <option value="outro">Outro...</option>
+        </select>
+        <input type="text" id="p-vendedora-outro" placeholder="Digite o nome" style="margin-top:6px;display:none" oninput="gerarProposta()">
+      </div>
+    </div>
+    <div class="g2">
+      <div class="campo">
+        <label>Equipamento</label>
+        <select id="p-equip" onchange="toggleOutroEquip()">
+          <option value="">Selecione</option>
+          <optgroup label="ORTUM Prime Wi-Fi Full Inverter">
+            <option value="ORTUM S24|0">ORTUM S24</option><option value="ORTUM S31|0">ORTUM S31</option>
+            <option value="ORTUM S38|0">ORTUM S38</option><option value="ORTUM S44|0">ORTUM S44</option>
+            <option value="ORTUM S51|0">ORTUM S51</option><option value="ORTUM S58|0">ORTUM S58</option>
+            <option value="ORTUM S72|0">ORTUM S72</option><option value="ORTUM S90|0">ORTUM S90</option>
+            <option value="ORTUM S110|0">ORTUM S110</option>
+          </optgroup>
+          <optgroup label="SIBRAPE SB Full Inverter 220V">
+            <option value="SB14|0">SB14</option><option value="SB24|0">SB24</option><option value="SB30|0">SB30</option>
+            <option value="SB43|0">SB43</option><option value="SB50|0">SB50</option><option value="SB60|0">SB60</option>
+            <option value="SB71|0">SB71</option><option value="SB82|0">SB82</option>
+            <option value="SB110|0">SB110</option><option value="SB130|0">SB130</option>
+          </optgroup>
+          <optgroup label="AQUEX Full Invert">
+            <option value="AQ4|0">AQ4 — 14.000 BTU</option><option value="AQ7|5043">AQ7 — 24.000 BTU</option>
+            <option value="AQ9|5696">AQ9 — 30.000 BTU</option><option value="AQ12|6605">AQ12 — 43.000 BTU</option>
+            <option value="AQ14|7300">AQ14 — 50.000 BTU</option><option value="AQ17|7300">AQ17 — 60.000 BTU</option>
+            <option value="AQ19|0">AQ19 — 71.000 BTU</option><option value="AQ24|0">AQ24 — 82.000 BTU</option>
+            <option value="AQ32|0">AQ32 — 110.000 BTU</option><option value="AQ38|0">AQ38 — 130.000 BTU</option>
+          </optgroup>
+          <option value="outro|0">Outro (digitar)</option>
+        </select>
+        <input type="text" id="p-equip-outro" placeholder="Descreva o equipamento" style="margin-top:6px;display:none" oninput="gerarProposta()">
+      </div>
+      <div class="campo">
+        <label>Prazo de instalação</label>
+        <select id="p-prazo" onchange="toggleOutroPrazo()">
+          <option value="1 dia útil">1 dia útil</option><option value="2 dias úteis">2 dias úteis</option>
+          <option value="3 dias úteis">3 dias úteis</option><option value="5 dias úteis">5 dias úteis</option>
+          <option value="outro">Digitar...</option>
+        </select>
+        <input type="text" id="p-prazo-outro" placeholder="Ex: 7 dias úteis" style="margin-top:6px;display:none" oninput="gerarProposta()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="sec">Calculadora de margem</p>
+    <div class="g3">
+      <div class="campo"><label>Custo equipamento (R$)</label><input type="number" id="p-custo-prod" placeholder="0" step="0.01" oninput="calcMargem()"></div>
+      <div class="campo"><label>Custo material (R$)</label><input type="number" id="p-custo-mat" placeholder="0" step="0.01" oninput="calcMargem()"></div>
+      <div class="campo"><label>Preço de venda (R$)</label><input type="number" id="p-venda" placeholder="0" step="0.01" oninput="calcMargem()"></div>
+    </div>
+    <div class="campo" style="margin-bottom:8px">
+      <label>Forma de pagamento</label>
+      <select id="p-pag" onchange="calcMargem()">
+        <option value="pix">PIX — sem taxa</option>
+        <option value="deb">Débito — 0,79%</option>
+        <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
+        <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
+        <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
+        <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
+        <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
+        <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
+        <option value="bol_parc">Boleto parcelado — 30% + 30/60/90</option>
+        <option value="bol_desc">Boleto c/ desconto — 30% + 70% conclusão (4%)</option>
+      </select>
+    </div>
+    <div id="info-pag" class="info-pag"></div>
+    <div class="stat3">
+      <div class="stat"><div class="lbl">Taxa</div><div class="val" id="res-taxa">—</div></div>
+      <div class="stat"><div class="lbl">Custo total</div><div class="val" id="res-custo">—</div></div>
+      <div class="stat"><div class="lbl">Margem</div><div class="val" id="res-margem">—</div>
+        <div class="margem-wrap"><div class="margem-bar" id="margem-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+      <span class="badge" id="margem-badge" style="background:#FAEEDA;color:#633806">Preencha os valores</span>
+      <span style="font-size:12px;color:#888780">Mínimo: 38%</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <p class="sec" style="margin:0">Texto da proposta</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-branco" id="btn-editar-prop" onclick="toggleEditarProp()" style="font-size:12px;padding:5px 10px">✏️ Editar</button>
+        <button class="btn btn-branco" onclick="regenerarProp()" style="font-size:12px;padding:5px 10px">🔄 Regenerar</button>
+      </div>
+    </div>
+    <div id="prop-preview" class="prop-box">Preencha os dados acima para gerar a proposta.</div>
+    <textarea id="prop-edit" style="width:100%;background:#f5f4f0;border:1px solid #d3d1c7;border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.8;font-family:inherit;resize:vertical;min-height:260px;display:none;margin-top:10px" oninput="syncProp()"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-preto" onclick="enviarAprovacao()">📤 Enviar para aprovação</button>
+      <button class="btn btn-branco" onclick="copiarProposta()">📋 Copiar</button>
+    </div>
+    <p id="msg-enviado" style="font-size:13px;color:#27500A;margin-top:8px;display:none">✓ Proposta enviada!</p>
+  </div>
+</div>
+
+<!-- ═══════════ APROVAÇÃO ═══════════ -->
+<div id="tela-aprovacao" class="tela">
+  <div class="stat3" style="margin-bottom:16px">
+    <div class="stat"><div class="lbl">Aguardando</div><div class="val" id="ap-total">0</div></div>
+    <div class="stat"><div class="lbl">Aprovadas hoje</div><div class="val" id="ap-ok">0</div></div>
+    <div class="stat"><div class="lbl">Valor pendente</div><div class="val" id="ap-valor">—</div></div>
+  </div>
+  <div id="lista-aprovacao"></div>
+</div>
+
+<!-- ═══════════ INSTALAÇÕES ═══════════ -->
+<div id="tela-instalacao" class="tela">
+  <div class="card">
+    <p class="sec">Registrar nova instalação</p>
+    <div class="g3">
+      <div class="campo"><label>Cliente</label><input type="text" id="i-cliente" placeholder="Nome do cliente"></div>
+      <div class="campo"><label>Equipamento</label><input type="text" id="i-equip" placeholder="Ex: AQ12"></div>
+      <div class="campo"><label>Nº pedido Tiny</label><input type="number" id="i-pedido" placeholder="Ex: 3820"></div>
+    </div>
+    <div class="g4">
+      <div class="campo"><label>Valor de venda (R$)</label><input type="number" id="i-valor" placeholder="0" oninput="calcAutoInst()"></div>
+      <div class="campo"><label>Valor material (R$)</label><input type="number" id="i-mat" placeholder="0"></div>
+      <div class="campo"><label>Sinal recebido (R$)</label><input type="number" id="i-sinal" placeholder="0" oninput="calcAutoInst()"></div>
+      <div class="campo"><label>A receber (R$)</label><input type="number" id="i-receber" readonly placeholder="Auto"></div>
+    </div>
+    <div class="g3">
+      <div class="campo"><label>Data</label><input type="date" id="i-data"></div>
+      <div class="campo"><label>Vendedora</label>
+        <select id="i-vend"><option value="">Selecione</option><option>Vitória</option><option>Aline/Marcia</option><option>Joseilto</option></select>
+      </div>
+      <div class="campo"><label>Equipamento a comprar</label><input type="text" id="i-mat-comprar" placeholder="Ex: AQ12"></div>
+    </div>
+    <div class="campo" style="margin-bottom:12px"><label>Observações</label><input type="text" id="i-obs" placeholder="Anotações gerais"></div>
+    <button class="btn btn-preto" onclick="addInstalacao()">+ Adicionar instalação</button>
+  </div>
+
+  <div class="stat4" id="resumo-inst"></div>
+  <div id="lista-instalacoes"></div>
+</div>
+
+
+<!-- TELA AUDITORIA -->
+<div id="tela-auditoria" class="tela">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <p class="sec" style="margin:0">Histórico de ações</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="audit-filtro-acao" onchange="filtrarAuditoria()" style="font-size:12px;padding:5px 8px;width:auto">
+          <option value="">Todas as ações</option>
+          <option value="LOGIN">Login</option>
+          <option value="CRIAR_VISITA">Criar visita</option>
+          <option value="EDITAR_VISITA">Editar visita</option>
+          <option value="EXCLUIR_VISITA">Excluir visita</option>
+          <option value="SALVAR_LAUDO">Salvar laudo</option>
+          <option value="CRIAR_PROPOSTA">Criar proposta</option>
+          <option value="EDITAR_PROPOSTA">Editar proposta</option>
+          <option value="EXCLUIR_PROPOSTA">Excluir proposta</option>
+          <option value="CRIAR_INSTALACAO">Criar instalação</option>
+          <option value="EDITAR_INSTALACAO">Editar instalação</option>
+          <option value="EXCLUIR_INSTALACAO">Excluir instalação</option>
+        </select>
+        <select id="audit-filtro-usuario" onchange="filtrarAuditoria()" style="font-size:12px;padding:5px 8px;width:auto">
+          <option value="">Todos os usuários</option>
+        </select>
+      </div>
+    </div>
+    <div id="lista-auditoria"><p style="text-align:center;color:#888780;padding:2rem 0">Carregando...</p></div>
+  </div>
+</div>
+
+<!-- TELA USUÁRIOS -->
+<div id="tela-usuarios" class="tela">
+  <div class="card">
+    <p class="sec">Adicionar novo usuário</p>
+    <div class="g3">
+      <div class="campo"><label>Nome completo</label><input type="text" id="nu-nome" placeholder="Ex: João Silva"></div>
+      <div class="campo"><label>Login</label><input type="text" id="nu-login" placeholder="Ex: joao"></div>
+      <div class="campo"><label>Senha inicial</label><input type="text" id="nu-senha" placeholder="Ex: capellato123"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="campo" style="margin:0">
+        <label>Perfil</label>
+        <select id="nu-role" style="width:auto;min-width:140px">
+          <option value="user">Usuário comum</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <button class="btn btn-preto" style="margin-top:18px" onclick="criarUsuario()">+ Adicionar usuário</button>
+    </div>
+    <p id="msg-usuario" style="font-size:13px;margin-top:8px;display:none"></p>
+  </div>
+  <div id="lista-usuarios"></div>
+</div>
+</div><!-- container -->
+
+<!-- ═══════════ MODAL LAUDO ═══════════ -->
+<div class="modal-bg" id="modal-laudo">
+  <div class="modal">
+    <p style="font-size:16px;font-weight:500;margin-bottom:4px">Laudo do técnico</p>
+    <p style="font-size:13px;color:#888780;margin-bottom:16px" id="laudo-sub"></p>
+
+    <p class="sec">Dimensões</p>
+    <div class="g3">
+      <div class="campo"><label>Comprimento (m)</label><input type="number" id="l-comp" step="0.1" oninput="calcVolLaudo()"></div>
+      <div class="campo"><label>Largura (m)</label><input type="number" id="l-larg" step="0.1" oninput="calcVolLaudo()"></div>
+      <div class="campo"><label>Profundidade (m)</label><input type="number" id="l-prof" step="0.1" oninput="calcVolLaudo()"></div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Volume estimado (m³)</label><input type="number" id="l-vol" readonly></div>
+      <div class="campo"><label>Tipo de piscina</label>
+        <select id="l-tipo"><option value="">Selecione</option><option>Alvenaria</option><option>Fibra</option><option>Vinil</option><option>Aço inox</option><option>Outro</option></select>
+      </div>
+    </div>
+
+    <p class="sec" style="margin-top:4px">Infraestrutura</p>
+    <div class="g3">
+      <div class="campo"><label>Distância casa máquinas (m)</label><input type="number" id="l-dist" step="0.5"></div>
+      <div class="campo"><label>Tensão elétrica</label>
+        <select id="l-tensao"><option value="">Selecione</option><option>110V</option><option>220V</option></select>
+      </div>
+      <div class="campo">
+        <label>Dias p/ instalação</label>
+        <select id="l-dias" onchange="document.getElementById('l-dias-outro').style.display=this.value==='outro'?'':'none'">
+          <option value="">Selecione</option>
+          <option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option>
+          <option value="4">4 dias</option><option value="5">5 dias</option><option value="outro">Outro</option>
+        </select>
+        <input type="text" id="l-dias-outro" placeholder="Ex: 6 dias" style="margin-top:6px;display:none">
+      </div>
+    </div>
+    <div class="campo"><label>Observações</label><textarea id="l-obs" rows="3" placeholder="Acesso, dificuldades, condições do local..."></textarea></div>
+    <div class="campo"><label>Material necessário</label><textarea id="l-material" rows="2" placeholder="Ex: tubo 3/4 (20m), cabo 6mm..."></textarea></div>
+    <div class="campo"><label>Valor estimado do material (R$)</label><input type="number" id="l-valor-mat" step="0.01"></div>
+
+    <p class="sec" style="margin-top:8px">Fotos do local</p>
+    <div class="foto-grid" id="foto-grid"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-branco" onclick="fecharModal('modal-laudo')">Cancelar</button>
+      <button class="btn btn-preto" onclick="salvarLaudo()">✓ Salvar laudo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR VISITA -->
+<div class="modal-bg" id="modal-edit-visita">
+  <div class="modal">
+    <p style="font-size:16px;font-weight:500;margin-bottom:16px">Editar agendamento</p>
+    <div class="campo" style="margin-bottom:12px">
+      <label>Tipo de evento</label>
+      <div class="tipo-wrap">
+        <div class="tipo-opt" id="ev-tipo-visita" onclick="selecionarTipoEdit('visita')">🔍 Visita técnica</div>
+        <div class="tipo-opt" id="ev-tipo-inst" onclick="selecionarTipoEdit('instalacao')">🔧 Instalação</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Nome do cliente</label><input type="text" id="ev-nome"></div>
+      <div class="campo"><label>Celular</label><input type="text" id="ev-cel"></div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Endereço</label><input type="text" id="ev-end"></div>
+      <div class="campo"><label>CEP</label><input type="text" id="ev-cep"></div>
+    </div>
+    <div class="g3">
+      <div class="campo"><label>Data</label><input type="date" id="ev-data"></div>
+      <div class="campo"><label>Das</label><input type="time" id="ev-hora-ini"></div>
+      <div class="campo"><label>Até</label><input type="time" id="ev-hora-fim"></div>
+    </div>
+    <div class="campo" style="margin-bottom:16px"><label>Observação</label><input type="text" id="ev-obs"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModal('modal-edit-visita')">Cancelar</button>
+      <button class="btn btn-preto" onclick="salvarEditarVisita()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL EDITAR APROVAÇÃO -->
+<div class="modal-bg" id="modal-edit-aprov">
+  <div class="modal">
+    <p style="font-size:16px;font-weight:500;margin-bottom:16px">Editar proposta</p>
+    <div class="g2">
+      <div class="campo"><label>Cliente</label><input type="text" id="ea-cliente"></div>
+      <div class="campo"><label>Vendedora</label><input type="text" id="ea-vendedora"></div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Equipamento</label><input type="text" id="ea-equip"></div>
+      <div class="campo"><label>Forma de pagamento</label><input type="text" id="ea-pag"></div>
+    </div>
+    <div class="g2">
+      <div class="campo"><label>Valor de venda (R$)</label><input type="number" id="ea-valor" oninput="calcMargemAprov()"></div>
+      <div class="campo"><label>Custo total (R$)</label><input type="number" id="ea-custo" oninput="calcMargemAprov()"></div>
+    </div>
+    <div style="background:#f5f4f0;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#888780" id="ea-margem-info">Preencha os valores para calcular a margem.</div>
+    <div class="campo" style="margin-bottom:16px">
+      <label>Texto da proposta</label>
+      <textarea id="ea-texto" rows="10" style="font-size:13px;line-height:1.8;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModal('modal-edit-aprov')">Cancelar</button>
+      <button class="btn btn-preto" onclick="salvarEditarAprov()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR INSTALAÇÃO -->
+<div class="modal-bg" id="modal-edit-inst">
+  <div class="modal">
+    <p style="font-size:16px;font-weight:500;margin-bottom:16px">Editar instalação</p>
+    <div class="g3">
+      <div class="campo"><label>Cliente</label><input type="text" id="ei-cliente"></div>
+      <div class="campo"><label>Equipamento</label><input type="text" id="ei-equip"></div>
+      <div class="campo"><label>Nº pedido Tiny</label><input type="number" id="ei-pedido"></div>
+    </div>
+    <div class="g4">
+      <div class="campo"><label>Valor de venda (R$)</label><input type="number" id="ei-valor" oninput="calcAutoInstEdit()"></div>
+      <div class="campo"><label>Valor material (R$)</label><input type="number" id="ei-mat"></div>
+      <div class="campo"><label>Sinal recebido (R$)</label><input type="number" id="ei-sinal" oninput="calcAutoInstEdit()"></div>
+      <div class="campo"><label>A receber (R$)</label><input type="number" id="ei-receber" readonly></div>
+    </div>
+    <div class="g3">
+      <div class="campo"><label>Data</label><input type="date" id="ei-data"></div>
+      <div class="campo"><label>Vendedora</label>
+        <select id="ei-vend"><option value="">Selecione</option><option>Vitória</option><option>Aline/Marcia</option><option>Joseilto</option></select>
+      </div>
+      <div class="campo"><label>Equipamento a comprar</label><input type="text" id="ei-mat-comprar"></div>
+    </div>
+    <div class="campo" style="margin-bottom:16px"><label>Observações</label><input type="text" id="ei-obs"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModal('modal-edit-inst')">Cancelar</button>
+      <button class="btn btn-preto" onclick="salvarEditarInst()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR EXCLUSÃO -->
+<div class="modal-bg" id="modal-confirmar">
+  <div class="modal-sm">
+    <p style="font-size:16px;font-weight:500;margin-bottom:8px" id="confirmar-titulo">Confirmar exclusão</p>
+    <p style="font-size:13px;color:#888780;margin-bottom:20px">Essa ação não pode ser desfeita.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModal('modal-confirmar')">Cancelar</button>
+      <button class="btn btn-vermelho" onclick="confirmarExclusao()">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="fecharLightbox()">
+  <button class="lb-fechar" onclick="fecharLightbox()">×</button>
+  <img id="lb-img" src="" alt="">
+  <a id="lb-dl" download style="text-decoration:none">
+    <button class="lb-baixar" onclick="event.stopPropagation()">⬇ Baixar</button>
+  </a>
+</div>
+
+
+<script>
+
+// ═══ DADOS ═══
+const MARGEM_MIN = 0.38;
+let propModoEdit = false;
+let visitas = [];
+let aprovacoes = [];
+let instalacoes = [];
+const ETAPAS = [
+  { key: 'equip_comprado', label: 'Equipamento comprado', valKey: null },
+  { key: 'mat_pago', label: 'Valor do material pago', valKey: 'mat' },
+  { key: 'sinal_pago', label: 'Sinal recebido', valKey: 'sinal' },
+  { key: 'valor_pago', label: 'Valor final recebido', valKey: 'receber' },
+  { key: 'instalado', label: 'Instalação concluída', valKey: null }
+];
+const TAXAS = {
+  pix: { taxa: 0, desc: 0, label: 'PIX', parc: 0 }, deb: { taxa: 0.79, desc: 0, label: 'Débito', parc: 0 },
+  c1x: { taxa: 2.79, desc: 0, label: 'Cartão 1x', parc: 1 }, c2x: { taxa: 4.08, desc: 0, label: 'Cartão 2x', parc: 2 },
+  c3x: { taxa: 4.65, desc: 0, label: 'Cartão 3x', parc: 3 }, c4x: { taxa: 5.21, desc: 0, label: 'Cartão 4x', parc: 4 },
+  c5x: { taxa: 5.77, desc: 0, label: 'Cartão 5x', parc: 5 }, c6x: { taxa: 6.32, desc: 0, label: 'Cartão 6x', parc: 6 },
+  c7x: { taxa: 6.87, desc: 0, label: 'Cartão 7x', parc: 7 }, c8x: { taxa: 7.42, desc: 0, label: 'Cartão 8x', parc: 8 },
+  c9x: { taxa: 7.96, desc: 0, label: 'Cartão 9x', parc: 9 }, c10x: { taxa: 8.49, desc: 0, label: 'Cartão 10x', parc: 10 },
+  c11x: { taxa: 9.03, desc: 0, label: 'Cartão 11x', parc: 11 }, c12x: { taxa: 9.56, desc: 0, label: 'Cartão 12x', parc: 12 },
+  bol_parc: { taxa: 0, desc: 0, label: 'Boleto parcelado', parc: 0 },
+  bol_desc: { taxa: 0, desc: 4, label: 'Boleto c/ desconto', parc: 0 }
+};
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const HORAS_CAL = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+
+let calAno = new Date().getFullYear();
+let calMes = new Date().getMonth();
+let calSemOfs = 0;
+let calView = 'mes';
+let tipoEvento = 'visita';
+let tipoEventoEdit = 'visita';
+let fotosTmp = [];
+let laudoVisitaId = null;
+let editandoVisitaId = null;
+let editandoAprovId = null;
+let editandoInstId = null;
+let excluindoId = null;
+let excluindoTipo = null;
+let expandidoVisita = null;
+let expandidoAprov = null;
+let expandidoInst = null;
+
+// ═══ NAVEGAÇÃO ═══
+function irPara(tela, btn) {
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativo'));
+  document.getElementById('tela-' + tela).classList.add('ativo');
+  if (tela === 'aprovacao') renderAprovacao();
+  if (tela === 'instalacao') { renderResumoInst(); renderInstalacoes(); }
+  if (tela === 'visita') renderVisitas();
+  if (tela === 'calendario') renderCalendario();
+}
+
+// ═══ MODAIS ═══
+function abrirModal(id) { document.getElementById(id).classList.add('aberto'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('aberto'); }
+
+// ═══ TIPO EVENTO ═══
+function selecionarTipo(t) {
+  tipoEvento = t;
+  document.getElementById('tipo-btn-visita').className = 'tipo-opt' + (t === 'visita' ? ' sel-visita' : '');
+  document.getElementById('tipo-btn-inst').className = 'tipo-opt' + (t === 'instalacao' ? ' sel-inst' : '');
+  gerarTexto();
+}
+function selecionarTipoEdit(t) {
+  tipoEventoEdit = t;
+  document.getElementById('ev-tipo-visita').className = 'tipo-opt' + (t === 'visita' ? ' sel-visita' : '');
+  document.getElementById('ev-tipo-inst').className = 'tipo-opt' + (t === 'instalacao' ? ' sel-inst' : '');
+}
+
+// ═══ CALENDÁRIO ═══
+function setView(v) {
+  calView = v;
+  document.getElementById('btn-semana').className = 'cal-view-btn' + (v === 'semana' ? ' ativo' : '');
+  document.getElementById('btn-mes').className = 'cal-view-btn' + (v === 'mes' ? ' ativo' : '');
+  renderCalendario();
+}
+function irHoje() {
+  const hj = new Date();
+  calAno = hj.getFullYear(); calMes = hj.getMonth(); calSemOfs = 0;
+  renderCalendario();
+}
+function mudarPeriodo(d) {
+  if (calView === 'mes') {
+    calMes += d;
+    if (calMes > 11) { calMes = 0; calAno++; }
+    if (calMes < 0) { calMes = 11; calAno--; }
+  } else {
+    calSemOfs += d * 7;
+  }
+  renderCalendario();
+}
+function strData(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function getEventosDia(ds) {
+  const evs = [];
+  visitas.forEach(v => { if (v.data === ds) evs.push({ tipo: (v.tipo === 'instalacao' ? 'inst' : 'visita'), label: v.nome, horaIni: v.horaIni, horaFim: v.horaFim, id: v.id, src: 'v' }); });
+  instalacoes.forEach(i => { if (i.data === ds) evs.push({ tipo: 'inst', label: i.cliente, horaIni: '08:00', horaFim: '10:00', id: i.id, src: 'i' }); });
+  return evs;
+}
+function renderCalendario() {
+  const corpo = document.getElementById('cal-corpo');
+  if (calView === 'mes') renderMes(corpo);
+  else renderSemana(corpo);
+}
+function renderMes(corpo) {
+  const hjStr = strData(new Date());
+  const pd = new Date(calAno, calMes, 1).getDay();
+  const dm = new Date(calAno, calMes+1, 0).getDate();
+  document.getElementById('cal-titulo').textContent = MESES[calMes] + ' ' + calAno;
+  const total = Math.ceil((pd + dm) / 7) * 7;
+  let h = '<div class="cal-header">';
+  DIAS_SEMANA.forEach(d => { h += '<div>' + d + '</div>'; });
+  h += '</div><div class="cal-grid-mes">';
+  for (let i = 0; i < total; i++) {
+    const dia = i - pd + 1;
+    const om = dia < 1 || dia > dm;
+    const d = new Date(calAno, calMes, dia);
+    const ds = om ? '' : strData(d);
+    const isHj = ds === hjStr;
+    const evs = om ? [] : getEventosDia(ds);
+    const numHtml = isHj
+      ? '<div class="cal-num" style="background:#7F77DD;color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px">' + dia + '</div>'
+      : '<div class="cal-num">' + (om ? '' : dia) + '</div>';
+    h += '<div class="cal-dia' + (isHj ? ' hoje' : '') + (om ? ' outro-mes' : '') + '">';
+    if (!om) {
+      h += numHtml;
+      evs.forEach(ev => {
+        const cls = ev.tipo === 'inst' ? 'inst' : 'visita';
+        h += '<div class="cal-ev ' + cls + '" onclick="abrirPopupCal(event,\'' + ev.src + '\',' + ev.id + ')">' + (ev.horaIni || '') + ' ' + ev.label + '</div>';
+      });
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  corpo.innerHTML = h;
+}
+function renderSemana(corpo) {
+  const base = new Date(calAno, calMes, 1 + calSemOfs);
+  const dow = base.getDay();
+  const dom = new Date(base); dom.setDate(base.getDate() - dow);
+  const dias = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(dom); d.setDate(dom.getDate() + i); dias.push(d); }
+  const ini = dias[0], fim = dias[6];
+  document.getElementById('cal-titulo').textContent = ini.getDate() + ' ' + MESES[ini.getMonth()].slice(0,3) + ' – ' + fim.getDate() + ' ' + MESES[fim.getMonth()].slice(0,3) + ' ' + fim.getFullYear();
+  const hjStr = strData(new Date());
+  let h = '<div class="cal-semana-wrap"><div class="cal-semana">';
+  // header
+  h += '<div class="cal-sem-header"><div class="cal-sem-header-empty"></div>';
+  dias.forEach(d => {
+    const ds = strData(d);
+    const isHj = ds === hjStr;
+    h += '<div class="cal-sem-dia-hdr' + (isHj ? ' hoje' : '') + '">' + DIAS_SEMANA[d.getDay()] + '<br><span style="font-size:' + (isHj?'17':'14') + 'px;font-weight:' + (isHj?'700':'400') + '">' + d.getDate() + '</span></div>';
+  });
+  h += '</div>';
+  // body col horas
+  h += '<div class="cal-time-col">';
+  HORAS_CAL.forEach(hr => { h += '<div class="cal-time-slot"><span>' + hr + '</span></div>'; });
+  h += '</div>';
+  // colunas dias
+  dias.forEach(d => {
+    const ds = strData(d);
+    const evs = getEventosDia(ds);
+    h += '<div class="cal-col"><div class="cal-col-inner">';
+    HORAS_CAL.forEach(() => { h += '<div class="cal-hora-line"></div>'; });
+    // calcular colunas para eventos sobrepostos
+    const grupos = calcularColunas(evs);
+    grupos.forEach(({ ev, col, totalCols }) => {
+      const top = horaToPx(ev.horaIni);
+      const height = Math.max(horaToPx(ev.horaFim) - top, 24);
+      const cls = ev.tipo === 'inst' ? 'inst' : 'visita';
+      const largura = (100 / totalCols).toFixed(1) + '%';
+      const left = ((col / totalCols) * 100).toFixed(1) + '%';
+      const gap = col > 0 ? '2px' : '2px';
+      h += '<div class="cal-ev-week ' + cls + '" style="top:' + top + 'px;height:' + height + 'px;left:calc(' + left + ' + ' + gap + ');width:calc(' + largura + ' - 4px)" onclick="abrirPopupCal(event,\'' + ev.src + '\',' + ev.id + ')">' + (ev.horaIni || '') + ' ' + ev.label + '</div>';
+    });
+    h += '</div></div>';
+  });
+  h += '</div></div>';
+  corpo.innerHTML = h;
+}
+
+function calcularColunas(evs) {
+  // Ordena por hora de início
+  const sorted = [...evs].sort((a, b) => horaToPx(a.horaIni) - horaToPx(b.horaIni));
+  const resultado = [];
+  // Para cada evento, verifica quais outros se sobrepõem
+  sorted.forEach(ev => {
+    const topEv = horaToPx(ev.horaIni);
+    const botEv = Math.max(horaToPx(ev.horaFim), topEv + 24);
+    // achar todos eventos que se sobrepõem com este
+    const grupo = sorted.filter(other => {
+      const topO = horaToPx(other.horaIni);
+      const botO = Math.max(horaToPx(other.horaFim), topO + 24);
+      return topEv < botO && botEv > topO;
+    });
+    const totalCols = grupo.length;
+    const col = grupo.indexOf(ev);
+    resultado.push({ ev, col, totalCols });
+  });
+  return resultado;
+}
+function horaToPx(h) {
+  if (!h) return 0;
+  const [hh, mm] = h.split(':').map(Number);
+  return ((hh - 7) * 60 + mm) / 60 * 48;
+}
+function abrirPopupCal(evt, src, id) {
+  evt.stopPropagation();
+  fecharPopupCal();
+  let obj;
+  if (src === 'i') obj = instalacoes.find(x => x.id === parseInt(id));
+  else obj = visitas.find(x => x.id === parseInt(id));
+  if (!obj) return;
+  const popup = document.getElementById('cal-popup');
+  let h = '';
+  if (src === 'i') {
+    h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    h += '<span style="font-size:13px;font-weight:500;color:#085041">🔧 Instalação</span>';
+    h += '<button onclick="fecharPopupCal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#888780;line-height:1">×</button></div>';
+    h += '<p style="font-size:15px;font-weight:500;margin-bottom:10px">' + obj.cliente + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📅 ' + (obj.data ? new Date(obj.data+'T12:00').toLocaleDateString('pt-BR') : '') + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">🔧 ' + obj.equip + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📋 Pedido #' + obj.pedido + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">👤 ' + obj.vend + '</p>';
+    h += '<p style="font-size:13px;font-weight:500;color:#633806">💰 R$ ' + (obj.valor||0).toLocaleString('pt-BR') + '</p>';
+    if (obj.obs) h += '<p style="font-size:12px;color:#888780;margin-top:6px">📝 ' + obj.obs + '</p>';
+  } else {
+    const tipoLabel = obj.tipo === 'instalacao' ? '🔧 Instalação' : '🔍 Visita técnica';
+    const cor = obj.tipo === 'instalacao' ? '#085041' : '#3C3489';
+    const tecs = (obj.tecnicos || []).map(t => { const [n,c] = t.split('|'); return n + '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }).join('\n\n');
+    h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    h += '<span style="font-size:13px;font-weight:500;color:' + cor + '">' + tipoLabel + '</span>';
+    h += '<button onclick="fecharPopupCal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#888780;line-height:1">×</button></div>';
+    h += '<p style="font-size:15px;font-weight:500;margin-bottom:10px">' + obj.nome + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📱 ' + obj.cel + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📍 ' + obj.end + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📮 CEP: ' + obj.cep + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📅 ' + fmtData(obj.data) + ' · ' + (obj.horaIni||'') + ' às ' + (obj.horaFim||'') + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px;white-space:pre-line">👷 ' + (tecs || '—') + '</p>';
+    if (obj.obs) h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📝 ' + obj.obs + '</p>';
+    if (obj.laudo) h += '<p style="font-size:12px;color:#27500A;margin-top:6px;font-weight:500">✓ Laudo: ' + obj.laudo.comp + 'm × ' + obj.laudo.larg + 'm × ' + obj.laudo.prof + 'm · ' + (obj.laudo.dias||'?') + ' dia(s)</p>';
+  }
+  popup.innerHTML = h;
+  const rect = evt.target.getBoundingClientRect();
+  let top = rect.bottom + 8;
+  let left = rect.left;
+  if (left + 310 > window.innerWidth) left = window.innerWidth - 315;
+  if (top + 350 > window.innerHeight) top = rect.top - 360;
+  if (top < 8) top = 8;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.display = 'block';
+  setTimeout(() => { document.addEventListener('click', fecharPopupCal, { once: true }); }, 10);
+}
+function fecharPopupCal() {
+  document.getElementById('cal-popup').style.display = 'none';
+}
+
+// ═══ VISITAS ═══
+function fmtData(d) {
+  if (!d) return '';
+  const [y, m, dia] = d.split('-');
+  return dia + '/' + m + '/' + y.slice(2);
+}
+function getTecs() {
+  return Array.from(document.querySelectorAll('#tela-visita input[type=checkbox]:checked')).map(c => c.value);
+}
+function addTec() {
+  const n = document.getElementById('outro-tec-nome').value.trim();
+  const c = document.getElementById('outro-tec-cpf').value.trim();
+  if (!n) return;
+  document.getElementById('outro-tec-span').textContent = n + ' — CPF ' + c;
+  document.getElementById('outro-tec-label').style.display = 'flex';
+  document.getElementById('outro-tec-check').value = n + '|' + c.replace(/\D/g,'');
+  document.getElementById('outro-tec-check').checked = true;
+  document.getElementById('outro-tec-nome').value = '';
+  document.getElementById('outro-tec-cpf').value = '';
+  gerarTexto();
+}
+function montarTextoVisita(v) {
+  const tipo = v.tipo === 'instalacao' ? 'Instalação' : 'Visita técnica';
+  const tecs = (v.tecnicos || []).map(t => {
+    const [n, c] = t.split('|');
+    return n + '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }).join('\n\n') || '—';
+  return 'Agendamento de ' + tipo + '.\n' +
+    'Nome: ' + v.nome + '\n\n' +
+    'Endereço: ' + v.end + '\n\n' +
+    'Cep: ' + v.cep + '\n\n' +
+    'Celular: ' + v.cel + '\n\n' +
+    'Data: ' + fmtData(v.data) + '.\n\n' +
+    'Horário: das ' + (v.horaIni||'') + ' às ' + (v.horaFim||'') + ' horas.\n\n' +
+    'Técnicos:\n' + tecs + '\n\n' +
+    'Lead:\nOBS: ' + (v.obs||'—');
+}
+function gerarTexto() {
+  const nome = document.getElementById('v-nome').value.trim();
+  if (!nome) { document.getElementById('texto-visita-wrap').style.display = 'none'; return; }
+  const v = { nome, tipo: tipoEvento, cel: document.getElementById('v-cel').value, end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value, data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value, horaFim: document.getElementById('v-hora-fim').value, obs: document.getElementById('v-obs').value, tecnicos: getTecs() };
+  document.getElementById('texto-visita').textContent = montarTextoVisita(v);
+  document.getElementById('texto-visita-wrap').style.display = '';
+}
+function copiarTextoVisita() {
+  navigator.clipboard.writeText(document.getElementById('texto-visita').textContent).catch(() => {});
+}
+function agendarVisita() {
+  const nome = document.getElementById('v-nome').value.trim();
+  if (!nome) { alert('Informe o nome do cliente.'); return; }
+  visitas.unshift({ id: Date.now(), tipo: tipoEvento, nome, cel: document.getElementById('v-cel').value, end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value, data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value, horaFim: document.getElementById('v-hora-fim').value, obs: document.getElementById('v-obs').value, tecnicos: getTecs(), laudo: null, fotos: [] });
+  ['v-nome','v-cel','v-end','v-cep','v-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('v-data').value = '';
+  document.getElementById('v-hora-ini').value = '';
+  document.getElementById('v-hora-fim').value = '';
+  document.querySelectorAll('#tela-visita input[type=checkbox]').forEach(c => c.checked = false);
+  document.getElementById('texto-visita-wrap').style.display = 'none';
+  selecionarTipo('visita');
+  renderVisitas();
+}
+function abrirEditarVisita(id) {
+  editandoVisitaId = id;
+  const v = visitas.find(x => x.id === id);
+  tipoEventoEdit = v.tipo || 'visita';
+  selecionarTipoEdit(tipoEventoEdit);
+  document.getElementById('ev-nome').value = v.nome;
+  document.getElementById('ev-cel').value = v.cel;
+  document.getElementById('ev-end').value = v.end;
+  document.getElementById('ev-cep').value = v.cep;
+  document.getElementById('ev-data').value = v.data;
+  document.getElementById('ev-hora-ini').value = v.horaIni || '';
+  document.getElementById('ev-hora-fim').value = v.horaFim || '';
+  document.getElementById('ev-obs').value = v.obs || '';
+  abrirModal('modal-edit-visita');
+}
+function salvarEditarVisita() {
+  const v = visitas.find(x => x.id === editandoVisitaId);
+  v.tipo = tipoEventoEdit;
+  v.nome = document.getElementById('ev-nome').value;
+  v.cel = document.getElementById('ev-cel').value;
+  v.end = document.getElementById('ev-end').value;
+  v.cep = document.getElementById('ev-cep').value;
+  v.data = document.getElementById('ev-data').value;
+  v.horaIni = document.getElementById('ev-hora-ini').value;
+  v.horaFim = document.getElementById('ev-hora-fim').value;
+  v.obs = document.getElementById('ev-obs').value;
+  fecharModal('modal-edit-visita');
+  editandoVisitaId = null;
+  renderVisitas();
+}
+function pedirExcluirVisita(id) {
+  excluindoId = id; excluindoTipo = 'visita';
+  document.getElementById('confirmar-titulo').textContent = 'Excluir agendamento?';
+  abrirModal('modal-confirmar');
+}
+function renderVisitas() {
+  const lista = document.getElementById('lista-visitas');
+  if (!visitas.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum agendamento.</p>'; return; }
+  lista.innerHTML = visitas.map(v => {
+    const isExp = expandidoVisita === v.id;
+    const temLaudo = !!v.laudo;
+    const isInst = v.tipo === 'instalacao';
+    const tipoBadge = isInst ? '<span class="badge badge-teal">🔧 Instalação</span>' : '<span class="badge badge-roxo">🔍 Visita técnica</span>';
+    const laudoBadge = temLaudo ? '<span class="badge badge-verde">Laudo preenchido</span>' : '<span class="badge badge-amarelo">Aguardando laudo</span>';
+    const tecs = (v.tecnicos||[]).map(t => t.split('|')[0]).join(', ') || '—';
+    let laudoHtml = '';
+    if (temLaudo) {
+      const l = v.laudo;
+      laudoHtml = '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px">' +
+        '<p class="sec" style="margin-bottom:8px">Laudo do técnico</p>' +
+        '<div class="g3" style="margin-bottom:6px">' +
+        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dimensões</div><div style="font-size:13px">' + l.comp + 'm × ' + l.larg + 'm × ' + l.prof + 'm</div></div>' +
+        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Volume</div><div style="font-size:13px">' + l.vol + ' m³</div></div>' +
+        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dias p/ instalar</div><div style="font-size:13px">' + (l.dias||'—') + '</div></div>' +
+        '</div>' +
+        (l.material ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Material</div><div style="font-size:13px">' + l.material + '</div>' : '') +
+        (l.valorMat ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Valor material</div><div style="font-size:13px;font-weight:500">R$ ' + parseFloat(l.valorMat).toLocaleString('pt-BR') + '</div>' : '') +
+        (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
+        '</div>';
+    }
+    let bodyHtml = '';
+    if (isExp) {
+      bodyHtml = '<div class="item-body">' +
+        '<p class="sec" style="margin-top:14px">Texto do agendamento</p>' +
+        '<div class="txt-agend">' + montarTextoVisita(v) + '</div>' +
+        laudoHtml +
+        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e5e3db;flex-wrap:wrap">' +
+        '<button class="btn btn-roxo" onclick="abrirLaudo(' + v.id + ')">' + (temLaudo ? '✏️ Editar laudo' : '📋 Preencher laudo') + '</button>' +
+        '<button class="btn btn-branco" onclick="abrirEditarVisita(' + v.id + ')">✏️ Editar</button>' +
+        '<button class="btn btn-branco" onclick="copiarAgend(' + v.id + ', event)">📋 Copiar</button>' +
+        '<button class="btn btn-vermelho" onclick="pedirExcluirVisita(' + v.id + ')">🗑 Excluir</button>' +
+        '</div></div>';
+    }
+    return '<div class="item-card">' +
+      '<div class="item-header" onclick="toggleVisita(' + v.id + ')">' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">' + tipoBadge + laudoBadge + '</div>' +
+      '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + v.nome + '</p>' +
+      '<p style="font-size:13px;color:#888780;margin:0 0 2px">' + v.end + '</p>' +
+      '<p style="font-size:12px;color:#888780;margin:0">📅 ' + fmtData(v.data) + ' · ' + (v.horaIni||'') + ' às ' + (v.horaFim||'') + ' · 👷 ' + tecs + '</p>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#888780;flex-shrink:0;margin-left:8px">' + v.cel + '</p>' +
+      '</div>' + bodyHtml + '</div>';
+  }).join('');
+}
+function toggleVisita(id) { expandidoVisita = expandidoVisita === id ? null : id; renderVisitas(); }
+function copiarAgend(id, e) { e.stopPropagation(); const v = visitas.find(x => x.id === id); if (v) navigator.clipboard.writeText(montarTextoVisita(v)).catch(() => {}); }
+
+// ═══ LAUDO ═══
+function calcVolLaudo() {
+  const c = parseFloat(document.getElementById('l-comp').value) || 0;
+  const l = parseFloat(document.getElementById('l-larg').value) || 0;
+  const p = parseFloat(document.getElementById('l-prof').value) || 0;
+  document.getElementById('l-vol').value = (c * l * p).toFixed(1);
+}
+function abrirLaudo(id) {
+  laudoVisitaId = id; fotosTmp = [];
+  const v = visitas.find(x => x.id === id);
+  document.getElementById('laudo-sub').textContent = v.nome + ' · ' + fmtData(v.data);
+  const l = v.laudo || {};
+  ['comp','larg','prof','dist','vol'].forEach(f => document.getElementById('l-'+f).value = l[f] || '');
+  document.getElementById('l-tipo').value = l.tipo || '';
+  document.getElementById('l-tensao').value = l.tensao || '';
+  document.getElementById('l-obs').value = l.obs || '';
+  document.getElementById('l-material').value = l.material || '';
+  document.getElementById('l-valor-mat').value = l.valorMat || '';
+  const sd = document.getElementById('l-dias'), io = document.getElementById('l-dias-outro');
+  const dias = l.dias || '';
+  if (['1','2','3','4','5'].includes(dias)) { sd.value = dias; io.style.display = 'none'; }
+  else if (dias) { sd.value = 'outro'; io.style.display = ''; io.value = dias; }
+  else { sd.value = ''; io.style.display = 'none'; }
+  fotosTmp = [...(v.fotos || [])];
+  renderFotos();
+  abrirModal('modal-laudo');
+}
+function renderFotos() {
+  const g = document.getElementById('foto-grid');
+  let h = fotosTmp.map((f, i) => '<div class="foto-item"><img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')"><button class="foto-rm" onclick="rmFoto(' + i + ')">×</button></div>').join('');
+  h += '<label class="foto-add">📷<span style="font-size:11px">Foto</span><input type="file" accept="image/*" multiple style="display:none" onchange="addFotos(this)"></label>';
+  g.innerHTML = h;
+}
+function addFotos(inp) {
+  Array.from(inp.files).forEach(f => { const r = new FileReader(); r.onload = e => { fotosTmp.push(e.target.result); renderFotos(); }; r.readAsDataURL(f); });
+  inp.value = '';
+}
+function rmFoto(i) { fotosTmp.splice(i, 1); renderFotos(); }
+function salvarLaudo() {
+  const v = visitas.find(x => x.id === laudoVisitaId);
+  const sd = document.getElementById('l-dias'), io = document.getElementById('l-dias-outro');
+  const dias = sd.value === 'outro' ? io.value : sd.value;
+  v.laudo = { comp: document.getElementById('l-comp').value, larg: document.getElementById('l-larg').value, prof: document.getElementById('l-prof').value, vol: document.getElementById('l-vol').value, tipo: document.getElementById('l-tipo').value, dist: document.getElementById('l-dist').value, tensao: document.getElementById('l-tensao').value, obs: document.getElementById('l-obs').value, material: document.getElementById('l-material').value, valorMat: document.getElementById('l-valor-mat').value, dias };
+  v.fotos = [...fotosTmp];
+  fecharModal('modal-laudo');
+  laudoVisitaId = null; fotosTmp = [];
+  renderVisitas();
+}
+
+// ═══ LIGHTBOX ═══
+function abrirLightbox(src, nome) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lb-dl').href = src;
+  document.getElementById('lb-dl').download = nome || 'arquivo';
+  document.getElementById('lightbox').classList.add('aberto');
+}
+function fecharLightbox() { document.getElementById('lightbox').classList.remove('aberto'); }
+
+// ═══ PROPOSTA ═══
+function getPag() { return TAXAS[document.getElementById('p-pag').value]; }
+function getPrazo() { const s = document.getElementById('p-prazo'); return s.value === 'outro' ? document.getElementById('p-prazo-outro').value || 'a combinar' : s.value; }
+function getEquip() { const s = document.getElementById('p-equip'); if (!s.value) return ''; if (s.value === 'outro|0') return document.getElementById('p-equip-outro').value || 'Equipamento'; return s.options[s.selectedIndex].text; }
+function getVend() { const s = document.getElementById('p-vendedora'); return s.value === 'outro' ? document.getElementById('p-vendedora-outro').value || '' : s.value; }
+function toggleOutroVend() { document.getElementById('p-vendedora-outro').style.display = document.getElementById('p-vendedora').value === 'outro' ? '' : 'none'; gerarProposta(); }
+function toggleOutroEquip() {
+  const s = document.getElementById('p-equip');
+  const isO = s.value === 'outro|0';
+  document.getElementById('p-equip-outro').style.display = isO ? '' : 'none';
+  if (!isO) { const c = s.value.split('|')[1]; if (c && c !== '0') document.getElementById('p-custo-prod').value = c; }
+  calcMargem(); gerarProposta();
+}
+function toggleOutroPrazo() { document.getElementById('p-prazo-outro').style.display = document.getElementById('p-prazo').value === 'outro' ? '' : 'none'; gerarProposta(); }
+function calcMargem() {
+  const cp = parseFloat(document.getElementById('p-custo-prod').value) || 0;
+  const cm = parseFloat(document.getElementById('p-custo-mat').value) || 0;
+  const pv = parseFloat(document.getElementById('p-venda').value) || 0;
+  const pag = getPag(); const pagKey = document.getElementById('p-pag').value;
+  document.getElementById('res-taxa').textContent = pag.taxa > 0 ? pag.taxa.toFixed(2) + '%' : pag.desc > 0 ? '-' + pag.desc + '% desc.' : 'Sem taxa';
+  const taxaR = pv * (pag.taxa / 100);
+  const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
+  const ct = cp + cm + taxaR;
+  document.getElementById('res-custo').textContent = 'R$ ' + Math.round(ct).toLocaleString('pt-BR');
+  const ip = document.getElementById('info-pag');
+  if (pagKey === 'bol_parc') { const sn = Math.round(pv*.3), pa = Math.round(pv*.7/3); ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR') + ' + 3x R$ ' + pa.toLocaleString('pt-BR') + ' (30/60/90)'; }
+  else if (pagKey === 'bol_desc') { const sn = Math.round(pv*.3), re = Math.round(pvEf*.7); ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR') + ' + R$ ' + re.toLocaleString('pt-BR') + ' na conclusão (4% desc.)'; }
+  else ip.style.display = 'none';
+  if (pv > 0) {
+    const m = (pvEf - ct) / pvEf; const pct = Math.round(m * 100);
+    document.getElementById('res-margem').textContent = pct + '%';
+    const bar = document.getElementById('margem-bar'); bar.style.width = Math.min(pct*2, 100) + '%';
+    const badge = document.getElementById('margem-badge');
+    if (m >= MARGEM_MIN) { bar.style.background = '#639922'; badge.style.cssText = 'background:#EAF3DE;color:#27500A'; badge.textContent = 'Margem boa (' + pct + '%)'; }
+    else if (m >= 0.28) { bar.style.background = '#EF9F27'; badge.style.cssText = 'background:#FAEEDA;color:#633806'; badge.textContent = 'Margem baixa (' + pct + '%) — verifique'; }
+    else { bar.style.background = '#E24B4A'; badge.style.cssText = 'background:#FCEBEB;color:#791F1F'; badge.textContent = 'Margem insuficiente (' + pct + '%) — revisar'; }
+  } else {
+    document.getElementById('res-margem').textContent = '—'; document.getElementById('margem-bar').style.width = '0%';
+    document.getElementById('margem-badge').style.cssText = 'background:#FAEEDA;color:#633806'; document.getElementById('margem-badge').textContent = 'Preencha os valores';
+  }
+  if (!propModoEdit) gerarProposta();
+}
+function montarTexto() {
+  const cliente = document.getElementById('p-cliente').value.trim(); const equip = getEquip();
+  const pv = parseFloat(document.getElementById('p-venda').value) || 0;
+  const pag = getPag(); const pagKey = document.getElementById('p-pag').value; const prazo = getPrazo();
+  if (!cliente || !equip || pv === 0) return null;
+  let lv = '';
+  if (pagKey === 'pix') lv = '• R$ ' + pv.toLocaleString('pt-BR') + ' via PIX';
+  else if (pagKey === 'deb') lv = '• R$ ' + pv.toLocaleString('pt-BR') + ' no débito';
+  else if (pag.parc > 0) { const pix = Math.round(pv*(1-pag.taxa/100)); const pa = Math.round(pv/pag.parc); lv = '• R$ ' + pv.toLocaleString('pt-BR') + ' no cartão em até ' + pag.parc + 'x de R$ ' + pa.toLocaleString('pt-BR') + '\n• R$ ' + pix.toLocaleString('pt-BR') + ' à vista via PIX'; }
+  else if (pagKey === 'bol_parc') { const sn = Math.round(pv*.3); const pa = Math.round(pv*.7/3); lv = '• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR') + '\n• Saldo em 3x de R$ ' + pa.toLocaleString('pt-BR') + ' (30/60/90 dias)'; }
+  else if (pagKey === 'bol_desc') { const sn = Math.round(pv*.3); const re = Math.round(pv*.96*.7); lv = '• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR') + '\n• 70% na conclusão: R$ ' + re.toLocaleString('pt-BR') + ' (4% de desconto)'; }
+  return 'Para\n' + cliente + '\n\nItens da proposta:\n• ' + equip + '\n• Material para instalação\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n\nValidade da proposta: 2 dias. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
+}
+function gerarProposta() { if (propModoEdit) return; const t = montarTexto(); document.getElementById('prop-preview').textContent = t || 'Preencha os dados acima para gerar a proposta.'; }
+function syncProp() { document.getElementById('prop-preview').textContent = document.getElementById('prop-edit').value; }
+function regenerarProp() { propModoEdit = false; document.getElementById('prop-edit').style.display = 'none'; document.getElementById('prop-preview').style.display = ''; document.getElementById('btn-editar-prop').textContent = '✏️ Editar'; gerarProposta(); }
+function toggleEditarProp() {
+  propModoEdit = !propModoEdit;
+  const prev = document.getElementById('prop-preview'), ed = document.getElementById('prop-edit'), btn = document.getElementById('btn-editar-prop');
+  if (propModoEdit) { ed.value = prev.textContent; prev.style.display = 'none'; ed.style.display = ''; btn.textContent = '👁 Visualizar'; }
+  else { prev.textContent = ed.value; ed.style.display = 'none'; prev.style.display = ''; btn.textContent = '✏️ Editar'; }
+}
+function copiarProposta() { navigator.clipboard.writeText(document.getElementById('prop-preview').textContent).catch(() => {}); }
+function getTextoFinal() { return propModoEdit ? document.getElementById('prop-edit').value : document.getElementById('prop-preview').textContent; }
+function enviarAprovacao() {
+  const cliente = document.getElementById('p-cliente').value.trim();
+  const pv = parseFloat(document.getElementById('p-venda').value) || 0;
+  if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda.'); return; }
+  const cp = parseFloat(document.getElementById('p-custo-prod').value) || 0;
+  const cm = parseFloat(document.getElementById('p-custo-mat').value) || 0;
+  const pag = getPag(); const taxaR = pv * (pag.taxa / 100);
+  const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
+  const ct = cp + cm + taxaR; const margem = pvEf > 0 ? (pvEf - ct) / pvEf : 0;
+  aprovacoes.push({ id: Date.now(), cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ct), margem, pag: pag.label, status: 'pendente', texto: getTextoFinal() });
+  atualizarBadge();
+  document.getElementById('msg-enviado').style.display = 'block';
+  setTimeout(() => document.getElementById('msg-enviado').style.display = 'none', 3000);
+}
+function atualizarBadge() { document.getElementById('badge-aprovacao').textContent = aprovacoes.filter(a => a.status === 'pendente').length; }
+
+// ═══ APROVAÇÃO ═══
+function renderAprovacao() {
+  const pend = aprovacoes.filter(a => a.status === 'pendente');
+  document.getElementById('ap-total').textContent = pend.length;
+  document.getElementById('ap-ok').textContent = aprovacoes.filter(a => a.status === 'aprovado').length;
+  document.getElementById('ap-valor').textContent = 'R$ ' + Math.round(pend.reduce((s,a) => s+a.valor, 0)).toLocaleString('pt-BR');
+  atualizarBadge();
+  const lista = document.getElementById('lista-aprovacao');
+  if (!aprovacoes.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhuma proposta.</p>'; return; }
+  lista.innerHTML = aprovacoes.map(a => {
+    const isExp = expandidoAprov === a.id;
+    const pct = Math.round(a.margem * 100);
+    const mcls = a.margem >= MARGEM_MIN ? 'badge-verde' : a.margem >= 0.28 ? 'badge-amarelo' : 'badge-vermelho';
+    const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : 'badge-vermelho';
+    const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : 'Rejeitada';
+    let bodyHtml = '';
+    if (isExp) {
+      bodyHtml = '<div class="item-body">' +
+        '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:13px;white-space:pre-wrap;line-height:1.7">' + a.texto + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+        (a.status === 'pendente'
+          ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovar</button>' +
+            '<button class="btn btn-vermelho" onclick="acaoAprov(' + a.id + ',\'rejeitado\',event)">✕ Rejeitar</button>'
+          : '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>') +
+        '<button class="btn btn-branco" onclick="abrirEditarAprov(' + a.id + ',event)">✏️ Editar</button>' +
+        '<button class="btn btn-vermelho" onclick="pedirExcluirAprov(' + a.id + ',event)">🗑 Excluir</button>' +
+        '</div></div>';
+    }
+    return '<div class="item-card">' +
+      '<div class="item-header" onclick="toggleAprov(' + a.id + ')">' +
+      '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="badge ' + scls + '">' + slabel + '</span><span style="font-size:12px;color:#888780">' + a.vendedora + ' · ' + a.pag + '</span></div>' +
+      '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + a.cliente + '</p>' +
+      '<p style="font-size:13px;color:#888780;margin:0">' + a.equip + '</p></div>' +
+      '<div style="text-align:right;flex-shrink:0"><p style="font-size:16px;font-weight:500;margin:0 0 3px">R$ ' + a.valor.toLocaleString('pt-BR') + '</p>' +
+      '<span class="badge ' + mcls + '">Margem ' + pct + '%</span></div>' +
+      '</div>' + bodyHtml + '</div>';
+  }).join('');
+}
+function toggleAprov(id) { expandidoAprov = expandidoAprov === id ? null : id; renderAprovacao(); }
+function acaoAprov(id, status, e) { e.stopPropagation(); aprovacoes.find(a => a.id === id).status = status; expandidoAprov = null; renderAprovacao(); }
+
+
+// ═══ EDITAR / EXCLUIR APROVAÇÃO ═══
+function abrirEditarAprov(id, e) {
+  e.stopPropagation();
+  editandoAprovId = id;
+  const a = aprovacoes.find(x => x.id === id);
+  document.getElementById('ea-cliente').value = a.cliente;
+  document.getElementById('ea-vendedora').value = a.vendedora;
+  document.getElementById('ea-equip').value = a.equip;
+  document.getElementById('ea-pag').value = a.pag;
+  document.getElementById('ea-valor').value = a.valor;
+  document.getElementById('ea-custo').value = a.custo;
+  document.getElementById('ea-texto').value = a.texto;
+  calcMargemAprov();
+  abrirModal('modal-edit-aprov');
+}
+function calcMargemAprov() {
+  const pv = parseFloat(document.getElementById('ea-valor').value) || 0;
+  const ct = parseFloat(document.getElementById('ea-custo').value) || 0;
+  const info = document.getElementById('ea-margem-info');
+  if (pv > 0) {
+    const m = (pv - ct) / pv;
+    const pct = Math.round(m * 100);
+    const cor = m >= MARGEM_MIN ? '#27500A' : m >= 0.28 ? '#633806' : '#791F1F';
+    info.style.color = cor;
+    info.textContent = 'Margem: ' + pct + '%' + (m >= MARGEM_MIN ? ' ✓ Boa' : m >= 0.28 ? ' ⚠️ Baixa' : ' ✕ Insuficiente');
+  } else {
+    info.style.color = '#888780';
+    info.textContent = 'Preencha os valores para calcular a margem.';
+  }
+}
+function salvarEditarAprov() {
+  const a = aprovacoes.find(x => x.id === editandoAprovId);
+  a.cliente = document.getElementById('ea-cliente').value;
+  a.vendedora = document.getElementById('ea-vendedora').value;
+  a.equip = document.getElementById('ea-equip').value;
+  a.pag = document.getElementById('ea-pag').value;
+  a.valor = parseFloat(document.getElementById('ea-valor').value) || 0;
+  a.custo = parseFloat(document.getElementById('ea-custo').value) || 0;
+  a.margem = a.valor > 0 ? (a.valor - a.custo) / a.valor : 0;
+  a.texto = document.getElementById('ea-texto').value;
+  fecharModal('modal-edit-aprov');
+  editandoAprovId = null;
+  expandidoAprov = null;
+  renderAprovacao();
+}
+function pedirExcluirAprov(id, e) {
+  e.stopPropagation();
+  excluindoId = id; excluindoTipo = 'aprov';
+  document.getElementById('confirmar-titulo').textContent = 'Excluir proposta?';
+  abrirModal('modal-confirmar');
+}
+
+// ═══ INSTALAÇÕES ═══
+function calcAutoInst() { const v = parseFloat(document.getElementById('i-valor').value)||0, s = parseFloat(document.getElementById('i-sinal').value)||0; document.getElementById('i-receber').value = Math.max(v-s,0).toFixed(2); }
+function calcAutoInstEdit() { const v = parseFloat(document.getElementById('ei-valor').value)||0, s = parseFloat(document.getElementById('ei-sinal').value)||0; document.getElementById('ei-receber').value = Math.max(v-s,0).toFixed(2); }
+function progresso(c) { return Object.values(c).filter(Boolean).length; }
+function statusInst(c) {
+  const p = progresso(c);
+  if (p === 0) return { cls: 'badge-cinza', txt: 'Aguardando' };
+  if (p === ETAPAS.length) return { cls: 'badge-verde', txt: 'Concluído' };
+  return { cls: 'badge-amarelo', txt: 'Em andamento' };
+}
+function renderResumoInst() {
+  const total = instalacoes.length;
+  const conc = instalacoes.filter(i => progresso(i.checks) === ETAPAS.length).length;
+  const aRec = instalacoes.reduce((s,i) => s + (i.checks.valor_pago ? 0 : (i.receber||0)), 0);
+  const ep = instalacoes.filter(i => !i.checks.equip_comprado).length;
+  document.getElementById('resumo-inst').innerHTML =
+    '<div class="stat"><div class="lbl">Total</div><div class="val">' + total + '</div></div>' +
+    '<div class="stat"><div class="lbl">Concluídos</div><div class="val" style="color:#27500A">' + conc + '</div></div>' +
+    '<div class="stat"><div class="lbl">A receber</div><div class="val" style="color:#633806">R$ ' + aRec.toLocaleString('pt-BR') + '</div></div>' +
+    '<div class="stat"><div class="lbl">Equip. pendente</div><div class="val" style="color:' + (ep>0?'#791F1F':'#27500A') + '">' + ep + '</div></div>';
+}
+function getIconeAnexo(tipo) {
+  if (tipo && tipo.includes('pdf')) return { bg: '#FCEBEB', ic: '📄' };
+  if (tipo && tipo.includes('image')) return { bg: '#E1F5EE', ic: '🖼️' };
+  if (tipo && (tipo.includes('word') || tipo.includes('doc'))) return { bg: '#E6F1FB', ic: '📝' };
+  return { bg: '#f0ede6', ic: '📎' };
+}
+function renderAnexosInst(inst) {
+  const anexos = inst.anexos || [];
+  if (!anexos.length) return '<p style="font-size:12px;color:#b4b2a9;margin-bottom:8px">Nenhum arquivo anexado.</p>';
+  return anexos.map((a, i) => {
+    const ic = getIconeAnexo(a.tipo);
+    const isImg = a.tipo && a.tipo.includes('image');
+    const btnVer = isImg
+      ? '<button class="btn-icone" onclick="abrirLightbox(\'' + a.data + '\',\'' + a.nome + '\')" title="Visualizar">👁</button>'
+      : '<button class="btn-icone" onclick="abrirArquivo(\'' + a.data + '\',\'' + a.nome + '\')" title="Visualizar">👁</button>';
+    return '<div class="anx-item">' +
+      '<div class="anx-icone" style="background:' + ic.bg + '">' + ic.ic + '</div>' +
+      '<div class="anx-info"><div class="anx-nome">' + a.nome + '</div><div class="anx-size">' + a.size + '</div></div>' +
+      '<div class="anx-acoes">' + btnVer +
+      '<a href="' + a.data + '" download="' + a.nome + '" style="text-decoration:none"><button class="btn-icone" title="Baixar">⬇</button></a>' +
+      '<button class="btn-icone" onclick="rmAnexo(' + inst.id + ',' + i + ')" title="Remover">🗑</button>' +
+      '</div></div>';
+  }).join('');
+}
+function abrirArquivo(data, nome) {
+  const w = window.open();
+  if (w) { w.document.write('<html><head><title>' + nome + '</title></head><body style="margin:0"><iframe src="' + data + '" style="width:100%;height:100vh;border:none"></iframe></body></html>'); w.document.close(); }
+}
+function rmAnexo(instId, idx) { const i = instalacoes.find(x => x.id === instId); if (i) { i.anexos.splice(idx, 1); renderInstalacoes(); renderResumoInst(); } }
+function addAnexo(instId, inp) {
+  const inst = instalacoes.find(x => x.id === instId); if (!inst) return;
+  Array.from(inp.files).forEach(f => {
+    const r = new FileReader(); r.onload = e => {
+      const size = f.size < 1024 ? f.size + 'B' : f.size < 1048576 ? (f.size/1024).toFixed(1) + 'KB' : (f.size/1048576).toFixed(1) + 'MB';
+      inst.anexos.push({ nome: f.name, tipo: f.type, size, data: e.target.result });
+      renderInstalacoes(); renderResumoInst();
+    }; r.readAsDataURL(f);
+  }); inp.value = '';
+}
+function renderInstalacoes() {
+  const lista = document.getElementById('lista-instalacoes');
+  if (!instalacoes.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhuma instalação.</p>'; return; }
+  lista.innerHTML = instalacoes.map(inst => {
+    const isExp = expandidoInst === inst.id;
+    const p = progresso(inst.checks), pct = Math.round(p/ETAPAS.length*100);
+    const sl = statusInst(inst.checks);
+    const nAnexos = (inst.anexos||[]).length;
+    const checksHtml = ETAPAS.map(e => {
+      const feito = inst.checks[e.key];
+      const extR = e.valKey && inst[e.valKey] ? '<span style="font-size:13px;font-weight:500;flex-shrink:0">R$ ' + (inst[e.valKey]||0).toLocaleString('pt-BR') + '</span>' : '';
+      return '<div class="ck-item">' +
+        '<div class="ck-box' + (feito?' feito':'') + '" onclick="toggleCk(' + inst.id + ',\'' + e.key + '\')">' + (feito?'✓':'') + '</div>' +
+        '<span class="ck-label' + (feito?' feito':'') + '">' + e.label + (e.key==='equip_comprado'&&inst.matComprar?' <span style="font-size:12px;color:#888780">'+inst.matComprar+'</span>':'') + '</span>' + extR + '</div>';
+    }).join('');
+    let bodyHtml = '';
+    if (isExp) {
+      bodyHtml = '<div class="item-body">' +
+        '<p class="sec" style="margin-top:14px">Checklist de etapas</p>' + checksHtml +
+        '<p class="sec" style="margin-top:16px">Documentos anexados</p>' +
+        renderAnexosInst(inst) +
+        '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#f5f4f0;border:1px dashed #d3d1c7;border-radius:8px;padding:8px 14px;font-size:13px;color:#888780;margin-top:4px">' +
+        '📎 Anexar arquivo' +
+        '<input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none" onchange="addAnexo(' + inst.id + ',this)">' +
+        '</label>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e5e3db">' +
+        '<button class="btn btn-branco" onclick="abrirEditarInst(' + inst.id + ')">✏️ Editar</button>' +
+        '<button class="btn btn-vermelho" onclick="pedirExcluirInst(' + inst.id + ')">🗑 Excluir</button>' +
+        '</div></div>';
+    }
+    return '<div class="item-card">' +
+      '<div class="item-header" onclick="toggleInst(' + inst.id + ')">' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap">' +
+      '<span class="badge ' + sl.cls + '">' + sl.txt + '</span>' +
+      '<span style="font-size:12px;color:#888780">' + inst.vend + ' · #' + inst.pedido + '</span>' +
+      '<span style="font-size:12px;color:#888780">' + (inst.data ? new Date(inst.data+'T12:00').toLocaleDateString('pt-BR') : '') + '</span>' +
+      (nAnexos ? '<span class="badge" style="background:#E6F1FB;color:#185FA5">📎 ' + nAnexos + ' arquivo(s)</span>' : '') +
+      '</div>' +
+      '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + inst.cliente + '</p>' +
+      '<p style="font-size:13px;color:#888780;margin:0 0 6px">' + inst.equip + '</p>' +
+      '<div style="display:flex;align-items:center;gap:8px"><div class="prog-wrap"><div class="prog-bar" style="width:' + pct + '%"></div></div><span style="font-size:12px;color:#888780;flex-shrink:0">' + p + '/' + ETAPAS.length + '</span></div>' +
+      '</div>' +
+      '<div style="text-align:right;flex-shrink:0;margin-left:12px">' +
+      '<p style="font-size:16px;font-weight:500;margin:0 0 2px">R$ ' + (inst.valor||0).toLocaleString('pt-BR') + '</p>' +
+      (!inst.checks.valor_pago ? '<p style="font-size:12px;color:#633806;margin:3px 0 0;font-weight:500">A receber: R$ ' + (inst.receber||0).toLocaleString('pt-BR') + '</p>' : '<p style="font-size:12px;color:#27500A;margin:3px 0 0">✓ Pago</p>') +
+      '</div></div>' + bodyHtml + '</div>';
+  }).join('');
+}
+function toggleInst(id) { expandidoInst = expandidoInst === id ? null : id; renderInstalacoes(); }
+function toggleCk(id, key) { instalacoes.find(i => i.id === id).checks[key] ^= true; renderInstalacoes(); renderResumoInst(); }
+function abrirEditarInst(id) {
+  editandoInstId = id; const i = instalacoes.find(x => x.id === id);
+  document.getElementById('ei-cliente').value = i.cliente; document.getElementById('ei-equip').value = i.equip;
+  document.getElementById('ei-pedido').value = i.pedido; document.getElementById('ei-valor').value = i.valor;
+  document.getElementById('ei-mat').value = i.mat; document.getElementById('ei-sinal').value = i.sinal;
+  document.getElementById('ei-receber').value = i.receber; document.getElementById('ei-data').value = i.data;
+  document.getElementById('ei-vend').value = i.vend; document.getElementById('ei-mat-comprar').value = i.matComprar||'';
+  document.getElementById('ei-obs').value = i.obs||''; abrirModal('modal-edit-inst');
+}
+function salvarEditarInst() {
+  const i = instalacoes.find(x => x.id === editandoInstId);
+  i.cliente = document.getElementById('ei-cliente').value; i.equip = document.getElementById('ei-equip').value;
+  i.pedido = document.getElementById('ei-pedido').value; i.valor = parseFloat(document.getElementById('ei-valor').value)||0;
+  i.mat = parseFloat(document.getElementById('ei-mat').value)||0; i.sinal = parseFloat(document.getElementById('ei-sinal').value)||0;
+  i.receber = parseFloat(document.getElementById('ei-receber').value)||0; i.data = document.getElementById('ei-data').value;
+  i.vend = document.getElementById('ei-vend').value; i.matComprar = document.getElementById('ei-mat-comprar').value;
+  i.obs = document.getElementById('ei-obs').value; fecharModal('modal-edit-inst'); editandoInstId = null;
+  renderInstalacoes(); renderResumoInst();
+}
+function pedirExcluirInst(id) { excluindoId = id; excluindoTipo = 'inst'; document.getElementById('confirmar-titulo').textContent = 'Excluir instalação?'; abrirModal('modal-confirmar'); }
+function confirmarExclusao() {
+  if (excluindoTipo === 'visita') { visitas = visitas.filter(v => v.id !== excluindoId); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas(); }
+  else if (excluindoTipo === 'aprov') { aprovacoes.splice(aprovacoes.findIndex(a => a.id === excluindoId), 1); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao(); }
+  else { instalacoes = instalacoes.filter(i => i.id !== excluindoId); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst(); }
+  excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
+}
+function addInstalacao() {
+  const cliente = document.getElementById('i-cliente').value.trim(); if (!cliente) { alert('Informe o nome do cliente.'); return; }
+  const valor = parseFloat(document.getElementById('i-valor').value)||0, sinal = parseFloat(document.getElementById('i-sinal').value)||0;
+  instalacoes.unshift({ id: Date.now(), cliente, equip: document.getElementById('i-equip').value, pedido: document.getElementById('i-pedido').value, valor, mat: parseFloat(document.getElementById('i-mat').value)||0, sinal, receber: Math.max(valor-sinal,0), matComprar: document.getElementById('i-mat-comprar').value, data: document.getElementById('i-data').value, vend: document.getElementById('i-vend').value, obs: document.getElementById('i-obs').value, anexos: [], checks: { equip_comprado:false, mat_pago:false, sinal_pago:false, valor_pago:false, instalado:false } });
+  ['i-cliente','i-equip','i-pedido','i-valor','i-mat','i-sinal','i-receber','i-mat-comprar','i-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('i-data').value = ''; renderResumoInst(); renderInstalacoes();
+}
+
+
+// ═══ ESTADO ONLINE ═══
+let usuarioLogado = null;
+let todosRegistrosAuditoria = [];
+
+// ═══ LOGIN / LOGOUT ═══
+async function fazerLogin() {
+  const login = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  if (!login || !senha) { mostrarErroLogin('Preencha o usuário e a senha.'); return; }
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login, senha }) });
+    const d = await r.json();
+    if (d.sucesso) {
+      usuarioLogado = d.usuario;
+      iniciarApp();
+    } else {
+      mostrarErroLogin(d.erro || 'Erro ao fazer login.');
+    }
+  } catch(e) { mostrarErroLogin('Erro de conexão.'); }
+}
+function mostrarErroLogin(msg) {
+  const el = document.getElementById('login-erro');
+  el.textContent = msg; el.style.display = 'block';
+}
+async function fazerLogout() {
+  await fetch('/api/logout', { method: 'POST' });
+  usuarioLogado = null;
+  document.getElementById('tela-login').style.display = 'flex';
+  document.getElementById('nav-principal').style.display = 'none';
+  document.getElementById('app-container').style.display = 'none';
+  document.getElementById('login-senha').value = '';
+}
+async function verificarSessao() {
+  try {
+    const r = await fetch('/api/me');
+    const d = await r.json();
+    if (d.autenticado) { usuarioLogado = d.usuario; iniciarApp(); }
+    else { document.getElementById('tela-login').style.display = 'flex'; }
+  } catch(e) { document.getElementById('tela-login').style.display = 'flex'; }
+}
+function iniciarApp() {
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('nav-principal').style.display = 'flex';
+  document.getElementById('app-container').style.display = 'block';
+  document.getElementById('nav-usuario-nome').textContent = '👤 ' + usuarioLogado.nome;
+  if (usuarioLogado.role === 'admin') {
+    document.getElementById('btn-auditoria').style.display = '';
+    document.getElementById('btn-usuarios').style.display = '';
+  }
+  carregarTudo();
+}
+
+// ═══ CARREGAR DADOS DA API ═══
+async function carregarTudo() {
+  await Promise.all([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes()]);
+  renderVisitas(); renderAprovacao(); renderResumoInst(); renderInstalacoes();
+}
+async function carregarVisitas() {
+  const r = await fetch('/api/visitas'); visitas = await r.json();
+}
+async function carregarAprovacoes() {
+  const r = await fetch('/api/aprovacoes'); aprovacoes = await r.json();
+}
+async function carregarInstalacoes() {
+  const r = await fetch('/api/instalacoes'); instalacoes = await r.json();
+}
+
+// ═══ SOBRESCREVER FUNÇÕES QUE SALVAM DADOS ═══
+
+// VISITAS - agendar
+async function agendarVisita() {
+  const nome = document.getElementById('v-nome').value.trim();
+  if (!nome) { alert('Informe o nome do cliente.'); return; }
+  const dados = {
+    tipo: tipoEvento, nome, cel: document.getElementById('v-cel').value,
+    end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value,
+    data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value,
+    horaFim: document.getElementById('v-hora-fim').value, obs: document.getElementById('v-obs').value,
+    tecnicos: getTecs()
+  };
+  const r = await fetch('/api/visitas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+  const d = await r.json();
+  if (d.sucesso) {
+    ['v-nome','v-cel','v-end','v-cep','v-obs'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('v-data').value = ''; document.getElementById('v-hora-ini').value = ''; document.getElementById('v-hora-fim').value = '';
+    document.querySelectorAll('#tela-visita input[type=checkbox]').forEach(c => c.checked = false);
+    document.getElementById('texto-visita-wrap').style.display = 'none';
+    selecionarTipo('visita');
+    await carregarVisitas(); renderVisitas();
+  }
+}
+
+// VISITAS - salvar edição
+async function salvarEditarVisita() {
+  const dados = {
+    tipo: tipoEventoEdit, nome: document.getElementById('ev-nome').value,
+    cel: document.getElementById('ev-cel').value, end: document.getElementById('ev-end').value,
+    cep: document.getElementById('ev-cep').value, data: document.getElementById('ev-data').value,
+    horaIni: document.getElementById('ev-hora-ini').value, horaFim: document.getElementById('ev-hora-fim').value,
+    obs: document.getElementById('ev-obs').value, tecnicos: []
+  };
+  await fetch('/api/visitas/' + editandoVisitaId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+  fecharModal('modal-edit-visita'); editandoVisitaId = null;
+  await carregarVisitas(); renderVisitas();
+}
+
+// VISITAS - excluir
+async function confirmarExclusao() {
+  if (excluindoTipo === 'visita') {
+    await fetch('/api/visitas/' + excluindoId, { method: 'DELETE' });
+    await carregarVisitas(); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas();
+  } else if (excluindoTipo === 'aprov') {
+    await fetch('/api/aprovacoes/' + excluindoId, { method: 'DELETE' });
+    await carregarAprovacoes(); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao();
+  } else {
+    await fetch('/api/instalacoes/' + excluindoId, { method: 'DELETE' });
+    await carregarInstalacoes(); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst();
+  }
+  excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
+}
+
+// LAUDO - salvar
+async function salvarLaudo() {
+  const sd = document.getElementById('l-dias'), io = document.getElementById('l-dias-outro');
+  const dias = sd.value === 'outro' ? io.value : sd.value;
+  const laudo = {
+    comp: document.getElementById('l-comp').value, larg: document.getElementById('l-larg').value,
+    prof: document.getElementById('l-prof').value, vol: document.getElementById('l-vol').value,
+    tipo: document.getElementById('l-tipo').value, dist: document.getElementById('l-dist').value,
+    tensao: document.getElementById('l-tensao').value, obs: document.getElementById('l-obs').value,
+    material: document.getElementById('l-material').value, valorMat: document.getElementById('l-valor-mat').value, dias
+  };
+  await fetch('/api/visitas/' + laudoVisitaId + '/laudo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ laudo, fotos: fotosTmp }) });
+  fecharModal('modal-laudo'); laudoVisitaId = null; fotosTmp = [];
+  await carregarVisitas(); renderVisitas();
+}
+
+// PROPOSTA - enviar para aprovação
+async function enviarAprovacao() {
+  const cliente = document.getElementById('p-cliente').value.trim();
+  const pv = parseFloat(document.getElementById('p-venda').value) || 0;
+  if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda.'); return; }
+  const cp = parseFloat(document.getElementById('p-custo-prod').value) || 0;
+  const cm = parseFloat(document.getElementById('p-custo-mat').value) || 0;
+  const pag = getPag(); const taxaR = pv * (pag.taxa / 100);
+  const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
+  const ct = cp + cm + taxaR; const margem = pvEf > 0 ? (pvEf - ct) / pvEf : 0;
+  await fetch('/api/aprovacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ct), margem, pag: pag.label, texto: getTextoFinal() }) });
+  await carregarAprovacoes(); atualizarBadge();
+  document.getElementById('msg-enviado').style.display = 'block';
+  setTimeout(() => document.getElementById('msg-enviado').style.display = 'none', 3000);
+}
+
+// APROVAÇÃO - ação (aprovar/rejeitar)
+async function acaoAprov(id, status, e) {
+  e.stopPropagation();
+  const a = aprovacoes.find(x => x.id === id);
+  await fetch('/api/aprovacoes/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...a, status }) });
+  expandidoAprov = null; await carregarAprovacoes(); renderAprovacao();
+}
+
+// APROVAÇÃO - salvar edição
+async function salvarEditarAprov() {
+  const a = aprovacoes.find(x => x.id === editandoAprovId);
+  const valor = parseFloat(document.getElementById('ea-valor').value) || 0;
+  const custo = parseFloat(document.getElementById('ea-custo').value) || 0;
+  await fetch('/api/aprovacoes/' + editandoAprovId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    cliente: document.getElementById('ea-cliente').value, vendedora: document.getElementById('ea-vendedora').value,
+    equip: document.getElementById('ea-equip').value, pag: document.getElementById('ea-pag').value,
+    valor, custo, margem: valor > 0 ? (valor - custo) / valor : 0,
+    status: a.status, texto: document.getElementById('ea-texto').value
+  })});
+  fecharModal('modal-edit-aprov'); editandoAprovId = null; expandidoAprov = null;
+  await carregarAprovacoes(); renderAprovacao();
+}
+
+// INSTALAÇÃO - adicionar
+async function addInstalacao() {
+  const cliente = document.getElementById('i-cliente').value.trim();
+  if (!cliente) { alert('Informe o nome do cliente.'); return; }
+  const valor = parseFloat(document.getElementById('i-valor').value) || 0;
+  const sinal = parseFloat(document.getElementById('i-sinal').value) || 0;
+  await fetch('/api/instalacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    cliente, equip: document.getElementById('i-equip').value, pedido: document.getElementById('i-pedido').value,
+    valor, mat: parseFloat(document.getElementById('i-mat').value) || 0, sinal, receber: Math.max(valor - sinal, 0),
+    matComprar: document.getElementById('i-mat-comprar').value, data: document.getElementById('i-data').value,
+    vend: document.getElementById('i-vend').value, obs: document.getElementById('i-obs').value,
+    anexos: [], checks: { equip_comprado: false, mat_pago: false, sinal_pago: false, valor_pago: false, instalado: false }
+  })});
+  ['i-cliente','i-equip','i-pedido','i-valor','i-mat','i-sinal','i-receber','i-mat-comprar','i-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('i-data').value = '';
+  await carregarInstalacoes(); renderResumoInst(); renderInstalacoes();
+}
+
+// INSTALAÇÃO - salvar edição
+async function salvarEditarInst() {
+  const i = instalacoes.find(x => x.id === editandoInstId);
+  await fetch('/api/instalacoes/' + editandoInstId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    cliente: document.getElementById('ei-cliente').value, equip: document.getElementById('ei-equip').value,
+    pedido: document.getElementById('ei-pedido').value, valor: parseFloat(document.getElementById('ei-valor').value) || 0,
+    mat: parseFloat(document.getElementById('ei-mat').value) || 0, sinal: parseFloat(document.getElementById('ei-sinal').value) || 0,
+    receber: parseFloat(document.getElementById('ei-receber').value) || 0, data: document.getElementById('ei-data').value,
+    vend: document.getElementById('ei-vend').value, matComprar: document.getElementById('ei-mat-comprar').value,
+    obs: document.getElementById('ei-obs').value, anexos: i.anexos || [], checks: i.checks || {}
+  })});
+  fecharModal('modal-edit-inst'); editandoInstId = null;
+  await carregarInstalacoes(); renderInstalacoes(); renderResumoInst();
+}
+
+// INSTALAÇÃO - checklist
+async function toggleCk(id, key) {
+  const inst = instalacoes.find(i => i.id === id);
+  inst.checks[key] = !inst.checks[key];
+  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...inst, end: inst.endereco }) });
+  renderInstalacoes(); renderResumoInst();
+}
+
+// INSTALAÇÃO - remover anexo
+async function rmAnexo(instId, idx) {
+  const inst = instalacoes.find(x => x.id === instId);
+  inst.anexos.splice(idx, 1);
+  await fetch('/api/instalacoes/' + instId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...inst, end: inst.endereco }) });
+  await carregarInstalacoes(); renderInstalacoes(); renderResumoInst();
+}
+
+// INSTALAÇÃO - add anexo
+async function addAnexo(instId, inp) {
+  const inst = instalacoes.find(x => x.id === instId); if (!inst) return;
+  const promises = Array.from(inp.files).map(f => new Promise(res => {
+    const r = new FileReader(); r.onload = e => {
+      const size = f.size < 1024 ? f.size + 'B' : f.size < 1048576 ? (f.size/1024).toFixed(1) + 'KB' : (f.size/1048576).toFixed(1) + 'MB';
+      inst.anexos.push({ nome: f.name, tipo: f.type, size, data: e.target.result }); res();
+    }; r.readAsDataURL(f);
+  }));
+  await Promise.all(promises);
+  await fetch('/api/instalacoes/' + instId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...inst, end: inst.endereco }) });
+  inp.value = ''; await carregarInstalacoes(); renderInstalacoes(); renderResumoInst();
+}
+
+// ═══ AUDITORIA ═══
+async function carregarAuditoria() {
+  const r = await fetch('/api/auditoria');
+  todosRegistrosAuditoria = await r.json();
+  preencherFiltroUsuarios();
+  filtrarAuditoria();
+}
+function preencherFiltroUsuarios() {
+  const sel = document.getElementById('audit-filtro-usuario');
+  const usuarios = [...new Set(todosRegistrosAuditoria.map(a => a.usuario_nome))].filter(Boolean).sort();
+  sel.innerHTML = '<option value="">Todos os usuários</option>' + usuarios.map(u => '<option value="' + u + '">' + u + '</option>').join('');
+}
+function filtrarAuditoria() {
+  const filtroAcao = document.getElementById('audit-filtro-acao').value;
+  const filtroUser = document.getElementById('audit-filtro-usuario').value;
+  let registros = todosRegistrosAuditoria;
+  if (filtroAcao) registros = registros.filter(a => a.acao === filtroAcao);
+  if (filtroUser) registros = registros.filter(a => a.usuario_nome === filtroUser);
+  renderAuditoria(registros);
+}
+function acaoLabel(acao) {
+  const labels = {
+    LOGIN: '🔑 Login', LOGOUT: '🚪 Logout',
+    CRIAR_VISITA: '📅 Criou visita', EDITAR_VISITA: '✏️ Editou visita', EXCLUIR_VISITA: '🗑 Excluiu visita', SALVAR_LAUDO: '📋 Salvou laudo',
+    CRIAR_PROPOSTA: '📄 Criou proposta', EDITAR_PROPOSTA: '✏️ Editou proposta', EXCLUIR_PROPOSTA: '🗑 Excluiu proposta',
+    CRIAR_INSTALACAO: '🔧 Criou instalação', EDITAR_INSTALACAO: '✏️ Editou instalação', EXCLUIR_INSTALACAO: '🗑 Excluiu instalação',
+    CRIAR_USUARIO: '👤 Criou usuário', EDITAR_USUARIO: '✏️ Editou usuário'
+  };
+  return labels[acao] || acao;
+}
+function renderAuditoria(registros) {
+  const lista = document.getElementById('lista-auditoria');
+  if (!registros.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum registro encontrado.</p>'; return; }
+  lista.innerHTML = registros.map(a => {
+    let detalhe = '';
+    try {
+      const antes = a.dados_antes ? JSON.parse(a.dados_antes) : null;
+      const depois = a.dados_depois ? JSON.parse(a.dados_depois) : null;
+      if (antes && depois) {
+        const diffs = [];
+        const keys = new Set([...Object.keys(antes), ...Object.keys(depois)]);
+        keys.forEach(k => { if (JSON.stringify(antes[k]) !== JSON.stringify(depois[k]) && k !== 'checks') diffs.push('<span style="color:#888780">' + k + ':</span> <span style="color:#791F1F;text-decoration:line-through">' + (antes[k] ?? '—') + '</span> → <span style="color:#27500A">' + (depois[k] ?? '—') + '</span>'); });
+        if (diffs.length) detalhe = '<div style="font-size:12px;margin-top:6px;line-height:1.8">' + diffs.slice(0,5).join('<br>') + '</div>';
+      } else if (depois) {
+        const info = depois.nome || depois.cliente || depois.login || '';
+        if (info) detalhe = '<div style="font-size:12px;color:#888780;margin-top:4px">' + info + '</div>';
+      } else if (antes) {
+        const info = antes.nome || antes.cliente || antes.login || '';
+        if (info) detalhe = '<div style="font-size:12px;color:#888780;margin-top:4px">' + info + '</div>';
+      }
+    } catch(e) {}
+    return '<div style="background:#fff;border:1px solid #e5e3db;border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">' +
+      '<div><span class="badge badge-roxo">' + acaoLabel(a.acao) + '</span>' +
+      '<span style="font-size:12px;color:#888780;margin-left:8px">por <strong>' + (a.usuario_nome || '—') + '</strong></span></div>' +
+      '<span style="font-size:11px;color:#b4b2a9;flex-shrink:0">' + (a.momento || '') + '</span>' +
+      '</div>' + detalhe + '</div>';
+  }).join('');
+}
+
+// ═══ USUÁRIOS (admin) ═══
+async function criarUsuario() {
+  const nome = document.getElementById('nu-nome').value.trim();
+  const login = document.getElementById('nu-login').value.trim();
+  const senha = document.getElementById('nu-senha').value.trim();
+  const role = document.getElementById('nu-role').value;
+  const msg = document.getElementById('msg-usuario');
+  if (!nome || !login || !senha) { msg.style.cssText = 'display:block;color:#791F1F'; msg.textContent = 'Preencha todos os campos.'; return; }
+  const r = await fetch('/api/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, login, senha, role }) });
+  const d = await r.json();
+  if (d.sucesso) {
+    msg.style.cssText = 'display:block;color:#27500A'; msg.textContent = '✓ Usuário ' + nome + ' criado!';
+    document.getElementById('nu-nome').value = ''; document.getElementById('nu-login').value = ''; document.getElementById('nu-senha').value = '';
+    carregarListaUsuarios();
+  } else { msg.style.cssText = 'display:block;color:#791F1F'; msg.textContent = d.erro || 'Erro ao criar usuário.'; }
+}
+async function carregarListaUsuarios() {
+  const r = await fetch('/api/usuarios');
+  const usuarios = await r.json();
+  const lista = document.getElementById('lista-usuarios');
+  lista.innerHTML = usuarios.map(u => '<div style="background:#fff;border:1px solid #e5e3db;border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
+    '<div><p style="font-size:14px;font-weight:500;margin:0 0 3px">' + u.nome + '</p>' +
+    '<p style="font-size:12px;color:#888780;margin:0">@' + u.login + ' · ' + (u.role === 'admin' ? '👑 Admin' : '👤 Usuário') + '</p></div>' +
+    '<div style="display:flex;gap:6px;align-items:center">' +
+    '<span class="badge ' + (u.ativo ? 'badge-verde' : 'badge-vermelho') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span>' +
+    (u.login !== 'giulia' ? '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="toggleUsuario(' + u.id + ',' + u.ativo + ')">' + (u.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') +
+    '</div></div>'
+  ).join('');
+}
+async function toggleUsuario(id, ativo) {
+  const r = await fetch('/api/usuarios');
+  const usuarios = await r.json();
+  const u = usuarios.find(x => x.id === id);
+  await fetch('/api/usuarios/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...u, ativo: ativo ? 0 : 1 }) });
+  carregarListaUsuarios();
+}
+
+// ═══ SOBRESCREVER irPara PARA CARREGAR AUDITORIA/USUÁRIOS ═══
+const irParaOriginal = irPara;
+function irPara(tela, btn) {
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativo'));
+  document.getElementById('tela-' + tela).classList.add('ativo');
+  if (tela === 'aprovacao') renderAprovacao();
+  if (tela === 'instalacao') { renderResumoInst(); renderInstalacoes(); }
+  if (tela === 'visita') renderVisitas();
+  if (tela === 'calendario') renderCalendario();
+  if (tela === 'auditoria') carregarAuditoria();
+  if (tela === 'usuarios') carregarListaUsuarios();
+}
+
+// ═══ INICIAR ═══
+window.addEventListener('DOMContentLoaded', verificarSessao);
+
+</script>
+</body>
+</html>
