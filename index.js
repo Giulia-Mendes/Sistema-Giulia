@@ -136,6 +136,22 @@ app.put('/api/usuarios/:id', auth, adminOnly, (req, res) => {
   audit(req, 'EDITAR_USUARIO', 'usuarios', req.params.id, antes, depois);
   res.json({ sucesso: true });
 });
+app.delete('/api/usuarios/:id', auth, adminOnly, (req, res) => {
+  const u = db.prepare('SELECT id,nome,login FROM usuarios WHERE id=?').get(req.params.id);
+  if (!u) return res.json({ sucesso: false, erro: 'Usuário não encontrado' });
+  if (u.login === 'giulia') return res.status(403).json({ sucesso: false, erro: 'Não é possível excluir este usuário' });
+  db.prepare('DELETE FROM usuarios WHERE id=?').run(req.params.id);
+  audit(req, 'EXCLUIR_USUARIO', 'usuarios', req.params.id, u, null);
+  res.json({ sucesso: true });
+});
+app.post('/api/trocar-senha', auth, (req, res) => {
+  const { senhaAtual, novaSenha } = req.body;
+  const u = db.prepare('SELECT * FROM usuarios WHERE id=?').get(req.session.u.id);
+  if (!u || !bcrypt.compareSync(senhaAtual, u.senha_hash)) return res.json({ sucesso: false, erro: 'Senha atual incorreta' });
+  db.prepare('UPDATE usuarios SET senha_hash=? WHERE id=?').run(bcrypt.hashSync(novaSenha, 10), u.id);
+  audit(req, 'TROCAR_SENHA', 'usuarios', u.id, null, null);
+  res.json({ sucesso: true });
+});
 
 // ── VISITAS ──
 app.get('/api/visitas', auth, (req, res) => {

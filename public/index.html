@@ -217,6 +217,7 @@ input[readonly] { background: #f5f4f0; color: #888780; }
   <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none">👥 Usuários</button>
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;flex-shrink:0">
     <span id="nav-usuario-nome" style="font-size:12px;color:#888780;white-space:nowrap"></span>
+    <button onclick="abrirModalSenha()" style="font-size:12px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;cursor:pointer;background:transparent;color:#888780;white-space:nowrap">🔑 Minha conta</button>
     <button onclick="fazerLogout()" style="font-size:12px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;cursor:pointer;background:transparent;color:#888780;white-space:nowrap">Sair</button>
   </div>
 </nav>
@@ -516,6 +517,21 @@ input[readonly] { background: #f5f4f0; color: #888780; }
   <div id="lista-usuarios"></div>
 </div>
 </div><!-- container -->
+
+<!-- MODAL MINHA CONTA / TROCAR SENHA -->
+<div class="modal-bg" id="modal-senha">
+  <div class="modal-sm">
+    <p style="font-size:16px;font-weight:500;margin-bottom:16px">🔑 Trocar senha</p>
+    <div class="campo" style="margin-bottom:12px"><label>Senha atual</label><input type="password" id="ms-atual" placeholder="••••••••"></div>
+    <div class="campo" style="margin-bottom:12px"><label>Nova senha</label><input type="password" id="ms-nova" placeholder="••••••••"></div>
+    <div class="campo" style="margin-bottom:16px"><label>Confirmar nova senha</label><input type="password" id="ms-confirmar" placeholder="••••••••"></div>
+    <p id="ms-msg" style="font-size:13px;margin-bottom:12px;display:none"></p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModalSenha()">Cancelar</button>
+      <button class="btn btn-preto" onclick="trocarSenha()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════ MODAL LAUDO ═══════════ -->
 <div class="modal-bg" id="modal-laudo">
@@ -1798,6 +1814,7 @@ async function carregarListaUsuarios() {
     '<div style="display:flex;gap:6px;align-items:center">' +
     '<span class="badge ' + (u.ativo ? 'badge-verde' : 'badge-vermelho') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span>' +
     (u.login !== 'giulia' ? '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="toggleUsuario(' + u.id + ',' + u.ativo + ')">' + (u.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') +
+    (u.login !== 'giulia' ? '<button class="btn btn-vermelho" style="font-size:12px;padding:4px 10px" onclick="excluirUsuario(' + u.id + ',\'' + u.nome.replace(/'/g,"\\\'") + '\')">Excluir</button>' : '') +
     '</div></div>'
   ).join('');
 }
@@ -1822,6 +1839,36 @@ function irPara(tela, btn) {
   if (tela === 'calendario') renderCalendario();
   if (tela === 'auditoria') carregarAuditoria();
   if (tela === 'usuarios') carregarListaUsuarios();
+}
+
+// ═══ MINHA CONTA ═══
+function abrirModalSenha() {
+  document.getElementById('ms-atual').value = '';
+  document.getElementById('ms-nova').value = '';
+  document.getElementById('ms-confirmar').value = '';
+  const msg = document.getElementById('ms-msg');
+  msg.style.display = 'none';
+  document.getElementById('modal-senha').classList.add('aberto');
+}
+function fecharModalSenha() {
+  document.getElementById('modal-senha').classList.remove('aberto');
+}
+async function trocarSenha() {
+  const senhaAtual = document.getElementById('ms-atual').value;
+  const novaSenha = document.getElementById('ms-nova').value;
+  const confirmar = document.getElementById('ms-confirmar').value;
+  const msg = document.getElementById('ms-msg');
+  if (!senhaAtual || !novaSenha) { msg.style.cssText = 'display:block;color:#791F1F'; msg.textContent = 'Preencha todos os campos.'; return; }
+  if (novaSenha !== confirmar) { msg.style.cssText = 'display:block;color:#791F1F'; msg.textContent = 'As senhas não coincidem.'; return; }
+  const r = await fetch('/api/trocar-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ senhaAtual, novaSenha }) });
+  const d = await r.json();
+  if (d.sucesso) { msg.style.cssText = 'display:block;color:#27500A'; msg.textContent = '✓ Senha alterada com sucesso!'; setTimeout(fecharModalSenha, 1500); }
+  else { msg.style.cssText = 'display:block;color:#791F1F'; msg.textContent = d.erro || 'Erro ao trocar senha.'; }
+}
+async function excluirUsuario(id, nome) {
+  if (!confirm('Excluir o usuário "' + nome + '"? Esta ação não pode ser desfeita.')) return;
+  await fetch('/api/usuarios/' + id, { method: 'DELETE' });
+  carregarListaUsuarios();
 }
 
 // ═══ INICIAR ═══
