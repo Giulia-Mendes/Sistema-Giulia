@@ -606,7 +606,21 @@ input[readonly] { background: #f5f4f0; color: #888780; }
       <div class="campo"><label>Das</label><input type="time" id="ev-hora-ini"></div>
       <div class="campo"><label>Até</label><input type="time" id="ev-hora-fim"></div>
     </div>
-    <div class="campo" style="margin-bottom:16px"><label>Observação</label><input type="text" id="ev-obs"></div>
+    <div class="campo" style="margin-bottom:12px"><label>Observação</label><input type="text" id="ev-obs"></div>
+    <div class="campo" style="margin-bottom:16px">
+      <label>Técnicos</label>
+      <label class="tec-item"><input type="checkbox" id="ev-tec-joseilto" value="Joseilto da Silva Melo|05770641428"> Joseilto da Silva Melo — CPF 057.706.414-28</label>
+      <label class="tec-item"><input type="checkbox" id="ev-tec-wesley" value="José Wesley Mendes da Silva|15417106496"> José Wesley Mendes da Silva — CPF 154.171.064-96</label>
+      <label class="tec-item" id="ev-outro-tec-label" style="display:none">
+        <input type="checkbox" id="ev-outro-tec-check">
+        <span id="ev-outro-tec-span"></span>
+      </label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input type="text" id="ev-outro-tec-nome" placeholder="Outro técnico" style="flex:1">
+        <input type="text" id="ev-outro-tec-cpf" placeholder="CPF" style="flex:1">
+        <button class="btn btn-branco" onclick="addTecEdit()" style="padding:7px 10px;white-space:nowrap">+ Add</button>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-branco" onclick="fecharModal('modal-edit-visita')">Cancelar</button>
       <button class="btn btn-preto" onclick="salvarEditarVisita()">Salvar</button>
@@ -1021,6 +1035,20 @@ function agendarVisita() {
   selecionarTipo('visita');
   renderVisitas();
 }
+function addTecEdit() {
+  const n = document.getElementById('ev-outro-tec-nome').value.trim();
+  const c = document.getElementById('ev-outro-tec-cpf').value.trim();
+  if (!n) return;
+  document.getElementById('ev-outro-tec-span').textContent = n + ' — CPF ' + c;
+  document.getElementById('ev-outro-tec-label').style.display = 'flex';
+  document.getElementById('ev-outro-tec-check').value = n + '|' + c.replace(/\D/g,'');
+  document.getElementById('ev-outro-tec-check').checked = true;
+  document.getElementById('ev-outro-tec-nome').value = '';
+  document.getElementById('ev-outro-tec-cpf').value = '';
+}
+function getTecsEdit() {
+  return Array.from(document.querySelectorAll('#modal-edit-visita input[type=checkbox]:checked')).map(c => c.value);
+}
 function abrirEditarVisita(id) {
   editandoVisitaId = id;
   const v = visitas.find(x => x.id === id);
@@ -1034,6 +1062,20 @@ function abrirEditarVisita(id) {
   document.getElementById('ev-hora-ini').value = v.horaIni || '';
   document.getElementById('ev-hora-fim').value = v.horaFim || '';
   document.getElementById('ev-obs').value = v.obs || '';
+  // preencher técnicos
+  document.getElementById('ev-tec-joseilto').checked = (v.tecnicos||[]).includes('Joseilto da Silva Melo|05770641428');
+  document.getElementById('ev-tec-wesley').checked = (v.tecnicos||[]).includes('José Wesley Mendes da Silva|15417106496');
+  const outroTec = (v.tecnicos||[]).find(t => t !== 'Joseilto da Silva Melo|05770641428' && t !== 'José Wesley Mendes da Silva|15417106496');
+  if (outroTec) {
+    const [n, c] = outroTec.split('|');
+    document.getElementById('ev-outro-tec-span').textContent = n + ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    document.getElementById('ev-outro-tec-label').style.display = 'flex';
+    document.getElementById('ev-outro-tec-check').value = outroTec;
+    document.getElementById('ev-outro-tec-check').checked = true;
+  } else {
+    document.getElementById('ev-outro-tec-label').style.display = 'none';
+    document.getElementById('ev-outro-tec-check').checked = false;
+  }
   abrirModal('modal-edit-visita');
 }
 function salvarEditarVisita() {
@@ -1588,7 +1630,7 @@ async function salvarEditarVisita() {
     cel: document.getElementById('ev-cel').value, end: document.getElementById('ev-end').value,
     cep: document.getElementById('ev-cep').value, data: document.getElementById('ev-data').value,
     horaIni: document.getElementById('ev-hora-ini').value, horaFim: document.getElementById('ev-hora-fim').value,
-    obs: document.getElementById('ev-obs').value, tecnicos: []
+    obs: document.getElementById('ev-obs').value, tecnicos: getTecsEdit()
   };
   await fetch('/api/visitas/' + editandoVisitaId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
   fecharModal('modal-edit-visita'); editandoVisitaId = null;
