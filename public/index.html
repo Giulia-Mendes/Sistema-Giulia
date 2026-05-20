@@ -329,7 +329,7 @@ input[readonly] { background: #f5f4f0; color: #888780; }
         <input type="text" id="p-vendedora-outro" placeholder="Digite o nome" style="margin-top:6px;display:none" oninput="gerarProposta()">
       </div>
     </div>
-    <div class="g2">
+    <div class="g3">
       <div class="campo">
         <label>Equipamento</label>
         <select id="p-equip" onchange="toggleOutroEquip()">
@@ -337,7 +337,7 @@ input[readonly] { background: #f5f4f0; color: #888780; }
           <optgroup label="ORTUM Prime Wi-Fi Full Inverter">
             <option value="ORTUM S24|0">ORTUM S24</option><option value="ORTUM S31|0">ORTUM S31</option>
             <option value="ORTUM S38|0">ORTUM S38</option><option value="ORTUM S44|0">ORTUM S44</option>
-            <option value="ORTUM S51|0">ORTUM S51</option><option value="ORTUM S58|0">ORTUM S58</option>
+            <option value="ORTUM S51|0">ORTUM S51</option><option value="ORTUM S58|4985">ORTUM S58</option>
             <option value="ORTUM S72|0">ORTUM S72</option><option value="ORTUM S90|0">ORTUM S90</option>
             <option value="ORTUM S110|0">ORTUM S110</option>
           </optgroup>
@@ -359,6 +359,10 @@ input[readonly] { background: #f5f4f0; color: #888780; }
         <input type="text" id="p-equip-outro" placeholder="Descreva o equipamento" style="margin-top:6px;display:none" oninput="gerarProposta()">
       </div>
       <div class="campo">
+        <label>SKU do equipamento</label>
+        <input type="text" id="p-sku" placeholder="Ex: 4985" oninput="gerarProposta()">
+      </div>
+      <div class="campo">
         <label>Prazo de instalação</label>
         <select id="p-prazo" onchange="toggleOutroPrazo()">
           <option value="1 dia útil">1 dia útil</option><option value="2 dias úteis">2 dias úteis</option>
@@ -366,6 +370,18 @@ input[readonly] { background: #f5f4f0; color: #888780; }
           <option value="outro">Digitar...</option>
         </select>
         <input type="text" id="p-prazo-outro" placeholder="Ex: 7 dias úteis" style="margin-top:6px;display:none" oninput="gerarProposta()">
+      </div>
+    </div>
+
+    <div class="campo" style="margin-top:4px">
+      <label>Produtos adicionais</label>
+      <div id="lista-prod-adicionais"></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:3;min-width:140px"><input type="text" id="novo-prod-nome" placeholder="Nome do produto" style="width:100%"></div>
+        <div style="flex:1;min-width:70px"><input type="text" id="novo-prod-sku" placeholder="SKU" style="width:100%"></div>
+        <div style="width:60px"><input type="number" id="novo-prod-qtd" placeholder="Qtd" value="1" style="width:100%"></div>
+        <div style="flex:1;min-width:90px"><input type="number" id="novo-prod-preco" placeholder="Preço un. R$" style="width:100%"></div>
+        <button class="btn btn-branco" onclick="addProduto()" style="white-space:nowrap;flex-shrink:0">+ Add produto</button>
       </div>
     </div>
   </div>
@@ -1224,12 +1240,56 @@ function getPrazo() { const s = document.getElementById('p-prazo'); return s.val
 function getEquip() { const s = document.getElementById('p-equip'); if (!s.value) return ''; if (s.value === 'outro|0') return document.getElementById('p-equip-outro').value || 'Equipamento'; return s.options[s.selectedIndex].text; }
 function getVend() { const s = document.getElementById('p-vendedora'); return s.value === 'outro' ? document.getElementById('p-vendedora-outro').value || '' : s.value; }
 function toggleOutroVend() { document.getElementById('p-vendedora-outro').style.display = document.getElementById('p-vendedora').value === 'outro' ? '' : 'none'; gerarProposta(); }
+function getSKU() {
+  const s = document.getElementById('p-equip');
+  if (!s.value || s.value === 'outro|0') return '';
+  const sku = s.value.split('|')[1];
+  return (sku && sku !== '0') ? sku : '';
+}
 function toggleOutroEquip() {
   const s = document.getElementById('p-equip');
   const isO = s.value === 'outro|0';
   document.getElementById('p-equip-outro').style.display = isO ? '' : 'none';
+  const skuAuto = getSKU();
+  const skuInput = document.getElementById('p-sku');
+  skuInput.value = skuAuto;
+  skuInput.readOnly = skuAuto !== '';
+  skuInput.style.background = skuAuto !== '' ? '#f5f4f0' : '';
   if (!isO) { const c = s.value.split('|')[1]; if (c && c !== '0') document.getElementById('p-custo-prod').value = c; }
   calcMargem(); gerarProposta();
+}
+
+let produtosAdicionais = [];
+function addProduto() {
+  const nome = document.getElementById('novo-prod-nome').value.trim();
+  if (!nome) return;
+  const sku = document.getElementById('novo-prod-sku').value.trim();
+  const qtd = parseFloat(document.getElementById('novo-prod-qtd').value) || 1;
+  const precoUn = parseFloat(document.getElementById('novo-prod-preco').value) || 0;
+  produtosAdicionais.push({ nome, sku, qtd, precoUn });
+  document.getElementById('novo-prod-nome').value = '';
+  document.getElementById('novo-prod-sku').value = '';
+  document.getElementById('novo-prod-qtd').value = '1';
+  document.getElementById('novo-prod-preco').value = '';
+  renderProdutosAdicionais();
+  gerarProposta();
+}
+function removeProduto(idx) {
+  produtosAdicionais.splice(idx, 1);
+  renderProdutosAdicionais();
+  gerarProposta();
+}
+function renderProdutosAdicionais() {
+  const lista = document.getElementById('lista-prod-adicionais');
+  if (!produtosAdicionais.length) { lista.innerHTML = ''; return; }
+  lista.innerHTML = produtosAdicionais.map((p, i) => {
+    const total = p.qtd * p.precoUn;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #e5e3db;font-size:13px">' +
+      '<span style="flex:1">' + p.nome + (p.sku ? ' <span style="color:#888780;font-size:11px">SKU ' + p.sku + '</span>' : '') + '</span>' +
+      '<span style="flex-shrink:0;color:#888780;white-space:nowrap">' + p.qtd + 'x R$ ' + p.precoUn.toLocaleString('pt-BR') + ' = R$ ' + total.toLocaleString('pt-BR') + '</span>' +
+      '<button onclick="removeProduto(' + i + ')" style="background:none;border:none;cursor:pointer;color:#E24B4A;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">×</button>' +
+      '</div>';
+  }).join('');
 }
 function toggleOutroPrazo() { document.getElementById('p-prazo-outro').style.display = document.getElementById('p-prazo').value === 'outro' ? '' : 'none'; gerarProposta(); }
 function calcMargem() {
@@ -1262,6 +1322,7 @@ function calcMargem() {
 }
 function montarTexto() {
   const cliente = document.getElementById('p-cliente').value.trim(); const equip = getEquip();
+  const sku = document.getElementById('p-sku').value.trim();
   const pv = parseFloat(document.getElementById('p-venda').value) || 0;
   const pag = getPag(); const pagKey = document.getElementById('p-pag').value; const prazo = getPrazo();
   if (!cliente || !equip || pv === 0) return null;
@@ -1271,7 +1332,10 @@ function montarTexto() {
   else if (pag.parc > 0) { const pix = Math.round(pv*(1-pag.taxa/100)); const pa = Math.round(pv/pag.parc); lv = '• R$ ' + pv.toLocaleString('pt-BR') + ' no cartão em até ' + pag.parc + 'x de R$ ' + pa.toLocaleString('pt-BR') + '\n• R$ ' + pix.toLocaleString('pt-BR') + ' à vista via PIX'; }
   else if (pagKey === 'bol_parc') { const sn = Math.round(pv*.3); const pa = Math.round(pv*.7/3); lv = '• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR') + '\n• Saldo em 3x de R$ ' + pa.toLocaleString('pt-BR') + ' (30/60/90 dias)'; }
   else if (pagKey === 'bol_desc') { const sn = Math.round(pv*.3); const re = Math.round(pv*.96*.7); lv = '• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR') + '\n• 70% na conclusão: R$ ' + re.toLocaleString('pt-BR') + ' (4% de desconto)'; }
-  return 'Para\n' + cliente + '\n\nItens da proposta:\n• ' + equip + '\n• Material para instalação\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n\nValidade da proposta: 2 dias. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
+  const equipLinha = equip + (sku ? ' — SKU ' + sku : '');
+  const prodLinhas = produtosAdicionais.map(p => '• ' + p.nome + (p.sku ? ' — SKU ' + p.sku : '') + (p.precoUn ? ' (R$ ' + (p.qtd * p.precoUn).toLocaleString('pt-BR') + ')' : '')).join('\n');
+  const itens = '• ' + equipLinha + '\n• Material para instalação' + (prodLinhas ? '\n' + prodLinhas : '');
+  return 'Para\n' + cliente + '\n\nItens da proposta:\n' + itens + '\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n\nValidade da proposta: 2 dias. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
 }
 function gerarProposta() { if (propModoEdit) return; const t = montarTexto(); document.getElementById('prop-preview').textContent = t || 'Preencha os dados acima para gerar a proposta.'; }
 function syncProp() { document.getElementById('prop-preview').textContent = document.getElementById('prop-edit').value; }
@@ -1693,6 +1757,8 @@ async function enviarAprovacao() {
   const ct = cp + cm + taxaR; const margem = pvEf > 0 ? (pvEf - ct) / pvEf : 0;
   await fetch('/api/aprovacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ct), margem, pag: pag.label, texto: getTextoFinal() }) });
   await carregarAprovacoes(); atualizarBadge();
+  produtosAdicionais = []; renderProdutosAdicionais();
+  document.getElementById('p-sku').value = '';
   document.getElementById('msg-enviado').style.display = 'block';
   setTimeout(() => document.getElementById('msg-enviado').style.display = 'none', 3000);
 }
