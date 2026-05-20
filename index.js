@@ -156,7 +156,9 @@ app.post('/api/trocar-senha', auth, (req, res) => {
 // ── VISITAS ──
 app.get('/api/visitas', auth, (req, res) => {
   res.json(db.prepare('SELECT * FROM visitas ORDER BY criado_em DESC').all().map(v => ({
-    ...v, tecnicos: JSON.parse(v.tecnicos || '[]'), fotos: JSON.parse(v.fotos || '[]'), laudo: v.laudo ? JSON.parse(v.laudo) : null
+    ...v,
+    horaIni: v.hora_ini, horaFim: v.hora_fim, end: v.endereco,
+    tecnicos: JSON.parse(v.tecnicos || '[]'), fotos: JSON.parse(v.fotos || '[]'), laudo: v.laudo ? JSON.parse(v.laudo) : null
   })));
 });
 app.post('/api/visitas', auth, (req, res) => {
@@ -216,7 +218,7 @@ app.delete('/api/aprovacoes/:id', auth, (req, res) => {
 // ── INSTALAÇÕES ──
 app.get('/api/instalacoes', auth, (req, res) => {
   res.json(db.prepare('SELECT * FROM instalacoes ORDER BY criado_em DESC').all().map(i => ({
-    ...i, anexos: JSON.parse(i.anexos || '[]'), checks: JSON.parse(i.checks || '{}')
+    ...i, matComprar: i.mat_comprar, anexos: JSON.parse(i.anexos || '[]'), checks: JSON.parse(i.checks || '{}')
   })));
 });
 app.post('/api/instalacoes', auth, (req, res) => {

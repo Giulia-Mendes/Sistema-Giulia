@@ -213,6 +213,7 @@ input[readonly] { background: #f5f4f0; color: #888780; }
   <button onclick="irPara('proposta', this)" class="ativo">📄 Proposta</button>
   <button onclick="irPara('aprovacao', this)">✅ Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></button>
   <button onclick="irPara('instalacao', this)">🔧 Instalações</button>
+  <button onclick="irPara('financeiro', this)">💰 Financeiro</button>
   <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none">🔍 Auditoria</button>
   <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none">👥 Usuários</button>
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;flex-shrink:0">
@@ -461,6 +462,13 @@ input[readonly] { background: #f5f4f0; color: #888780; }
 
   <div class="stat4" id="resumo-inst"></div>
   <div id="lista-instalacoes"></div>
+</div>
+
+
+<!-- TELA FINANCEIRO -->
+<div id="tela-financeiro" class="tela">
+  <div class="stat4" id="resumo-fin"></div>
+  <div id="lista-financeiro"></div>
 </div>
 
 
@@ -766,6 +774,7 @@ function irPara(tela, btn) {
   if (tela === 'instalacao') { renderResumoInst(); renderInstalacoes(); }
   if (tela === 'visita') renderVisitas();
   if (tela === 'calendario') renderCalendario();
+  if (tela === 'financeiro') renderFinanceiro();
 }
 
 // ═══ MODAIS ═══
@@ -1312,9 +1321,13 @@ function renderAprovacao() {
         '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:13px;white-space:pre-wrap;line-height:1.7">' + a.texto + '</div>' +
         '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
         (a.status === 'pendente'
-          ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovar</button>' +
+          ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovada pelo cliente</button>' +
+            '<button class="btn btn-preto" onclick="enviarParaPedido(' + a.id + ',event)">📋 Enviar para Pedido</button>' +
             '<button class="btn btn-vermelho" onclick="acaoAprov(' + a.id + ',\'rejeitado\',event)">✕ Rejeitar</button>'
-          : '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>') +
+          : a.status === 'aprovado'
+            ? '<button class="btn btn-preto" onclick="enviarParaPedido(' + a.id + ',event)">📋 Enviar para Pedido</button>' +
+              '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>'
+            : '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>') +
         '<button class="btn btn-branco" onclick="abrirEditarAprov(' + a.id + ',event)">✏️ Editar</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirAprov(' + a.id + ',event)">🗑 Excluir</button>' +
         '</div></div>';
@@ -1692,6 +1705,23 @@ async function acaoAprov(id, status, e) {
   expandidoAprov = null; await carregarAprovacoes(); renderAprovacao();
 }
 
+// APROVAÇÃO - enviar para pedido (pré-preenche formulário de instalação)
+async function enviarParaPedido(id, e) {
+  e.stopPropagation();
+  const a = aprovacoes.find(x => x.id === id);
+  if (a.status === 'pendente') {
+    await fetch('/api/aprovacoes/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...a, status: 'aprovado' }) });
+    await carregarAprovacoes();
+  }
+  document.getElementById('i-cliente').value = a.cliente || '';
+  document.getElementById('i-equip').value = a.equip || '';
+  document.getElementById('i-valor').value = a.valor || '';
+  expandidoAprov = null;
+  const btnInst = document.querySelector('#nav-principal button[onclick*="instalacao"]');
+  irPara('instalacao', btnInst);
+  document.getElementById('tela-instalacao').scrollIntoView({ behavior: 'smooth' });
+}
+
 // APROVAÇÃO - salvar edição
 async function salvarEditarAprov() {
   const a = aprovacoes.find(x => x.id === editandoAprovId);
@@ -1746,6 +1776,54 @@ async function toggleCk(id, key) {
   inst.checks[key] = !inst.checks[key];
   await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...inst, end: inst.endereco }) });
   renderInstalacoes(); renderResumoInst();
+}
+async function toggleCkFin(id, key) {
+  await toggleCk(id, key);
+  renderFinanceiro();
+}
+
+// ═══ FINANCEIRO ═══
+function renderFinanceiro() {
+  const inst = [...instalacoes].sort((a, b) => (a.data || '9').localeCompare(b.data || '9'));
+  const hoje = strData(new Date());
+  const aguardCompra = inst.filter(i => !i.checks.equip_comprado).length;
+  const aguardPag = inst.filter(i => !i.checks.mat_pago && i.mat > 0).length;
+  const valorMat = inst.filter(i => !i.checks.mat_pago).reduce((s, i) => s + (Number(i.mat) || 0), 0);
+  const prox = inst.find(i => !i.checks.instalado && i.data >= hoje);
+  document.getElementById('resumo-fin').innerHTML =
+    '<div class="stat"><div class="lbl">Aguardando compra</div><div class="val">' + aguardCompra + '</div></div>' +
+    '<div class="stat"><div class="lbl">Material a pagar</div><div class="val">R$ ' + Math.round(valorMat).toLocaleString('pt-BR') + '</div></div>' +
+    '<div class="stat"><div class="lbl">Próxima instalação</div><div class="val">' + (prox ? fmtData(prox.data) : '—') + '</div></div>' +
+    '<div class="stat"><div class="lbl">Total ativo</div><div class="val">' + inst.length + '</div></div>';
+  const lista = document.getElementById('lista-financeiro');
+  if (!inst.length) { lista.innerHTML = '<div class="card" style="text-align:center;color:#888780;padding:2rem 0">Nenhuma instalação cadastrada.</div>'; return; }
+  lista.innerHTML = inst.map(i => {
+    const urgente = i.data && i.data <= hoje && !i.checks.instalado;
+    const equip_ok = i.checks.equip_comprado;
+    const mat_ok = i.checks.mat_pago;
+    return '<div class="card" style="' + (urgente ? 'border-left:3px solid #C53030;' : '') + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">' +
+      '<div><p style="font-size:15px;font-weight:500;margin:0 0 2px">' + i.cliente + '</p>' +
+      '<p style="font-size:13px;color:#888780;margin:0">' + (i.equip || '—') + (i.pedido ? ' · Pedido Tiny: ' + i.pedido : '') + '</p></div>' +
+      '<div style="text-align:right;flex-shrink:0">' +
+      '<p style="font-size:20px;font-weight:600;margin:0;color:' + (urgente ? '#C53030' : '#1a1a18') + '">📅 ' + (fmtData(i.data) || '—') + '</p>' +
+      (urgente ? '<p style="font-size:11px;color:#C53030;margin:2px 0 0;font-weight:500">INSTALAÇÃO HOJE / VENCIDA</p>' : '') +
+      '</div></div>' +
+      '<div style="display:grid;gap:10px">' +
+      '<div class="ck-item">' +
+      '<div class="ck-box' + (equip_ok ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'equip_comprado\')">' + (equip_ok ? '✓' : '') + '</div>' +
+      '<div><span class="ck-label' + (equip_ok ? ' feito' : '') + '">Equipamento comprado</span>' +
+      (i.matComprar ? '<span style="font-size:12px;color:#888780;display:block">' + i.matComprar + '</span>' : '') + '</div>' +
+      '</div>' +
+      '<div class="ck-item">' +
+      '<div class="ck-box' + (mat_ok ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'mat_pago\')">' + (mat_ok ? '✓' : '') + '</div>' +
+      '<span class="ck-label' + (mat_ok ? ' feito' : '') + '">Valor do material pago</span>' +
+      (i.mat ? '<span style="font-size:13px;font-weight:500;margin-left:auto">R$ ' + Number(i.mat).toLocaleString('pt-BR') + '</span>' : '') +
+      '</div>' +
+      '</div>' +
+      (i.obs ? '<p style="font-size:12px;color:#888780;margin:10px 0 0;border-top:1px solid #e5e3db;padding-top:8px">📝 ' + i.obs + '</p>' : '') +
+      '</div>';
+  }).join('');
 }
 
 // INSTALAÇÃO - remover anexo
