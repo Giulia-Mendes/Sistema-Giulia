@@ -3,16 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistema Capellato do Brasil</title>
+<title>ALERY</title>
+<script>
+  const _t = localStorage.getItem('alery-tema') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (_t === 'dark') document.documentElement.classList.add('dark');
+</script>
 <style>
+:root {
+  --bg: #EDEAE4;
+  --surface: #FFFFFF;
+  --surface2: #F5F3EE;
+  --border: #DDD9D0;
+  --text: #1E2024;
+  --text2: #7A7773;
+  --accent: #A56A47;
+  --accent2: #4F5C59;
+  --accent-light: #F2E8E1;
+  --shadow: rgba(30,32,36,0.08);
+  --modal-overlay: rgba(30,32,36,0.55);
+}
+html.dark {
+  --bg: #1E2024;
+  --surface: #262930;
+  --surface2: #1C1F23;
+  --border: #33373F;
+  --text: #D8D2C8;
+  --text2: #888780;
+  --accent: #C08060;
+  --accent2: #6A7A77;
+  --accent-light: #2C241E;
+  --shadow: rgba(0,0,0,0.4);
+  --modal-overlay: rgba(0,0,0,0.72);
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .3s, color .3s; }
 
 /* NAV */
-.nav { background: #fff; border-bottom: 1px solid #e5e3db; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; position: sticky; top: 0; z-index: 10; }
-.nav button { font-size: 13px; padding: 12px 14px; border: none; background: transparent; color: #888780; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; }
-.nav button.ativo { color: #1a1a18; border-bottom-color: #1a1a18; font-weight: 500; }
+.nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 12px; display: flex; gap: 2px; overflow-x: auto; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 4px var(--shadow); align-items: center; }
+.nav-logo { display: flex; align-items: center; gap: 8px; padding: 0 12px 0 4px; border-right: 1px solid var(--border); margin-right: 4px; flex-shrink: 0; text-decoration: none; }
+.nav-logo-txt { font-size: 14px; font-weight: 600; letter-spacing: 0.14em; color: var(--text); }
+.nav button { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; padding: 14px 12px; border: none; background: transparent; color: var(--text2); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; font-family: inherit; transition: color .2s; }
+.nav button.ativo { color: var(--accent); border-bottom-color: var(--accent); }
+.nav button:hover:not(.ativo) { color: var(--text); }
 
 /* LAYOUT */
 .container { max-width: 860px; margin: 0 auto; padding: 16px; }
@@ -20,8 +53,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tela.ativo { display: block; }
 
 /* CARDS */
-.card { background: #fff; border: 1px solid #e5e3db; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-.sec { font-size: 11px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.sec { font-size: 10px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
 
 /* GRID */
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -30,17 +63,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 @media(max-width: 600px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
 
 /* CAMPOS */
-.campo label { display: block; font-size: 12px; color: #888780; margin-bottom: 4px; }
-input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d3d1c7; border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; color: #1a1a18; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: #7F77DD; }
-input[readonly] { background: #f5f4f0; color: #888780; }
+.campo label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; letter-spacing: .04em; text-transform: uppercase; }
+input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text); transition: border-color .2s, background .3s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input[readonly] { background: var(--surface2); color: var(--text2); }
+select option { background: var(--surface); color: var(--text); }
 
 /* BOTÕES */
-.btn { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; border: none; }
-.btn-preto { background: #1a1a18; color: #fff; }
-.btn-preto:hover { opacity: .85; }
-.btn-branco { background: transparent; color: #1a1a18; border: 1px solid #d3d1c7; }
-.btn-branco:hover { background: #f5f4f0; }
+.btn { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; border: none; transition: opacity .2s, background .2s; }
+.btn-preto { background: var(--text); color: var(--surface); }
+.btn-preto:hover { opacity: .82; }
+.btn-branco { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-branco:hover { background: var(--surface2); }
 .btn-verde { background: transparent; color: #27500A; border: 1px solid #3B6D11; }
 .btn-verde:hover { background: #EAF3DE; }
 .btn-vermelho { background: transparent; color: #791F1F; border: 1px solid #A32D2D; }
@@ -49,120 +83,117 @@ input[readonly] { background: #f5f4f0; color: #888780; }
 .btn-roxo:hover { background: #EEEDFE; }
 
 /* BADGES */
-.badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+.badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; letter-spacing: .03em; }
 .badge-verde { background: #EAF3DE; color: #27500A; }
 .badge-amarelo { background: #FAEEDA; color: #633806; }
 .badge-vermelho { background: #FCEBEB; color: #791F1F; }
-.badge-cinza { background: #e5e3db; color: #5f5e5a; }
+.badge-cinza { background: var(--surface2); color: var(--text2); }
 .badge-roxo { background: #EEEDFE; color: #3C3489; }
 .badge-teal { background: #E1F5EE; color: #085041; }
 
 /* STATS */
-.stat { background: #f5f4f0; border-radius: 8px; padding: 10px 14px; }
-.stat .lbl { font-size: 12px; color: #888780; margin-bottom: 4px; }
-.stat .val { font-size: 17px; font-weight: 500; }
+.stat { background: var(--surface2); border-radius: 8px; padding: 10px 14px; }
+.stat .lbl { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
+.stat .val { font-size: 17px; font-weight: 500; color: var(--text); }
 .stat4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
 @media(max-width: 600px) { .stat4 { grid-template-columns: repeat(2, 1fr); } }
 
 /* TIPO EVENTO */
 .tipo-wrap { display: flex; gap: 8px; margin-bottom: 12px; }
-.tipo-opt { flex: 1; padding: 10px; border: 2px solid #e5e3db; border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 500; }
+.tipo-opt { flex: 1; padding: 10px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 500; color: var(--text); transition: all .2s; }
 .tipo-opt.sel-visita { border-color: #7F77DD; background: #EEEDFE; color: #3C3489; }
 .tipo-opt.sel-inst { border-color: #1D9E75; background: #E1F5EE; color: #085041; }
 
 /* CHECKLIST */
-.ck-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e5e3db; }
+.ck-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .ck-item:last-child { border-bottom: none; }
-.ck-box { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #d3d1c7; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; user-select: none; }
-.ck-box.feito { background: #27500A; border-color: #27500A; color: #fff; }
-.ck-label { flex: 1; font-size: 13px; }
-.ck-label.feito { text-decoration: line-through; color: #888780; }
+.ck-box { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; user-select: none; background: var(--surface); }
+.ck-box.feito { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.ck-label { flex: 1; font-size: 13px; color: var(--text); }
+.ck-label.feito { text-decoration: line-through; color: var(--text2); }
 
 /* PROGRESSO */
-.prog-wrap { height: 5px; background: #e5e3db; border-radius: 3px; flex: 1; }
-.prog-bar { height: 5px; border-radius: 3px; background: #639922; }
+.prog-wrap { height: 5px; background: var(--border); border-radius: 3px; flex: 1; }
+.prog-bar { height: 5px; border-radius: 3px; background: var(--accent2); }
 
 /* MARGEM */
-.margem-wrap { height: 7px; background: #e5e3db; border-radius: 4px; margin-top: 6px; }
+.margem-wrap { height: 7px; background: var(--border); border-radius: 4px; margin-top: 6px; }
 .margem-bar { height: 7px; border-radius: 4px; }
 
 /* TEXTO AGEND */
-.txt-agend { background: #f5f4f0; border-radius: 8px; padding: 12px 14px; font-size: 13px; white-space: pre-wrap; line-height: 1.8; margin-top: 8px; }
+.txt-agend { background: var(--surface2); border-radius: 8px; padding: 12px 14px; font-size: 13px; white-space: pre-wrap; line-height: 1.8; margin-top: 8px; color: var(--text); }
 
 /* PROPOSTA */
-.prop-box { background: #f5f4f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; margin-top: 10px; }
+.prop-box { background: var(--surface2); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; margin-top: 10px; color: var(--text); }
 
 /* TEC CHECK */
-.tec-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e5e3db; border-radius: 8px; cursor: pointer; margin-bottom: 6px; font-size: 13px; }
+.tec-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; margin-bottom: 6px; font-size: 13px; color: var(--text); background: var(--surface); }
 .tec-item input { width: auto; padding: 0; }
 
 /* FOTOS */
 .foto-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-.foto-item { position: relative; border-radius: 8px; overflow: hidden; background: #f5f4f0; aspect-ratio: 1; }
+.foto-item { position: relative; border-radius: 8px; overflow: hidden; background: var(--surface2); aspect-ratio: 1; }
 .foto-item img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
 .foto-rm { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.5); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
-.foto-add { border: 2px dashed #d3d1c7; border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-direction: column; gap: 4px; color: #888780; font-size: 12px; text-align: center; padding: 8px; }
-.foto-add:hover { border-color: #7F77DD; background: #f5f4f0; }
+.foto-add { border: 2px dashed var(--border); border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-direction: column; gap: 4px; color: var(--text2); font-size: 12px; text-align: center; padding: 8px; }
+.foto-add:hover { border-color: var(--accent); background: var(--accent-light); }
 @media(max-width: 600px) { .foto-grid { grid-template-columns: repeat(3, 1fr); } }
 
 /* ANEXOS */
-.anx-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #f5f4f0; border-radius: 8px; margin-bottom: 6px; }
+.anx-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 8px; margin-bottom: 6px; }
 .anx-icone { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 .anx-info { flex: 1; min-width: 0; }
-.anx-nome { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.anx-size { font-size: 11px; color: #888780; }
+.anx-nome { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.anx-size { font-size: 11px; color: var(--text2); }
 .anx-acoes { display: flex; gap: 4px; }
-.btn-icone { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 4px; }
-.btn-icone:hover { background: #e5e3db; }
+.btn-icone { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 4px; color: var(--text); }
+.btn-icone:hover { background: var(--border); }
 
 /* CALENDÁRIO */
 .cal-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
 .cal-views { display: flex; gap: 4px; }
-.cal-view-btn { font-size: 12px; padding: 5px 12px; border: 1px solid #d3d1c7; border-radius: 6px; cursor: pointer; background: transparent; color: #888780; font-family: inherit; }
-.cal-view-btn.ativo { background: #1a1a18; color: #fff; border-color: #1a1a18; }
-.cal-titulo { font-size: 15px; font-weight: 500; min-width: 200px; text-align: center; }
-
-/* CALENDÁRIO MÊS */
+.cal-view-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; }
+.cal-view-btn.ativo { background: var(--text); color: var(--surface); border-color: var(--text); }
+.cal-titulo { font-size: 15px; font-weight: 500; min-width: 200px; text-align: center; color: var(--text); }
 .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
-.cal-header div { font-size: 11px; color: #888780; text-align: center; padding: 4px 0; font-weight: 500; }
+.cal-header div { font-size: 11px; color: var(--text2); text-align: center; padding: 4px 0; font-weight: 500; }
 .cal-grid-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.cal-dia { min-height: 68px; border-radius: 6px; border: 1px solid #e5e3db; padding: 4px 5px; background: #fff; }
+.cal-dia { min-height: 68px; border-radius: 6px; border: 1px solid var(--border); padding: 4px 5px; background: var(--surface); }
 .cal-dia.outro-mes { opacity: .3; }
-.cal-dia.hoje { border-color: #7F77DD; background: #EEEDFE; }
-.cal-num { font-size: 11px; color: #888780; margin-bottom: 3px; font-weight: 500; }
-.cal-dia.hoje .cal-num { background: #7F77DD; color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+.cal-dia.hoje { border-color: var(--accent); background: var(--accent-light); }
+.cal-num { font-size: 11px; color: var(--text2); margin-bottom: 3px; font-weight: 500; }
+.cal-dia.hoje .cal-num { background: var(--accent); color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
 .cal-ev { font-size: 10px; border-radius: 3px; padding: 2px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .cal-ev.visita { background: #7F77DD; color: #fff; }
 .cal-ev.inst { background: #1D9E75; color: #fff; }
-
-/* CALENDÁRIO SEMANA */
 .cal-semana-wrap { overflow-x: auto; }
 .cal-semana { display: grid; grid-template-columns: 52px repeat(7, 1fr); min-width: 580px; }
-.cal-sem-header { grid-column: 1 / -1; display: grid; grid-template-columns: 52px repeat(7, 1fr); border-bottom: 1px solid #e5e3db; }
-.cal-sem-header-empty { border-right: 1px solid #e5e3db; }
-.cal-sem-dia-hdr { text-align: center; padding: 8px 2px; font-size: 12px; border-right: 1px solid #e5e3db; }
+.cal-sem-header { grid-column: 1 / -1; display: grid; grid-template-columns: 52px repeat(7, 1fr); border-bottom: 1px solid var(--border); }
+.cal-sem-header-empty { border-right: 1px solid var(--border); }
+.cal-sem-dia-hdr { text-align: center; padding: 8px 2px; font-size: 12px; border-right: 1px solid var(--border); color: var(--text); }
 .cal-sem-dia-hdr:last-child { border-right: none; }
-.cal-sem-dia-hdr.hoje { color: #7F77DD; font-weight: 700; }
-.cal-time-col { border-right: 1px solid #e5e3db; }
-.cal-time-slot { height: 48px; border-bottom: 1px solid #f0ede6; display: flex; align-items: flex-start; padding: 2px 4px 0 0; justify-content: flex-end; }
-.cal-time-slot span { font-size: 10px; color: #b4b2a9; }
-.cal-col { border-right: 1px solid #e5e3db; position: relative; }
+.cal-sem-dia-hdr.hoje { color: var(--accent); font-weight: 700; }
+.cal-time-col { border-right: 1px solid var(--border); }
+.cal-time-slot { height: 48px; border-bottom: 1px solid var(--surface2); display: flex; align-items: flex-start; padding: 2px 4px 0 0; justify-content: flex-end; }
+.cal-time-slot span { font-size: 10px; color: var(--text2); }
+.cal-col { border-right: 1px solid var(--border); position: relative; }
 .cal-col:last-child { border-right: none; }
 .cal-col-inner { position: relative; }
-.cal-hora-line { height: 48px; border-bottom: 1px solid #f0ede6; }
+.cal-hora-line { height: 48px; border-bottom: 1px solid var(--surface2); }
 .cal-ev-week { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 5px; font-size: 11px; cursor: pointer; overflow: hidden; z-index: 2; line-height: 1.3; }
 .cal-ev-week.visita { background: #7F77DD; color: #fff; }
 .cal-ev-week.inst { background: #1D9E75; color: #fff; }
-
-/* POPUP CALENDÁRIO */
-.cal-popup { position: fixed; background: #fff; border: 1px solid #d3d1c7; border-radius: 12px; padding: 16px; z-index: 200; width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,.15); display: none; }
+.cal-popup { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; z-index: 200; width: 300px; box-shadow: 0 8px 32px var(--shadow); display: none; color: var(--text); }
+.cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+.cal-legenda-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.cal-legenda-cor { width: 12px; height: 12px; border-radius: 2px; }
 
 /* MODAIS */
-.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
+.modal-bg { position: fixed; inset: 0; background: var(--modal-overlay); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
 .modal-bg.aberto { display: flex; }
-.modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; }
-.modal-sm { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 360px; }
+.modal { background: var(--surface); border-radius: 12px; padding: 20px; width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; color: var(--text); }
+.modal-sm { background: var(--surface); border-radius: 12px; padding: 20px; width: 100%; max-width: 360px; color: var(--text); }
 
 /* LIGHTBOX */
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 300; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
@@ -171,55 +202,81 @@ input[readonly] { background: #f5f4f0; color: #888780; }
 .lb-fechar { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.2); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 20px; }
 .lb-baixar { background: #fff; color: #1a1a18; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
 
-/* CARD VISITA / INSTALAÇÃO */
-.item-card { background: #fff; border: 1px solid #e5e3db; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+/* CARDS ITEM */
+.item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
 .item-header { padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.item-header:hover { background: #f9f8f5; }
-.item-body { padding: 0 16px 16px; border-top: 1px solid #e5e3db; }
-
-/* INFO PAG */
-.info-pag { background: #f5f4f0; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 13px; color: #888780; display: none; }
-
-/* LEGENDA CAL */
-.cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
-.cal-legenda-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888780; }
-.cal-legenda-cor { width: 12px; height: 12px; border-radius: 2px; }
+.item-header:hover { background: var(--surface2); }
+.item-body { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+.info-pag { background: var(--surface2); border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 13px; color: var(--text2); display: none; }
 
 /* LOGIN */
-.login-page { position: fixed; inset: 0; background: #f5f4f0; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.login-page { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9999; background: var(--bg); }
 </style>
 </head>
 <body>
 
 <!-- TELA DE LOGIN -->
-<div id="tela-login" style="position:fixed;inset:0;background:#f5f4f0;display:flex;align-items:center;justify-content:center;z-index:9999">
-  <div style="background:#fff;border:1px solid #e5e3db;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.08)">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="font-size:28px;margin-bottom:8px">🌊</div>
-      <p style="font-size:20px;font-weight:600;margin-bottom:4px">Capellato do Brasil</p>
-      <p style="font-size:13px;color:#888780">Sistema comercial</p>
+<div id="tela-login" class="login-page">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 20px 60px var(--shadow)">
+    <div style="text-align:center;margin-bottom:40px">
+      <!-- Logo SVG ALERY -->
+      <div style="margin-bottom:20px">
+        <svg viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:60px">
+          <defs>
+            <linearGradient id="lg-a" x1="50" y1="5" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#D4A574"/>
+              <stop offset="55%" stop-color="#B07448"/>
+              <stop offset="100%" stop-color="#8B4523"/>
+            </linearGradient>
+          </defs>
+          <path d="M13 87 L50 8" stroke="url(#lg-a)" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M50 8 L75 54" stroke="url(#lg-a)" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M33 54 L67 54 Q83 54 85 69 Q87 82 91 87" stroke="url(#lg-a)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <p style="font-size:22px;font-weight:600;letter-spacing:0.18em;color:var(--text);margin-bottom:8px">ALERY</p>
+      <p style="font-size:10px;letter-spacing:0.14em;color:var(--text2)">ORGANIZA. <span style="color:var(--accent)">CONECTA.</span> OTIMIZA TEMPO.</p>
     </div>
-    <div class="campo" style="margin-bottom:12px"><label>Usuário</label><input type="text" id="login-usuario" placeholder="Ex: giulia" autocomplete="username"></div>
-    <div class="campo" style="margin-bottom:20px"><label>Senha</label><input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
-    <button class="btn btn-preto" style="width:100%;padding:10px" onclick="fazerLogin()">Entrar</button>
-    <p id="login-erro" style="font-size:13px;color:#791F1F;text-align:center;margin-top:12px;display:none"></p>
+    <div class="campo" style="margin-bottom:14px"><label>Usuário</label><input type="text" id="login-usuario" placeholder="Ex: giulia" autocomplete="username"></div>
+    <div class="campo" style="margin-bottom:28px"><label>Senha</label><input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <button class="btn btn-preto" style="width:100%;padding:12px;letter-spacing:0.08em;font-size:12px" onclick="fazerLogin()">ENTRAR</button>
+    <p id="login-erro" style="font-size:12px;color:#A32D2D;text-align:center;margin-top:14px;display:none"></p>
   </div>
 </div>
 
 
 <nav class="nav" id="nav-principal" style="display:none">
-  <button onclick="irPara('visita', this)">📅 Visita</button>
-  <button onclick="irPara('calendario', this)">🗓 Calendário</button>
-  <button onclick="irPara('proposta', this)" class="ativo">📄 Proposta</button>
-  <button onclick="irPara('aprovacao', this)">✅ Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></button>
-  <button onclick="irPara('instalacao', this)">🔧 Instalações</button>
-  <button onclick="irPara('financeiro', this)">💰 Financeiro</button>
-  <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none">🔍 Auditoria</button>
-  <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none">👥 Usuários</button>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;flex-shrink:0">
-    <span id="nav-usuario-nome" style="font-size:12px;color:#888780;white-space:nowrap"></span>
-    <button onclick="abrirModalSenha()" style="font-size:12px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;cursor:pointer;background:transparent;color:#888780;white-space:nowrap">🔑 Minha conta</button>
-    <button onclick="fazerLogout()" style="font-size:12px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;cursor:pointer;background:transparent;color:#888780;white-space:nowrap">Sair</button>
+  <!-- Logo -->
+  <div class="nav-logo">
+    <svg viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:28px">
+      <defs>
+        <linearGradient id="lg-nav" x1="50" y1="5" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#D4A574"/>
+          <stop offset="55%" stop-color="#B07448"/>
+          <stop offset="100%" stop-color="#8B4523"/>
+        </linearGradient>
+      </defs>
+      <path d="M13 87 L50 8" stroke="url(#lg-nav)" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M50 8 L75 54" stroke="url(#lg-nav)" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M33 54 L67 54 Q83 54 85 69 Q87 82 91 87" stroke="url(#lg-nav)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+    </svg>
+    <span class="nav-logo-txt">ALERY</span>
+  </div>
+  <!-- Abas -->
+  <button onclick="irPara('visita', this)">Visita</button>
+  <button onclick="irPara('calendario', this)">Calendário</button>
+  <button onclick="irPara('proposta', this)" class="ativo">Proposta</button>
+  <button onclick="irPara('aprovacao', this)">Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></button>
+  <button onclick="irPara('instalacao', this)">Instalações</button>
+  <button onclick="irPara('financeiro', this)">Financeiro</button>
+  <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none">Auditoria</button>
+  <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none">Usuários</button>
+  <!-- Direita -->
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px;flex-shrink:0">
+    <span id="nav-usuario-nome" style="font-size:11px;color:var(--text2);white-space:nowrap;letter-spacing:.04em"></span>
+    <button id="btn-tema" onclick="toggleTema()" title="Alternar tema" style="font-size:16px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:transparent;color:var(--text2);line-height:1">🌙</button>
+    <button onclick="abrirModalSenha()" style="font-size:11px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;font-family:inherit;letter-spacing:.04em">Conta</button>
+    <button onclick="fazerLogout()" style="font-size:11px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;font-family:inherit;letter-spacing:.04em">Sair</button>
   </div>
 </nav>
 
@@ -779,6 +836,17 @@ let excluindoTipo = null;
 let expandidoVisita = null;
 let expandidoAprov = null;
 let expandidoInst = null;
+
+// ═══ TEMA ═══
+function toggleTema() {
+  const dark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('alery-tema', dark ? 'dark' : 'light');
+  document.getElementById('btn-tema').textContent = dark ? '☀️' : '🌙';
+}
+function initTemaBtn() {
+  const btn = document.getElementById('btn-tema');
+  if (btn) btn.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+}
 
 // ═══ NAVEGAÇÃO ═══
 function irPara(tela, btn) {
@@ -1652,7 +1720,8 @@ function iniciarApp() {
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('nav-principal').style.display = 'flex';
   document.getElementById('app-container').style.display = 'block';
-  document.getElementById('nav-usuario-nome').textContent = '👤 ' + usuarioLogado.nome;
+  document.getElementById('nav-usuario-nome').textContent = usuarioLogado.nome;
+  initTemaBtn();
   if (usuarioLogado.role === 'admin') {
     document.getElementById('btn-auditoria').style.display = '';
     document.getElementById('btn-usuarios').style.display = '';
