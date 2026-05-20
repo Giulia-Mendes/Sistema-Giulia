@@ -4,11 +4,18 @@ const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 const path = require('path');
 
+const fs = require('fs');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── BANCO DE DADOS ──
-const db = new Database('capellato.db');
+const DATA_DIR = process.env.DATA_DIR || '/app/data';
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_PATH = process.env.NODE_ENV === 'production'
+  ? path.join(DATA_DIR, 'capellato.db')
+  : 'capellato.db';
+const db = new Database(DB_PATH);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS usuarios (
