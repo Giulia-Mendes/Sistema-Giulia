@@ -822,14 +822,14 @@ app.get('/api/db-status', (req, res) => {
 });
 app.get('/api/export-all', (req, res) => {
   if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
-  // Tabelas a exportar (sessions excluída — dados binários; auditoria excluída — não essencial)
   const EXPORT_TABLES = ['usuarios','config','metas','visitas','aprovacoes','instalacoes','tiny_pedidos'];
+  const tabela = req.query.tabela; // opcional: exportar só uma tabela
+  const lista = tabela ? [tabela] : EXPORT_TABLES;
   try {
     const dump = {};
-    EXPORT_TABLES.forEach(t => {
+    lista.forEach(t => {
       try {
         const rows = db.prepare('SELECT * FROM ' + t).all();
-        // Converter Buffers para null para evitar erro de serialização JSON
         dump[t] = rows.map(r => {
           const clean = {};
           for (const [k, v] of Object.entries(r)) clean[k] = Buffer.isBuffer(v) ? null : v;
