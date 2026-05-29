@@ -494,8 +494,9 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div class="g3">
       <div class="campo"><label>Data</label><input type="date" id="v-data" oninput="gerarTexto()"></div>
-      <div class="campo"><label>Horário</label><input type="time" id="v-hora-ini" oninput="gerarTexto()"></div>
-      <div class="campo" style="visibility:hidden"><label>.</label><input type="time" id="v-hora-fim"></div>
+      <div class="campo"><label>Horário (agenda)</label><input type="time" id="v-hora-ini" oninput="gerarTexto()"></div>
+      <div class="campo"><label>Período (texto)</label><input type="text" id="v-periodo" placeholder="Ex: das 8h às 11h" oninput="gerarTexto()"></div>
+      <div class="campo" style="display:none"><input type="time" id="v-hora-fim"></div>
     </div>
 
     <div class="campo" style="margin-bottom:12px">
@@ -1043,8 +1044,9 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div class="g3">
       <div class="campo"><label>Data</label><input type="date" id="ev-data"></div>
-      <div class="campo"><label>Horário</label><input type="time" id="ev-hora-ini"></div>
-      <div class="campo" style="visibility:hidden"><label>.</label><input type="time" id="ev-hora-fim"></div>
+      <div class="campo"><label>Horário (agenda)</label><input type="time" id="ev-hora-ini"></div>
+      <div class="campo"><label>Período (texto)</label><input type="text" id="ev-periodo" placeholder="Ex: das 8h às 11h"></div>
+      <div class="campo" style="display:none"><input type="time" id="ev-hora-fim"></div>
     </div>
     <div class="g3">
       <div class="campo">
@@ -1737,14 +1739,14 @@ function montarTextoVisita(v) {
     'Cep: ' + v.cep + '\n\n' +
     'Celular: ' + v.cel + '\n\n' +
     'Data: ' + fmtData(v.data) + '.\n\n' +
-    'Horário: ' + (v.horaIni||'') + ' horas.\n\n' +
+    'Horário: ' + (v.periodo || (v.horaIni ? v.horaIni + 'h' : '')) + '.\n\n' +
     'Técnicos:\n' + tecs + '\n\n' +
     'Lead:\nOBS: ' + (v.obs||'—');
 }
 function gerarTexto() {
   const nome = document.getElementById('v-nome').value.trim();
   if (!nome) { document.getElementById('texto-visita-wrap').style.display = 'none'; return; }
-  const v = { nome, tipo: tipoEvento, cel: document.getElementById('v-cel').value, end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value, data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value, horaFim: document.getElementById('v-hora-fim').value, obs: document.getElementById('v-obs').value, tecnicos: getTecs() };
+  const v = { nome, tipo: tipoEvento, cel: document.getElementById('v-cel').value, end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value, data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value, horaFim: document.getElementById('v-hora-fim').value, periodo: document.getElementById('v-periodo').value, obs: document.getElementById('v-obs').value, tecnicos: getTecs() };
   document.getElementById('texto-visita').textContent = montarTextoVisita(v);
   document.getElementById('texto-visita-wrap').style.display = '';
 }
@@ -1790,6 +1792,7 @@ function abrirEditarVisita(id) {
   document.getElementById('ev-data').value = v.data;
   document.getElementById('ev-hora-ini').value = v.horaIni || '';
   document.getElementById('ev-hora-fim').value = v.horaFim || '';
+  document.getElementById('ev-periodo').value = v.periodo || '';
   document.getElementById('ev-obs').value = v.obs || '';
   document.getElementById('ev-vendedora').value = v.vendedora || '';
   document.getElementById('ev-lead').value = v.lead_id || '';
@@ -2726,7 +2729,9 @@ async function agendarVisita() {
     tipo: tipoEvento, nome, cel: document.getElementById('v-cel').value,
     end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value,
     data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value,
-    horaFim: calcHoraFimAuto(document.getElementById('v-hora-ini').value), obs: document.getElementById('v-obs').value,
+    horaFim: calcHoraFimAuto(document.getElementById('v-hora-ini').value),
+    periodo: document.getElementById('v-periodo').value,
+    obs: document.getElementById('v-obs').value,
     tecnicos: getTecs(), vendedora: document.getElementById('v-vendedora').value || null,
     lead_id: document.getElementById('v-lead').value.trim() || null
   };
@@ -2735,7 +2740,7 @@ async function agendarVisita() {
   if (d.sucesso) {
     ['v-nome','v-cel','v-end','v-cep','v-obs','v-lead'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('v-vendedora').value = '';
-    document.getElementById('v-data').value = ''; document.getElementById('v-hora-ini').value = ''; document.getElementById('v-hora-fim').value = '';
+    document.getElementById('v-data').value = ''; document.getElementById('v-hora-ini').value = ''; document.getElementById('v-hora-fim').value = ''; document.getElementById('v-periodo').value = '';
     document.querySelectorAll('#tela-visita input[type=checkbox]').forEach(c => c.checked = false);
     document.getElementById('texto-visita-wrap').style.display = 'none';
     selecionarTipo('visita');
@@ -2750,6 +2755,7 @@ async function salvarEditarVisita() {
     cel: document.getElementById('ev-cel').value, end: document.getElementById('ev-end').value,
     cep: document.getElementById('ev-cep').value, data: document.getElementById('ev-data').value,
     horaIni: document.getElementById('ev-hora-ini').value, horaFim: calcHoraFimAuto(document.getElementById('ev-hora-ini').value),
+    periodo: document.getElementById('ev-periodo').value,
     obs: document.getElementById('ev-obs').value, tecnicos: getTecsEdit(),
     vendedora: document.getElementById('ev-vendedora').value || null,
     lead_id: document.getElementById('ev-lead').value.trim() || null

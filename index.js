@@ -386,9 +386,9 @@ app.post('/api/trocar-senha', auth, (req, res) => {
 
 // ── VISITAS ──
 app.get('/api/visitas', auth, (req, res) => {
-  const rows = db.prepare('SELECT id,tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,obs,tecnicos,vendedora,lead_id,laudo,criado_por_id,criado_por_nome,criado_em FROM visitas ORDER BY data ASC, hora_ini ASC, criado_em DESC').all().map(v => ({
+  const rows = db.prepare('SELECT id,tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,periodo,obs,tecnicos,vendedora,lead_id,laudo,criado_por_id,criado_por_nome,criado_em FROM visitas ORDER BY data ASC, hora_ini ASC, criado_em DESC').all().map(v => ({
     ...v,
-    horaIni: v.hora_ini, horaFim: v.hora_fim, end: v.endereco,
+    horaIni: v.hora_ini, horaFim: v.hora_fim, end: v.endereco, periodo: v.periodo,
     tecnicos: JSON.parse(v.tecnicos || '[]'), fotos: [], _tem_fotos: false,
     laudo: v.laudo ? JSON.parse(v.laudo) : null
   }));
@@ -398,8 +398,8 @@ app.get('/api/visitas', auth, (req, res) => {
 });
 app.post('/api/visitas', auth, (req, res) => {
   const d = req.body;
-  const r = db.prepare('INSERT INTO visitas (tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,obs,tecnicos,vendedora,lead_id,criado_por_id,criado_por_nome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.session.u.id, req.session.u.nome);
+  const r = db.prepare('INSERT INTO visitas (tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,periodo,obs,tecnicos,vendedora,lead_id,criado_por_id,criado_por_nome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.periodo || null, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.session.u.id, req.session.u.nome);
   audit(req, 'CRIAR_VISITA', 'visitas', r.lastInsertRowid, null, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true, id: r.lastInsertRowid });
   // Sync Google Calendar (assíncrono, não bloqueia a resposta)
@@ -410,8 +410,8 @@ app.post('/api/visitas', auth, (req, res) => {
 app.put('/api/visitas/:id', auth, (req, res) => {
   const antes = db.prepare('SELECT tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,obs,vendedora,google_event_id FROM visitas WHERE id=?').get(req.params.id);
   const d = req.body;
-  db.prepare('UPDATE visitas SET tipo=?,nome=?,cel=?,endereco=?,cep=?,data=?,hora_ini=?,hora_fim=?,obs=?,tecnicos=?,vendedora=?,lead_id=? WHERE id=?')
-    .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.params.id);
+  db.prepare('UPDATE visitas SET tipo=?,nome=?,cel=?,endereco=?,cep=?,data=?,hora_ini=?,hora_fim=?,periodo=?,obs=?,tecnicos=?,vendedora=?,lead_id=? WHERE id=?')
+    .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.periodo || null, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.params.id);
   audit(req, 'EDITAR_VISITA', 'visitas', req.params.id, antes, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true });
   // Sync Google Calendar
@@ -704,6 +704,7 @@ try { db.prepare("ALTER TABLE instalacoes ADD COLUMN tipo_servico TEXT DEFAULT '
 try { db.prepare('ALTER TABLE visitas ADD COLUMN vendedora TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE visitas ADD COLUMN lead_id TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE visitas ADD COLUMN google_event_id TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE visitas ADD COLUMN periodo TEXT DEFAULT NULL').run(); } catch(e) {}
 // garantir que o contador de proposta começa em pelo menos 2025 (próximo número = 2026+)
 try {
   const cRow = db.prepare("SELECT valor FROM config WHERE chave='proposta_contador'").get();
