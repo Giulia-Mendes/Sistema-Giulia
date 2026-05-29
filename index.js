@@ -826,14 +826,20 @@ app.post('/api/gcal/sync-todas-visitas', auth, adminOnly, async (req, res) => {
   (async () => {
     let ok = 0, erros = 0;
     for (const v of visitas) {
-      // Pula visitas que já têm evento criado
-      if (v.google_event_id) { ok++; continue; }
       try {
-        const eventId = await gcalSync('create', { ...v, tecnicos: v.tecnicos || '[]' });
-        if (eventId) {
-          db.prepare('UPDATE visitas SET google_event_id=? WHERE id=?').run(eventId, v.id);
+        const visita = { ...v, tecnicos: v.tecnicos || '[]' };
+        if (v.google_event_id) {
+          // Já tem evento — atualiza com dados mais recentes
+          await gcalSync('update', visita);
           ok++;
-        } else { erros++; }
+        } else {
+          // Ainda não tem evento — cria
+          const eventId = await gcalSync('create', visita);
+          if (eventId) {
+            db.prepare('UPDATE visitas SET google_event_id=? WHERE id=?').run(eventId, v.id);
+            ok++;
+          } else { erros++; }
+        }
         // Pequena pausa para não sobrecarregar a API do Google (quota: 10 req/s)
         await new Promise(r => setTimeout(r, 120));
       } catch(e) { erros++; }
