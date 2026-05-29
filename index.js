@@ -813,6 +813,28 @@ app.post('/api/tiny/notificacao', async (req, res) => {
 });
 
 // ── MIGRAÇÃO TEMPORÁRIA ──
+app.get('/api/export-all', (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  const EXPORT_TABLES = ['usuarios','config','metas','visitas','aprovacoes','instalacoes','tiny_pedidos'];
+  const tabela = req.query.tabela;
+  const lista = tabela ? [tabela] : EXPORT_TABLES;
+  const EXCLUIR = { visitas: ['fotos'] };
+  try {
+    const dump = {};
+    lista.forEach(t => {
+      try {
+        const rows = db.prepare('SELECT * FROM ' + t).all();
+        const excluir = EXCLUIR[t] || [];
+        dump[t] = rows.map(r => {
+          const clean = {};
+          for (const [k, v] of Object.entries(r)) { if (excluir.includes(k)) continue; clean[k] = Buffer.isBuffer(v) ? null : v; }
+          return clean;
+        });
+      } catch(e) { dump[t] = []; }
+    });
+    res.json({ tabelas: dump });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
 app.get('/api/db-status', (req, res) => {
   if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
   try {
