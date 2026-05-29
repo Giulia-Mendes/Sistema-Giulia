@@ -820,17 +820,36 @@ app.get('/api/db-status', (req, res) => {
     res.json({ tables, counts, dbPath: DB_PATH });
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
-app.post('/api/migrate-db', express.raw({ type: '*/*', limit: '250mb' }), (req, res) => {
+app.get('/api/export-all', (req, res) => {
   if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
-  const tmpPath = path.join(DATA_DIR, 'capellato-new.db');
   try {
-    fs.writeFileSync(tmpPath, req.body);
-    res.json({ sucesso: true, bytes: req.body.length });
-    setTimeout(() => {
-      try { db.close(); } catch(e) {}
-      try { fs.renameSync(tmpPath, DB_PATH); } catch(e) { fs.copyFileSync(tmpPath, DB_PATH); fs.unlinkSync(tmpPath); }
-      process.exit(0);
-    }, 500);
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(r => r.name);
+    const dump = {};
+    tables.forEach(t => { try { dump[t] = db.prepare('SELECT * FROM ' + t).all(); } catch(e) { dump[t] = []; } });
+    res.json({ tabelas: dump });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+app.post('/api/import-all', express.json({ limit: '50mb' }), (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  try {
+    const { tabelas } = req.body;
+    if (!tabelas) return res.status(400).json({ erro: 'Payload inválido' });
+    const resultados = {};
+    const ORDER = ['usuarios','config','metas','visitas','aprovacoes','instalacoes','auditoria','sessions','tiny_pedidos'];
+    const allTables = [...ORDER, ...Object.keys(tabelas).filter(t => !ORDER.includes(t))];
+    for (const t of allTables) {
+      const rows = tabelas[t];
+      if (!rows || rows.length === 0) { resultados[t] = 0; continue; }
+      try {
+        const cols = Object.keys(rows[0]);
+        const placeholders = cols.map(() => '?').join(',');
+        const stmt = db.prepare(`INSERT OR IGNORE INTO ${t} (${cols.join(',')}) VALUES (${placeholders})`);
+        const insertMany = db.transaction((rs) => { for (const r of rs) stmt.run(cols.map(c => r[c])); });
+        insertMany(rows);
+        resultados[t] = rows.length;
+      } catch(e) { resultados[t] = 'erro: ' + e.message; }
+    }
+    res.json({ sucesso: true, resultados });
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 // ════════════════════════════════════════════════════════════
