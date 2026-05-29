@@ -3,8 +3,154 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 const path = require('path');
+const https = require('https');
+const crypto = require('crypto');
 
 const fs = require('fs');
+
+// ══════════════════════════════════════════════════════════════
+// GOOGLE CALENDAR SYNC (Service Account, sem dependência externa)
+// Variáveis de ambiente necessárias:
+//   GOOGLE_SERVICE_ACCOUNT_JSON  → conteúdo do arquivo JSON da conta de serviço
+//   GOOGLE_CALENDAR_ID           → ex: abc123@group.calendar.google.com
+// ══════════════════════════════════════════════════════════════
+let _gcalSA = null;      // parsed service account JSON
+let _gcalId = null;      // calendar ID
+let _gcalToken = null;   // { token, expiresAt }
+
+function setupGoogleCalendar() {
+  const saRaw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const calId = process.env.GOOGLE_CALENDAR_ID;
+  if (!saRaw || !calId) return;
+  try {
+    _gcalSA = JSON.parse(saRaw);
+    _gcalId = calId;
+    console.log('[GCal] Google Calendar configurado:', calId);
+  } catch (e) {
+    console.error('[GCal] Erro ao parsear GOOGLE_SERVICE_ACCOUNT_JSON:', e.message);
+  }
+}
+
+async function gcalGetToken() {
+  if (!_gcalSA) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (_gcalToken && _gcalToken.expiresAt > now + 60) return _gcalToken.token;
+
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    iss: _gcalSA.client_email,
+    scope: 'https://www.googleapis.com/auth/calendar',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  })).toString('base64url');
+  const toSign = `${header}.${payload}`;
+  const sig = crypto.createSign('RSA-SHA256').update(toSign).sign(_gcalSA.private_key, 'base64url');
+  const jwt = `${toSign}.${sig}`;
+
+  return new Promise((resolve) => {
+    const body = `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`;
+    const req = https.request({
+      hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }
+    }, (res) => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          if (j.access_token) {
+            _gcalToken = { token: j.access_token, expiresAt: now + (j.expires_in || 3600) };
+            resolve(j.access_token);
+          } else { console.error('[GCal] Token error:', data); resolve(null); }
+        } catch (e) { resolve(null); }
+      });
+    });
+    req.on('error', (e) => { console.error('[GCal] Token request error:', e.message); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
+function gcalHttpRequest(method, urlPath, token, bodyObj) {
+  return new Promise((resolve) => {
+    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : null;
+    const opts = {
+      hostname: 'www.googleapis.com',
+      path: urlPath,
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    };
+    if (bodyStr) opts.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch (e) { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on('error', (e) => { console.error('[GCal] HTTP error:', e.message); resolve(null); });
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+}
+
+// Monta o objeto de evento Google Calendar a partir de uma visita do banco
+function gcalEventFromVisita(v) {
+  const tecnicos = (() => { try { return JSON.parse(v.tecnicos || '[]'); } catch { return []; } })();
+  const tipoLabel = v.tipo === 'instalacao' ? 'Instalação' : v.tipo === 'manutencao' ? 'Manutenção' : 'Visita Técnica';
+  const title = `${tipoLabel} – ${v.nome}`;
+  const desc = [
+    v.endereco ? `📍 ${v.endereco}` : '',
+    v.cel ? `📱 ${v.cel}` : '',
+    tecnicos.length ? `👷 ${tecnicos.join(', ')}` : '',
+    v.obs ? `📝 ${v.obs}` : ''
+  ].filter(Boolean).join('\n');
+
+  // Montar dateTime (data = "YYYY-MM-DD", hora_ini/fim = "HH:MM")
+  const datePart = v.data || new Date().toISOString().slice(0, 10);
+  const tzOffset = '-03:00'; // Brasília
+  let start, end;
+  if (v.hora_ini) {
+    start = { dateTime: `${datePart}T${v.hora_ini}:00${tzOffset}`, timeZone: 'America/Sao_Paulo' };
+    const fimHora = v.hora_fim || `${String(parseInt(v.hora_ini.split(':')[0]) + 1).padStart(2, '0')}:${v.hora_ini.split(':')[1]}`;
+    end = { dateTime: `${datePart}T${fimHora}:00${tzOffset}`, timeZone: 'America/Sao_Paulo' };
+  } else {
+    start = { date: datePart };
+    end = { date: datePart };
+  }
+  return { summary: title, description: desc, start, end, location: v.endereco || '' };
+}
+
+async function gcalSync(action, visita) {
+  // action: 'create' | 'update' | 'delete'
+  if (!_gcalSA || !_gcalId) return null;
+  try {
+    const token = await gcalGetToken();
+    if (!token) return null;
+    const base = `/calendar/v3/calendars/${encodeURIComponent(_gcalId)}/events`;
+
+    if (action === 'create') {
+      const r = await gcalHttpRequest('POST', base, token, gcalEventFromVisita(visita));
+      if (r && r.body && r.body.id) { console.log('[GCal] Evento criado:', r.body.id); return r.body.id; }
+      console.error('[GCal] Erro ao criar:', r?.body);
+    } else if (action === 'update' && visita.google_event_id) {
+      const r = await gcalHttpRequest('PUT', `${base}/${visita.google_event_id}`, token, gcalEventFromVisita(visita));
+      if (r && r.status < 300) { console.log('[GCal] Evento atualizado:', visita.google_event_id); return visita.google_event_id; }
+      console.error('[GCal] Erro ao atualizar:', r?.body);
+    } else if (action === 'delete' && visita.google_event_id) {
+      const r = await gcalHttpRequest('DELETE', `${base}/${visita.google_event_id}`, token, null);
+      if (r && r.status < 300) { console.log('[GCal] Evento deletado:', visita.google_event_id); }
+      else console.error('[GCal] Erro ao deletar:', r?.body);
+    }
+  } catch (e) {
+    console.error('[GCal] gcalSync error:', e.message);
+  }
+  return null;
+}
+
+setupGoogleCalendar();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -253,14 +399,20 @@ app.post('/api/visitas', auth, (req, res) => {
     .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.session.u.id, req.session.u.nome);
   audit(req, 'CRIAR_VISITA', 'visitas', r.lastInsertRowid, null, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true, id: r.lastInsertRowid });
+  // Sync Google Calendar (assíncrono, não bloqueia a resposta)
+  gcalSync('create', { tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []) })
+    .then(eventId => { if (eventId) db.prepare('UPDATE visitas SET google_event_id=? WHERE id=?').run(eventId, r.lastInsertRowid); })
+    .catch(() => {});
 });
 app.put('/api/visitas/:id', auth, (req, res) => {
-  const antes = db.prepare('SELECT tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,obs,vendedora FROM visitas WHERE id=?').get(req.params.id);
+  const antes = db.prepare('SELECT tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,obs,vendedora,google_event_id FROM visitas WHERE id=?').get(req.params.id);
   const d = req.body;
   db.prepare('UPDATE visitas SET tipo=?,nome=?,cel=?,endereco=?,cep=?,data=?,hora_ini=?,hora_fim=?,obs=?,tecnicos=?,vendedora=?,lead_id=? WHERE id=?')
     .run(d.tipo, d.nome, d.cel, d.end, d.cep, d.data, d.horaIni, d.horaFim, d.obs, JSON.stringify(d.tecnicos || []), d.vendedora || null, d.lead_id || null, req.params.id);
   audit(req, 'EDITAR_VISITA', 'visitas', req.params.id, antes, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true });
+  // Sync Google Calendar
+  if (antes) gcalSync('update', { ...antes, tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []) }).catch(() => {});
 });
 app.put('/api/visitas/:id/laudo', auth, (req, res) => {
   const antes = db.prepare('SELECT laudo FROM visitas WHERE id=?').get(req.params.id);
@@ -269,10 +421,12 @@ app.put('/api/visitas/:id/laudo', auth, (req, res) => {
   res.json({ sucesso: true });
 });
 app.delete('/api/visitas/:id', auth, (req, res) => {
-  const antes = db.prepare('SELECT nome,data,tipo FROM visitas WHERE id=?').get(req.params.id);
+  const antes = db.prepare('SELECT nome,data,tipo,google_event_id FROM visitas WHERE id=?').get(req.params.id);
   db.prepare('DELETE FROM visitas WHERE id=?').run(req.params.id);
   audit(req, 'EXCLUIR_VISITA', 'visitas', req.params.id, antes, null);
   res.json({ sucesso: true });
+  // Sync Google Calendar
+  if (antes) gcalSync('delete', antes).catch(() => {});
 });
 app.get('/api/visitas/:id/fotos', auth, (req, res) => {
   const row = db.prepare('SELECT fotos FROM visitas WHERE id=?').get(req.params.id);
@@ -546,6 +700,7 @@ try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN lead_id TEXT DEFAULT NULL'
 try { db.prepare("ALTER TABLE instalacoes ADD COLUMN tipo_servico TEXT DEFAULT 'instalacao'").run(); } catch(e) {}
 try { db.prepare('ALTER TABLE visitas ADD COLUMN vendedora TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE visitas ADD COLUMN lead_id TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE visitas ADD COLUMN google_event_id TEXT DEFAULT NULL').run(); } catch(e) {}
 // garantir que o contador de proposta começa em pelo menos 2025 (próximo número = 2026+)
 try {
   const cRow = db.prepare("SELECT valor FROM config WHERE chave='proposta_contador'").get();
