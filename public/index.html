@@ -530,6 +530,7 @@ select option { background: var(--surface); color: var(--text); }
       <button id="filtro-vis-todas" class="btn btn-branco" onclick="setFiltroVisita('todas')" style="font-size:13px;padding:5px 14px">Todas</button>
       <button id="filtro-vis-futuras" class="btn btn-branco" onclick="setFiltroVisita('futuras')" style="font-size:13px;padding:5px 14px">Próximas</button>
       <button id="filtro-vis-passadas" class="btn btn-branco" onclick="setFiltroVisita('passadas')" style="font-size:13px;padding:5px 14px">Passadas</button>
+      <button class="btn btn-branco" onclick="syncTodasVisitasGcal()" style="font-size:13px;padding:5px 14px" title="Enviar todas as visitas para o Google Agenda">📅 Sincronizar Google Agenda</button>
       <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
         <label style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">📅 Mês:</label>
         <input type="month" id="filtro-mes-visita" onchange="renderVisitas()" style="font-size:13px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
@@ -2696,6 +2697,19 @@ async function carregarInstalacoes() {
 // ═══ SOBRESCREVER FUNÇÕES QUE SALVAM DADOS ═══
 
 // VISITAS - agendar
+async function syncTodasVisitasGcal() {
+  if (!confirm('Isso vai enviar todas as visitas existentes para o Google Agenda. Continuar?')) return;
+  try {
+    const r = await fetch('/api/gcal/sync-todas-visitas', { method: 'POST' });
+    const d = await r.json();
+    if (d.iniciado) {
+      alert(`Sincronização iniciada! ${d.total} visitas sendo enviadas para o Google Agenda em segundo plano. Pode levar alguns minutos.`);
+    } else {
+      alert('Erro: ' + (d.erro || 'Não foi possível iniciar a sincronização.'));
+    }
+  } catch(e) { alert('Erro ao sincronizar: ' + e.message); }
+}
+
 async function agendarVisita() {
   const nome = document.getElementById('v-nome').value.trim();
   if (!nome) { alert('Informe o nome do cliente.'); return; }

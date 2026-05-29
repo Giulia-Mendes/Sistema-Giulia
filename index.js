@@ -812,6 +812,31 @@ app.post('/api/tiny/notificacao', async (req, res) => {
   } catch(e) { /* silencioso — já respondeu 200 */ }
 });
 
+// ── SYNC GOOGLE CALENDAR EM MASSA ──
+app.post('/api/gcal/sync-todas-visitas', auth, adminOnly, async (req, res) => {
+  if (!_gcalSA || !_gcalId) return res.status(400).json({ erro: 'Google Calendar não configurado' });
+  const visitas = db.prepare('SELECT * FROM visitas ORDER BY data ASC').all();
+  res.json({ iniciado: true, total: visitas.length });
+  // Roda em background sem bloquear
+  (async () => {
+    let ok = 0, erros = 0;
+    for (const v of visitas) {
+      // Pula visitas que já têm evento criado
+      if (v.google_event_id) { ok++; continue; }
+      try {
+        const eventId = await gcalSync('create', { ...v, tecnicos: v.tecnicos || '[]' });
+        if (eventId) {
+          db.prepare('UPDATE visitas SET google_event_id=? WHERE id=?').run(eventId, v.id);
+          ok++;
+        } else { erros++; }
+        // Pequena pausa para não sobrecarregar a API do Google (quota: 10 req/s)
+        await new Promise(r => setTimeout(r, 120));
+      } catch(e) { erros++; }
+    }
+    console.log(`[GCal] Sync em massa concluído: ${ok} ok, ${erros} erros`);
+  })();
+});
+
 // ── TINY DEBUG ──
 app.get('/api/tiny/debug', auth, adminOnly, async (req, res) => {
   const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
