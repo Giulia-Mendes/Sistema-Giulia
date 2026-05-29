@@ -825,14 +825,20 @@ app.get('/api/export-all', (req, res) => {
   const EXPORT_TABLES = ['usuarios','config','metas','visitas','aprovacoes','instalacoes','tiny_pedidos'];
   const tabela = req.query.tabela; // opcional: exportar só uma tabela
   const lista = tabela ? [tabela] : EXPORT_TABLES;
+  // Colunas para excluir por tabela (fotos ficam no filesystem, não migrar)
+  const EXCLUIR = { visitas: ['fotos'] };
   try {
     const dump = {};
     lista.forEach(t => {
       try {
         const rows = db.prepare('SELECT * FROM ' + t).all();
+        const excluir = EXCLUIR[t] || [];
         dump[t] = rows.map(r => {
           const clean = {};
-          for (const [k, v] of Object.entries(r)) clean[k] = Buffer.isBuffer(v) ? null : v;
+          for (const [k, v] of Object.entries(r)) {
+            if (excluir.includes(k)) continue;
+            clean[k] = Buffer.isBuffer(v) ? null : v;
+          }
           return clean;
         });
       } catch(e) { dump[t] = []; }
