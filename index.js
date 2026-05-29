@@ -812,6 +812,27 @@ app.post('/api/tiny/notificacao', async (req, res) => {
   } catch(e) { /* silencioso — já respondeu 200 */ }
 });
 
+// ── MIGRAÇÃO DE FOTOS ──
+app.get('/api/migrar-fotos/ids', (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  const rows = db.prepare("SELECT id FROM visitas WHERE fotos IS NOT NULL AND fotos != '[]' AND fotos != '' AND fotos != 'null'").all();
+  res.json({ ids: rows.map(r => r.id) });
+});
+app.get('/api/migrar-fotos/:id', (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  const row = db.prepare('SELECT id, fotos FROM visitas WHERE id=?').get(req.params.id);
+  if (!row) return res.status(404).json({ erro: 'Visita não encontrada' });
+  res.json({ id: row.id, fotos: row.fotos });
+});
+app.post('/api/migrar-fotos/:id', express.json({ limit: '50mb' }), (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  const { fotos } = req.body;
+  if (!fotos) return res.status(400).json({ erro: 'Sem fotos' });
+  db.prepare('UPDATE visitas SET fotos=? WHERE id=?').run(fotos, req.params.id);
+  res.json({ sucesso: true });
+});
+// ────────────────────────────────
+
 // ── SYNC GOOGLE CALENDAR EM MASSA ──
 app.post('/api/gcal/sync-todas-visitas', auth, adminOnly, async (req, res) => {
   if (!_gcalSA || !_gcalId) return res.status(400).json({ erro: 'Google Calendar não configurado' });
