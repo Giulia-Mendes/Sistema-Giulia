@@ -807,23 +807,4 @@ app.get('/api/tiny/pedidos', auth, (req, res) => {
   res.json(rows.map(r => ({ ...r, marcadores: JSON.parse(r.marcadores || '[]') })));
 });
 
-// ═══ ENDPOINT TEMPORÁRIO DE MIGRAÇÃO — REMOVER APÓS USO ═══
-app.post('/api/migrate-db', express.raw({ type: '*/*', limit: '250mb' }), (req, res) => {
-  const secret = req.headers['x-migrate-secret'];
-  if (secret !== 'alery-migrate-2026') return res.status(403).json({ erro: 'Forbidden' });
-  const tmpPath = path.join(DATA_DIR, 'capellato-new.db');
-  try {
-    fs.writeFileSync(tmpPath, req.body);
-    res.json({ sucesso: true, bytes: req.body.length });
-    setTimeout(() => {
-      try { db.close(); } catch(e) {}
-      fs.renameSync(tmpPath, DB_PATH);
-      process.exit(0);
-    }, 500);
-  } catch(e) {
-    res.status(500).json({ erro: e.message });
-  }
-});
-// ═══════════════════════════════════════════════════════════
-
 app.listen(PORT, () => console.log('Capellato rodando na porta', PORT));
