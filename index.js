@@ -703,9 +703,12 @@ db.exec(`
     vendedora TEXT,
     marcadores TEXT,
     situacao TEXT,
+    lead_id TEXT DEFAULT NULL,
     sincronizado_em TEXT DEFAULT (datetime('now','localtime'))
   )
 `);
+// Garante colunas extras em DBs antigos
+try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN lead_id TEXT DEFAULT NULL').run(); } catch(e) {}
 
 function detectarVendedoraTiny(tags) {
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -806,5 +809,30 @@ app.get('/api/tiny/pedidos', auth, (req, res) => {
     : db.prepare('SELECT * FROM tiny_pedidos ORDER BY data DESC').all();
   res.json(rows.map(r => ({ ...r, marcadores: JSON.parse(r.marcadores || '[]') })));
 });
+
+// ═══ ENDPOINTS TEMPORÁRIOS DE MIGRAÇÃO — REMOVER APÓS USO ═══
+app.get('/api/db-status', (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  try {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    const counts = {};
+    tables.forEach(t => { try { counts[t] = db.prepare('SELECT COUNT(*) as n FROM ' + t).get().n; } catch(e) { counts[t] = 'err'; } });
+    res.json({ tables, counts, dbPath: DB_PATH });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+app.post('/api/migrate-db', express.raw({ type: '*/*', limit: '250mb' }), (req, res) => {
+  if (req.headers['x-migrate-secret'] !== 'alery-migrate-2026') return res.status(403).end();
+  const tmpPath = path.join(DATA_DIR, 'capellato-new.db');
+  try {
+    fs.writeFileSync(tmpPath, req.body);
+    res.json({ sucesso: true, bytes: req.body.length });
+    setTimeout(() => {
+      try { db.close(); } catch(e) {}
+      try { fs.renameSync(tmpPath, DB_PATH); } catch(e) { fs.copyFileSync(tmpPath, DB_PATH); fs.unlinkSync(tmpPath); }
+      process.exit(0);
+    }, 500);
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+// ════════════════════════════════════════════════════════════
 
 app.listen(PORT, () => console.log('Capellato rodando na porta', PORT));
