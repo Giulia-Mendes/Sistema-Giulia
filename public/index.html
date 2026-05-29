@@ -494,8 +494,8 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div class="g3">
       <div class="campo"><label>Data</label><input type="date" id="v-data" oninput="gerarTexto()"></div>
-      <div class="campo"><label>Das</label><input type="time" id="v-hora-ini" oninput="gerarTexto()"></div>
-      <div class="campo"><label>Até</label><input type="time" id="v-hora-fim" oninput="gerarTexto()"></div>
+      <div class="campo"><label>Horário</label><input type="time" id="v-hora-ini" oninput="gerarTexto()"></div>
+      <div class="campo" style="visibility:hidden"><label>.</label><input type="time" id="v-hora-fim"></div>
     </div>
 
     <div class="campo" style="margin-bottom:12px">
@@ -1043,8 +1043,8 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div class="g3">
       <div class="campo"><label>Data</label><input type="date" id="ev-data"></div>
-      <div class="campo"><label>Das</label><input type="time" id="ev-hora-ini"></div>
-      <div class="campo"><label>Até</label><input type="time" id="ev-hora-fim"></div>
+      <div class="campo"><label>Horário</label><input type="time" id="ev-hora-ini"></div>
+      <div class="campo" style="visibility:hidden"><label>.</label><input type="time" id="ev-hora-fim"></div>
     </div>
     <div class="g3">
       <div class="campo">
@@ -1683,7 +1683,7 @@ function abrirPopupCal(evt, src, id) {
     h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📱 ' + obj.cel + '</p>';
     h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📍 ' + obj.end + '</p>';
     h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📮 CEP: ' + obj.cep + '</p>';
-    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📅 ' + fmtData(obj.data) + ' · ' + (obj.horaIni||'') + ' às ' + (obj.horaFim||'') + '</p>';
+    h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📅 ' + fmtData(obj.data) + (obj.horaIni ? ' · ' + obj.horaIni : '') + '</p>';
     h += '<p style="font-size:13px;color:#888780;margin-bottom:4px;white-space:pre-line">👷 ' + (tecs || '—') + '</p>';
     if (obj.obs) h += '<p style="font-size:13px;color:#888780;margin-bottom:4px">📝 ' + obj.obs + '</p>';
     if (obj.laudo) h += '<p style="font-size:12px;color:var(--mineral-txt);margin-top:6px;font-weight:500">✓ Laudo: ' + obj.laudo.comp + 'm × ' + obj.laudo.larg + 'm × ' + obj.laudo.prof + 'm · ' + (obj.laudo.dias||'?') + ' dia(s)</p>';
@@ -1737,7 +1737,7 @@ function montarTextoVisita(v) {
     'Cep: ' + v.cep + '\n\n' +
     'Celular: ' + v.cel + '\n\n' +
     'Data: ' + fmtData(v.data) + '.\n\n' +
-    'Horário: das ' + (v.horaIni||'') + ' às ' + (v.horaFim||'') + ' horas.\n\n' +
+    'Horário: ' + (v.horaIni||'') + ' horas.\n\n' +
     'Técnicos:\n' + tecs + '\n\n' +
     'Lead:\nOBS: ' + (v.obs||'—');
 }
@@ -1918,7 +1918,7 @@ function renderVisitas() {
       '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">' + tipoBadge + laudoBadge + '</div>' +
       '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + v.nome + '</p>' +
       '<p style="font-size:13px;color:#888780;margin:0 0 2px">' + v.end + '</p>' +
-      '<p style="font-size:12px;color:#888780;margin:0">📅 ' + fmtData(v.data) + ' · ' + (v.horaIni||'') + ' às ' + (v.horaFim||'') + ' · 👷 ' + tecs + (v.vendedora ? ' · 👤 ' + v.vendedora : '') + (v.lead_id ? ' · Lead: ' + v.lead_id : '') + '</p>' +
+      '<p style="font-size:12px;color:#888780;margin:0">📅 ' + fmtData(v.data) + (v.horaIni ? ' · ' + v.horaIni : '') + ' · 👷 ' + tecs + (v.vendedora ? ' · 👤 ' + v.vendedora : '') + (v.lead_id ? ' · Lead: ' + v.lead_id : '') + '</p>' +
       '</div>' +
       '<p style="font-size:12px;color:#888780;flex-shrink:0;margin-left:8px">' + v.cel + '</p>' +
       '</div>' + bodyHtml + '</div>';
@@ -2697,6 +2697,15 @@ async function carregarInstalacoes() {
 // ═══ SOBRESCREVER FUNÇÕES QUE SALVAM DADOS ═══
 
 // VISITAS - agendar
+function calcHoraFimAuto(horaIni) {
+  if (!horaIni) return '';
+  const [h, m] = horaIni.split(':').map(Number);
+  const total = h * 60 + m + 60; // +1 hora
+  const hf = Math.floor(total / 60) % 24;
+  const mf = total % 60;
+  return String(hf).padStart(2,'0') + ':' + String(mf).padStart(2,'0');
+}
+
 async function syncTodasVisitasGcal() {
   if (!confirm('Isso vai enviar todas as visitas existentes para o Google Agenda. Continuar?')) return;
   try {
@@ -2717,7 +2726,7 @@ async function agendarVisita() {
     tipo: tipoEvento, nome, cel: document.getElementById('v-cel').value,
     end: document.getElementById('v-end').value, cep: document.getElementById('v-cep').value,
     data: document.getElementById('v-data').value, horaIni: document.getElementById('v-hora-ini').value,
-    horaFim: document.getElementById('v-hora-fim').value, obs: document.getElementById('v-obs').value,
+    horaFim: calcHoraFimAuto(document.getElementById('v-hora-ini').value), obs: document.getElementById('v-obs').value,
     tecnicos: getTecs(), vendedora: document.getElementById('v-vendedora').value || null,
     lead_id: document.getElementById('v-lead').value.trim() || null
   };
@@ -2740,7 +2749,7 @@ async function salvarEditarVisita() {
     tipo: tipoEventoEdit, nome: document.getElementById('ev-nome').value,
     cel: document.getElementById('ev-cel').value, end: document.getElementById('ev-end').value,
     cep: document.getElementById('ev-cep').value, data: document.getElementById('ev-data').value,
-    horaIni: document.getElementById('ev-hora-ini').value, horaFim: document.getElementById('ev-hora-fim').value,
+    horaIni: document.getElementById('ev-hora-ini').value, horaFim: calcHoraFimAuto(document.getElementById('ev-hora-ini').value),
     obs: document.getElementById('ev-obs').value, tecnicos: getTecsEdit(),
     vendedora: document.getElementById('ev-vendedora').value || null,
     lead_id: document.getElementById('ev-lead').value.trim() || null

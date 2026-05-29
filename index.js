@@ -108,14 +108,17 @@ function gcalEventFromVisita(v) {
     v.obs ? `📝 ${v.obs}` : ''
   ].filter(Boolean).join('\n');
 
-  // Montar dateTime (data = "YYYY-MM-DD", hora_ini/fim = "HH:MM")
   const datePart = v.data || new Date().toISOString().slice(0, 10);
-  const tzOffset = '-03:00'; // Brasília
+  const tzOffset = '-03:00';
   let start, end;
   if (v.hora_ini) {
     start = { dateTime: `${datePart}T${v.hora_ini}:00${tzOffset}`, timeZone: 'America/Sao_Paulo' };
-    const fimHora = v.hora_fim || `${String(parseInt(v.hora_ini.split(':')[0]) + 1).padStart(2, '0')}:${v.hora_ini.split(':')[1]}`;
-    end = { dateTime: `${datePart}T${fimHora}:00${tzOffset}`, timeZone: 'America/Sao_Paulo' };
+    // Fim sempre 1h depois do início
+    const [h, m] = v.hora_ini.split(':').map(Number);
+    const totalMin = h * 60 + m + 60;
+    const hf = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
+    const mf = String(totalMin % 60).padStart(2, '0');
+    end = { dateTime: `${datePart}T${hf}:${mf}:00${tzOffset}`, timeZone: 'America/Sao_Paulo' };
   } else {
     start = { date: datePart };
     end = { date: datePart };
