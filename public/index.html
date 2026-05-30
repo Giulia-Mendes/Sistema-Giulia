@@ -606,7 +606,7 @@ select option { background: var(--surface); color: var(--text); }
     <div class="g2">
       <div class="campo">
         <label>Forma de pagamento</label>
-        <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos()">
+        <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos();autoFillMatProp()">
           <option value="pix">PIX — sem taxa</option>
           <option value="deb">Débito — 0,79%</option>
           <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
@@ -693,7 +693,7 @@ select option { background: var(--surface); color: var(--text); }
     <p class="sec">Calculadora de margem</p>
     <div class="g3">
       <div class="campo"><label>Custo equipamento (R$)</label><input type="text" inputmode="decimal" id="p-custo-prod" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="calcMargem()"></div>
-      <div class="campo"><label>Custo material (R$) <span style="font-size:11px;font-weight:400;color:var(--text2)">(margem 18%)</span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
+      <div class="campo"><label>Custo material (R$) <span style="font-size:11px;font-weight:400;color:var(--text2)">(taxa + 8%)</span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
       <div class="campo"><label>Total da proposta (R$)</label><input type="text" inputmode="decimal" id="p-venda" placeholder="Auto" onblur="formatMoedaInput(this)" oninput="calcMargem()" style="background:var(--surface2)"></div>
     </div>
     <div class="stat3">
@@ -2305,11 +2305,15 @@ function renderPropAnexos() {
       '</div>';
   }).join('');
 }
+const MARGEM_MATERIAL_PCT = 8; // margem líquida do material após taxa do cartão
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Material: acréscimo fixo de 18% sobre o custo
-    const preco = cm * 1.18;
+    // Material: custo / (1 - taxa_cartao - 8%), cobre a taxa e garante 8% líquido
+    const pag = getPag();
+    const taxa = pag ? pag.taxa : 0;
+    const totalDesc = (taxa + MARGEM_MATERIAL_PCT) / 100;
+    const preco = totalDesc < 1 ? cm / (1 - totalDesc) : cm * 1.08;
     document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else {
     document.getElementById('p-mat-prop').value = '';
