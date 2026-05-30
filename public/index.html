@@ -4325,7 +4325,8 @@ function acaoLabel(acao) {
     CRIAR_PROPOSTA: '📄 Criou proposta', EDITAR_PROPOSTA: '✏️ Editou proposta', EXCLUIR_PROPOSTA: '🗑 Excluiu proposta',
     CRIAR_INSTALACAO: '🔧 Criou instalação', EDITAR_INSTALACAO: '✏️ Editou instalação', EXCLUIR_INSTALACAO: '🗑 Excluiu instalação',
     EDITAR_COMPRAS: '🛒 Editou Compras',
-    CRIAR_USUARIO: '👤 Criou usuário', EDITAR_USUARIO: '✏️ Editou usuário'
+    CRIAR_USUARIO: '👤 Criou usuário', EDITAR_USUARIO: '✏️ Editou usuário',
+    SYNC_TINY: '🔄 Sincronização Tiny'
   };
   return labels[acao] || acao;
 }
@@ -4351,6 +4352,7 @@ const CAMPO_LABEL = {
 const CAMPOS_IGNORAR = new Set([
   'id','criado_em','google_event_id','_tem_anexos','anexos','html_proposta',
   'criado_por_id','criado_por_nome','lead_id_num','obs_compras','comprovantes',
+  'texto','custos', // textos longos / internos
   'checks' // tratado separado
 ]);
 function fmtValAudit(v, campo) {
@@ -4372,13 +4374,17 @@ function buildDiffs(antes, depois) {
   if ((antes&&antes.checks) || (depois&&depois.checks)) {
     const ca = (antes&&antes.checks)||{}, cd = (depois&&depois.checks)||{};
     new Set([...Object.keys(ca), ...Object.keys(cd)]).forEach(k => {
-      if (JSON.stringify(ca[k]) !== JSON.stringify(cd[k]))
-        diffs.push({ lbl: CAMPO_LABEL[k] || k, av: ca[k], dv: cd[k], k, isCheck: true });
+      const av = ca[k], dv = cd[k];
+      if (dv === undefined) return; // check não presente no depois — update parcial, ignorar
+      if (JSON.stringify(av) !== JSON.stringify(dv))
+        diffs.push({ lbl: CAMPO_LABEL[k] || k, av, dv, k, isCheck: true });
     });
   }
   new Set([...Object.keys(antes||{}), ...Object.keys(depois||{})]).forEach(k => {
     if (k === 'checks' || CAMPOS_IGNORAR.has(k)) return;
     const av = (antes||{})[k], dv = (depois||{})[k];
+    // Se o campo não existe no objeto depois (update parcial), ignorar — não é uma mudança real
+    if (dv === undefined) return;
     if (JSON.stringify(av) !== JSON.stringify(dv))
       diffs.push({ lbl: CAMPO_LABEL[k] || k, av, dv, k, isCheck: false });
   });
