@@ -693,7 +693,7 @@ select option { background: var(--surface); color: var(--text); }
     <p class="sec">Calculadora de margem</p>
     <div class="g3">
       <div class="campo"><label>Custo equipamento (R$)</label><input type="text" inputmode="decimal" id="p-custo-prod" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="calcMargem()"></div>
-      <div class="campo"><label>Custo material (R$)</label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
+      <div class="campo"><label>Custo material (R$) <span style="font-size:11px;font-weight:400;color:var(--text2)">(margem 18%)</span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
       <div class="campo"><label>Total da proposta (R$)</label><input type="text" inputmode="decimal" id="p-venda" placeholder="Auto" onblur="formatMoedaInput(this)" oninput="calcMargem()" style="background:var(--surface2)"></div>
     </div>
     <div class="stat3">
@@ -2308,12 +2308,9 @@ function renderPropAnexos() {
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Usa a mesma fórmula dos produtos: custo / (1 - taxa - margem)
-    // para que o material também contribua com a margem desejada
-    const preco = calcPrecoFromCusto(cm);
-    document.getElementById('p-mat-prop').value = preco > 0
-      ? preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : (cm * 1.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Material: acréscimo fixo de 18% sobre o custo
+    const preco = cm * 1.18;
+    document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else {
     document.getElementById('p-mat-prop').value = '';
   }
