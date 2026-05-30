@@ -325,14 +325,16 @@ app.get('/api/me', (req, res) => {
 
 // ── PERMISSÕES POR PERFIL ──
 const DEFAULT_ROLE_PAGES = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','meta','calculadora','sincronizar','auditoria','usuarios'],
+  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
 app.get('/api/role-permissions', auth, (req, res) => {
   const row = db.prepare("SELECT valor FROM config WHERE chave='role_permissions'").get();
-  res.json(row ? JSON.parse(row.valor) : DEFAULT_ROLE_PAGES);
+  const saved = row ? JSON.parse(row.valor) : {};
+  // admin sempre recebe a lista completa atualizada (ignora versão salva no banco)
+  res.json({ ...DEFAULT_ROLE_PAGES, ...saved, admin: DEFAULT_ROLE_PAGES.admin });
 });
 app.put('/api/role-permissions', auth, adminOnly, (req, res) => {
   // admin sempre mantém acesso total
