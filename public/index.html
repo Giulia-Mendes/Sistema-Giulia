@@ -383,7 +383,7 @@ select option { background: var(--surface); color: var(--text); }
     <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">Pd</span><span class="nav-label">Pedidos</span></button>
     <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">In</span><span class="nav-label">Instalações</span></button>
     <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">Co</span><span class="nav-label">Compras</span></button>
-    <button onclick="irPara('fechamentos', this)" id="btn-fechamentos"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
+    <button onclick="irPara('fechamentos', this)" id="btn-fechamentos" style="display:none"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
     <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">Me</span><span class="nav-label">Metas</span></button>
     <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
     <button onclick="irPara('sincronizar', this)" id="btn-sincronizar" style="display:none"><span class="nav-icon">↓</span><span class="nav-label">Sincronizar</span></button>
@@ -3637,14 +3637,14 @@ async function pedidoParaCompras(fonte, id) {
 
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','meta','calculadora','sincronizar','auditoria','usuarios'],
+  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', usuarios:'Usuários' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','meta','calculadora','sincronizar','auditoria','usuarios'];
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', usuarios:'Usuários' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'];
 
 async function carregarPermissoes() {
   try {
