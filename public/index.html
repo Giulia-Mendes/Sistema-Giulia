@@ -4322,9 +4322,8 @@ function renderFechamentos() {
     const custoEquip = a.custo_prod || 0;
     const custoMat   = a.custo_mat  || 0;
     const matProp    = a.mat_prop   || 0;
-    // Margem só produto (sem material), igual à proposta
-    const pvProd  = a.valor - matProp;
-    const margemA = pvProd > 0 && custoEquip > 0 ? ((pvProd - custoEquip) / pvProd * 100) : (a.margem ? a.margem * 100 : null);
+    // Usa a.margem salva (já considera taxa do cartão + custo prod)
+    const margemA = a.margem != null ? a.margem * 100 : null;
     const margemPct = margemA !== null ? margemA.toFixed(0) : null;
     const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
     const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
