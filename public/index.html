@@ -573,6 +573,8 @@ select option { background: var(--surface); color: var(--text); }
 
 <!-- ═══════════ PROPOSTA ═══════════ -->
 <div id="tela-proposta" class="tela">
+
+  <!-- Card 1: Dados do cliente -->
   <div class="card">
     <p class="sec">Dados do cliente</p>
     <div class="g2">
@@ -596,6 +598,65 @@ select option { background: var(--surface); color: var(--text); }
       <button type="button" class="btn btn-branco" onclick="document.getElementById('prop-anexo-input').click()" style="font-size:13px">+ Adicionar foto / arquivo</button>
       <input type="file" id="prop-anexo-input" multiple accept="image/*,.pdf" style="display:none" onchange="addPropAnexo(this)">
     </div>
+  </div>
+
+  <!-- Card 2: Taxa do cartão e margem desejada -->
+  <div class="card">
+    <p class="sec">Taxa do cartão e margem</p>
+    <div class="g2">
+      <div class="campo">
+        <label>Forma de pagamento</label>
+        <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos()">
+          <option value="pix">PIX — sem taxa</option>
+          <option value="deb">Débito — 0,79%</option>
+          <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
+          <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
+          <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
+          <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
+          <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
+          <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
+          <option value="boleto">Boleto</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Margem desejada (%)</label>
+        <input type="number" id="p-margem-desejada" placeholder="Ex: 38" min="0" max="99" step="0.1" value="38" oninput="recalcPrecoProdutos();calcMargem()">
+      </div>
+    </div>
+    <div id="info-pag" class="info-pag" style="display:none"></div>
+  </div>
+
+  <!-- Card 3: Produtos -->
+  <div class="card">
+    <p class="sec">Produtos</p>
+    <div id="lista-prod-adicionais"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:flex-end;border-top:1px solid var(--border);padding-top:10px">
+      <div style="flex:3;min-width:120px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Nome do produto</label>
+        <input type="text" id="novo-prod-nome" placeholder="Nome" style="width:100%">
+      </div>
+      <div style="flex:1;min-width:55px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">SKU</label>
+        <input type="text" id="novo-prod-sku" placeholder="SKU" style="width:100%">
+      </div>
+      <div style="width:54px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Qtd</label>
+        <input type="number" id="novo-prod-qtd" placeholder="1" value="1" style="width:100%">
+      </div>
+      <div style="flex:1;min-width:90px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Custo un. (R$)</label>
+        <input type="text" inputmode="decimal" id="novo-prod-custo" placeholder="0,00" style="width:100%" onblur="formatMoedaInput(this)" oninput="autoCalcNovoProdPreco()">
+      </div>
+      <div style="flex:1;min-width:90px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Preço un. (R$)</label>
+        <input type="text" inputmode="decimal" id="novo-prod-preco" placeholder="Auto" style="width:100%;background:var(--surface2)" onblur="formatMoedaInput(this)">
+      </div>
+      <button class="btn btn-branco" onclick="addProduto()" style="white-space:nowrap;flex-shrink:0">+ Add produto</button>
+    </div>
+  </div>
+
+  <!-- Card 4: Material, prazo, validade e desconto -->
+  <div class="card">
     <div class="g3">
       <div class="campo">
         <label>Preço do material (R$)</label>
@@ -615,19 +676,6 @@ select option { background: var(--surface); color: var(--text); }
         <input type="text" id="p-validade" placeholder="Ex: 7 dias" oninput="gerarProposta()">
       </div>
     </div>
-
-    <div class="campo" style="margin-top:4px">
-      <label>Produtos adicionais</label>
-      <div id="lista-prod-adicionais"></div>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:flex-end">
-        <div style="flex:3;min-width:140px"><input type="text" id="novo-prod-nome" placeholder="Nome do produto" style="width:100%"></div>
-        <div style="flex:1;min-width:70px"><input type="text" id="novo-prod-sku" placeholder="SKU" style="width:100%"></div>
-        <div style="width:60px"><input type="number" id="novo-prod-qtd" placeholder="Qtd" value="1" style="width:100%"></div>
-        <div style="flex:1;min-width:90px"><input type="text" inputmode="decimal" id="novo-prod-preco" placeholder="Preço un. R$" style="width:100%" onblur="formatMoedaInput(this)"></div>
-        <button class="btn btn-branco" onclick="addProduto()" style="white-space:nowrap;flex-shrink:0">+ Add produto</button>
-      </div>
-    </div>
-
     <div class="campo" style="margin-top:4px">
       <label>Desconto</label>
       <div style="display:flex;gap:6px;align-items:center">
@@ -640,6 +688,7 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
+  <!-- Card 5: Calculadora de margem -->
   <div class="card">
     <p class="sec">Calculadora de margem</p>
     <div class="g3">
@@ -647,21 +696,6 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo"><label>Custo material (R$)</label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
       <div class="campo"><label>Total da proposta (R$)</label><input type="text" inputmode="decimal" id="p-venda" placeholder="Auto" onblur="formatMoedaInput(this)" oninput="calcMargem()" style="background:var(--surface2)"></div>
     </div>
-    <div class="campo" style="margin-bottom:8px">
-      <label>Forma de pagamento</label>
-      <select id="p-pag" onchange="calcMargem()">
-        <option value="pix">PIX — sem taxa</option>
-        <option value="deb">Débito — 0,79%</option>
-        <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
-        <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
-        <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
-        <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
-        <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
-        <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
-        <option value="boleto">Boleto</option>
-      </select>
-    </div>
-    <div id="info-pag" class="info-pag"></div>
     <div class="stat3">
       <div class="stat"><div class="lbl">Taxa</div><div class="val" id="res-taxa">—</div></div>
       <div class="stat"><div class="lbl">Custo total</div><div class="val" id="res-custo">—</div></div>
@@ -2070,18 +2104,56 @@ function calcTotalProposta() {
     const desc = tipo === 'pct' ? subtotal * (dv / 100) : dv;
     document.getElementById('p-venda').value = Math.max(0, subtotal - desc).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
+  // Auto-preenche custo de equipamento com soma dos custos dos produtos
+  const custoProdutos = produtosAdicionais.reduce((s, p) => s + ((p.custo || 0) * p.qtd), 0);
+  if (custoProdutos > 0) setMoedaInput('p-custo-prod', custoProdutos);
   calcMargem();
+}
+// Calcula preço de venda a partir do custo, usando taxa do cartão + margem desejada
+function calcPrecoFromCusto(custoUn) {
+  if (!custoUn || custoUn <= 0) return 0;
+  const pag = getPag();
+  const taxa = pag ? pag.taxa : 0;
+  const margem = parseFloat(document.getElementById('p-margem-desejada')?.value) || 38;
+  const totalDesc = (taxa + margem) / 100;
+  if (totalDesc >= 1) return 0;
+  return custoUn / (1 - totalDesc);
+}
+// Auto-calcula o preço do novo produto ao digitar o custo
+function autoCalcNovoProdPreco() {
+  const custo = parseMoeda(document.getElementById('novo-prod-custo').value) || 0;
+  if (custo > 0) {
+    const preco = calcPrecoFromCusto(custo);
+    if (preco > 0) {
+      const el = document.getElementById('novo-prod-preco');
+      el.value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }
+}
+// Recalcula preços de todos os produtos quando muda cartão ou margem
+function recalcPrecoProdutos() {
+  let changed = false;
+  produtosAdicionais.forEach(p => {
+    if (p.custo > 0) {
+      const preco = calcPrecoFromCusto(p.custo);
+      if (preco > 0) { p.precoUn = preco; changed = true; }
+    }
+  });
+  if (changed) { renderProdutosAdicionais(); calcTotalProposta(); }
 }
 function addProduto() {
   const nome = document.getElementById('novo-prod-nome').value.trim();
   if (!nome) return;
   const sku = document.getElementById('novo-prod-sku').value.trim();
   const qtd = parseFloat(document.getElementById('novo-prod-qtd').value) || 1;
-  const precoUn = parseMoeda(document.getElementById('novo-prod-preco').value) || 0;
-  produtosAdicionais.push({ nome, sku, qtd, precoUn });
+  const custo = parseMoeda(document.getElementById('novo-prod-custo').value) || 0;
+  const precoManual = parseMoeda(document.getElementById('novo-prod-preco').value) || 0;
+  const precoUn = precoManual || (custo ? calcPrecoFromCusto(custo) : 0);
+  produtosAdicionais.push({ nome, sku, qtd, custo, precoUn });
   document.getElementById('novo-prod-nome').value = '';
   document.getElementById('novo-prod-sku').value = '';
   document.getElementById('novo-prod-qtd').value = '1';
+  document.getElementById('novo-prod-custo').value = '';
   document.getElementById('novo-prod-preco').value = '';
   renderProdutosAdicionais();
   calcTotalProposta();
@@ -2099,16 +2171,28 @@ function renderProdutosAdicionais() {
   const inp = 'font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
   lista.innerHTML = produtosAdicionais.map((p, i) => {
     const total = p.qtd * p.precoUn;
+    const custoFmt = p.custo > 0 ? p.custo.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
     return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">' +
       '<input type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" placeholder="Nome" style="' + inp + ';flex:2;min-width:100px" onchange="editarProd(' + i + ',\'nome\',this.value)">' +
-      '<input type="text" value="' + (p.sku||'').replace(/"/g,'&quot;') + '" placeholder="SKU" style="' + inp + ';width:72px" onchange="editarProd(' + i + ',\'sku\',this.value)">' +
-      '<input type="number" value="' + p.qtd + '" min="1" step="1" placeholder="Qtd" style="' + inp + ';width:52px;text-align:center" onchange="editarProd(' + i + ',\'qtd\',this.value)">' +
-      '<span style="color:var(--text2);white-space:nowrap;flex-shrink:0">x R$</span>' +
-      '<input type="number" value="' + p.precoUn + '" step="0.01" min="0" placeholder="Preço" style="' + inp + ';width:90px;text-align:right" onchange="editarProd(' + i + ',\'precoUn\',this.value)">' +
+      '<input type="text" value="' + (p.sku||'').replace(/"/g,'&quot;') + '" placeholder="SKU" style="' + inp + ';width:66px" onchange="editarProd(' + i + ',\'sku\',this.value)">' +
+      '<input type="number" value="' + p.qtd + '" min="1" step="1" placeholder="Qtd" style="' + inp + ';width:48px;text-align:center" onchange="editarProd(' + i + ',\'qtd\',this.value)">' +
+      '<input type="text" value="' + custoFmt + '" placeholder="Custo R$" title="Custo unitário" style="' + inp + ';width:88px;text-align:right;background:var(--surface2)" oninput="editarProdCusto(' + i + ',this.value)" onblur="formatMoedaInput(this);renderProdutosAdicionais()">' +
+      '<span style="color:var(--text2);white-space:nowrap;flex-shrink:0;font-size:12px">→ R$</span>' +
+      '<input type="number" value="' + p.precoUn + '" step="0.01" min="0" placeholder="Preço" style="' + inp + ';width:88px;text-align:right" onchange="editarProd(' + i + ',\'precoUn\',this.value)">' +
       '<span style="color:var(--text2);white-space:nowrap;min-width:64px;text-align:right;flex-shrink:0">= R$ ' + total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</span>' +
       '<button onclick="removeProduto(' + i + ')" style="background:none;border:none;cursor:pointer;color:var(--terra);font-size:18px;padding:0 2px;line-height:1;flex-shrink:0">×</button>' +
       '</div>';
   }).join('');
+}
+function editarProdCusto(idx, val) {
+  const custo = parseMoeda(val) || 0;
+  produtosAdicionais[idx].custo = custo;
+  if (custo > 0) {
+    const preco = calcPrecoFromCusto(custo);
+    if (preco > 0) produtosAdicionais[idx].precoUn = preco;
+  }
+  calcTotalProposta();
+  gerarProposta();
 }
 function editarProd(idx, campo, val) {
   produtosAdicionais[idx][campo] = (campo === 'nome' || campo === 'sku') ? val : (parseFloat(val) || 0);
@@ -2376,7 +2460,7 @@ async function abrirEditarAprov(id, e) {
 
   // Preenche equipamento — preço do produto = total − material
   const equipPrice = (a.valor || 0) - (a.mat_prop || 0);
-  produtosAdicionais = a.equip ? [{ nome: a.equip, sku: '', qtd: 1, precoUn: Math.max(equipPrice, 0) }] : [];
+  produtosAdicionais = a.equip ? [{ nome: a.equip, sku: '', qtd: 1, custo: a.custo_prod || 0, precoUn: Math.max(equipPrice, 0) }] : [];
   renderProdutosAdicionais();
 
   // Preenche pagamento (reverso do label para key)
