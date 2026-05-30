@@ -839,6 +839,13 @@ select option { background: var(--surface); color: var(--text); }
   <div class="stat4" id="resumo-fin"></div>
   <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
     <input type="text" id="busca-fin" placeholder="🔍 Buscar por cliente, nº pedido, lead Kommo, vendedora..." oninput="renderFinanceiro()" style="width:100%;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <button id="ffin-todas"     class="btn btn-preto"  onclick="setFiltroFin('todas')">Todas</button>
+      <button id="ffin-aguardando" class="btn btn-branco" onclick="setFiltroFin('aguardando')">⏳ Aguardando</button>
+      <button id="ffin-atraso"    class="btn btn-branco" onclick="setFiltroFin('atraso')" style="border-color:var(--terra);color:var(--terra-txt)">🔴 Em atraso</button>
+      <button id="ffin-semana"    class="btn btn-branco" onclick="setFiltroFin('semana')" style="border-color:var(--bronze);color:var(--bronze-txt)">⚡ Esta semana</button>
+      <button id="ffin-concluidas" class="btn btn-branco" onclick="setFiltroFin('concluidas')">✓ Concluídas</button>
+    </div>
     <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
       <label style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">📅 Mês da instalação:</label>
       <input type="month" id="filtro-mes-fin" onchange="renderFinanceiro()" style="font-size:13px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
@@ -3782,15 +3789,46 @@ function initMeta() {
 }
 
 // ═══ COMPRAS ═══
+let filtroFin = 'todas';
+function setFiltroFin(f) {
+  filtroFin = f;
+  ['todas','aguardando','atraso','semana','concluidas'].forEach(k => {
+    const btn = document.getElementById('ffin-' + k);
+    if (!btn) return;
+    btn.className = 'btn ' + (k === f ? 'btn-preto' : 'btn-branco');
+    if (k === 'atraso' && f !== 'atraso') btn.style.cssText = 'border-color:var(--terra);color:var(--terra-txt)';
+    else if (k === 'semana' && f !== 'semana') btn.style.cssText = 'border-color:var(--bronze);color:var(--bronze-txt)';
+    else if (k === f) btn.style.cssText = '';
+    else btn.style.cssText = '';
+  });
+  renderFinanceiro();
+}
 function renderFinanceiro() {
   const qF = (document.getElementById('busca-fin')?.value || '').toLowerCase().trim();
   const mesFin = document.getElementById('filtro-mes-fin')?.value || '';
+  const hoje = strData(new Date());
+  const hojeDate = new Date(); hojeDate.setHours(0,0,0,0);
   const inst = [...instalacoes].filter(i => {
     if (mesFin && !(i.data || '').startsWith(mesFin)) return false;
     if (qF && ![i.cliente, i.vend, i.lead_id, i.pedido_ref, i.pedido].some(v => (v||'').toLowerCase().includes(qF))) return false;
+    const instOk = !!i.checks.instalado;
+    const dataDate = i.data ? new Date(i.data + 'T00:00:00') : null;
+    const diasRestantes = dataDate ? Math.ceil((dataDate - hojeDate) / (1000*60*60*24)) : null;
+    if (filtroFin === 'aguardando') return !instOk && (diasRestantes === null || diasRestantes > 7);
+    if (filtroFin === 'atraso')    return !instOk && diasRestantes !== null && diasRestantes < 0;
+    if (filtroFin === 'semana')    return !instOk && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
+    if (filtroFin === 'concluidas') return instOk;
     return true;
   }).sort((a, b) => (a.data || '9').localeCompare(b.data || '9'));
-  const hoje = strData(new Date());
+  // Atualiza estado visual dos botões
+  ['todas','aguardando','atraso','semana','concluidas'].forEach(k => {
+    const btn = document.getElementById('ffin-' + k);
+    if (!btn) return;
+    if (k === filtroFin) { btn.className = 'btn btn-preto'; btn.style.cssText = ''; }
+    else if (k === 'atraso') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--terra);color:var(--terra-txt)'; }
+    else if (k === 'semana') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--bronze);color:var(--bronze-txt)'; }
+    else { btn.className = 'btn btn-branco'; btn.style.cssText = ''; }
+  });
   const aguardCompra = inst.filter(i => !i.checks.equip_comprado).length;
   const matAPagar = inst.filter(i => !i.checks.mat_pago).reduce((s, i) => s + (Number(i.mat) || 0), 0);
   const totalSinal = inst.filter(i => i.checks.sinal_pago).reduce((s, i) => s + (Number(i.sinal) || 0), 0);
@@ -3806,7 +3844,17 @@ function renderFinanceiro() {
     const tipoServico = i.tipo_servico || 'instalacao';
     const isCompra = tipoServico === 'compra';
     const dateLabel = isCompra ? 'Data da entrega' : 'Data da instalação';
-    const urgente = i.data && i.data <= hoje && !i.checks.instalado;
+    const dataDate = i.data ? new Date(i.data + 'T00:00:00') : null;
+    const diasRestantes = dataDate ? Math.ceil((dataDate - hojeDate) / (1000*60*60*24)) : null;
+    const emAtraso = !i.checks.instalado && diasRestantes !== null && diasRestantes < 0;
+    const urgente = !i.checks.instalado && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
+    const alertaBadge = emAtraso
+      ? '<span style="background:#c62828;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap">🔴 ' + Math.abs(diasRestantes) + ' dia(s) em atraso</span>'
+      : urgente && diasRestantes === 0
+        ? '<span style="background:#c62828;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap">🚨 Hoje!</span>'
+        : urgente
+          ? '<span style="background:#c62828;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap">🚨 Falta' + (diasRestantes === 1 ? ' 1 dia' : 'm ' + diasRestantes + ' dias') + '!</span>'
+          : '';
     const equipOk = !!i.checks.equip_comprado;
     const matOk = !!i.checks.mat_pago;
     const sinalOk = !!i.checks.sinal_pago;
@@ -3936,9 +3984,9 @@ function renderFinanceiro() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0">' +
           '<p style="font-size:11px;color:var(--text2);margin:0 0 1px;text-align:right">' + (isCompra ? 'Entrega' : 'Instalação') + '</p>' +
-          '<p style="font-size:16px;font-weight:600;margin:0;color:' + (urgente ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + '</p>' +
+          '<p style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + '</p>' +
           '<p style="font-size:13px;font-weight:500;margin:3px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
-          (urgente ? '<p style="font-size:11px;color:var(--terra);margin:2px 0 0;font-weight:500">HOJE / VENCIDA</p>' : '') +
+          (alertaBadge ? '<div style="margin-top:6px">' + alertaBadge + '</div>' : '') +
         '</div>' +
       '</div>' +
       tipoHtml + comprasHtml + finHtml +
