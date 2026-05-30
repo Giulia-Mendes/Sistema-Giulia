@@ -2449,9 +2449,11 @@ function renderAprovacao() {
   document.getElementById('ap-ok').textContent = aprov.length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   // Aprovadas: valor total, margem combinada ponderada, ticket médio
+  // Margem combinada exclui material (igual à lógica da proposta)
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
-  const totalCustoAprov = aprov.reduce((s,a) => s + (a.custo||0), 0);
-  const margemCombinada = totalValorAprov > 0 ? (totalValorAprov - totalCustoAprov) / totalValorAprov : null;
+  const totalValorProd  = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
+  const totalCustoProd  = aprov.reduce((s,a) => s + (a.custo_prod||0), 0);
+  const margemCombinada = totalValorProd > 0 ? (totalValorProd - totalCustoProd) / totalValorProd : null;
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
   const elValorAprov = document.getElementById('ap-valor-aprov');
   const elMargem = document.getElementById('ap-margem-aprov');
@@ -3094,10 +3096,15 @@ async function enviarAprovacao() {
   try {
     const cp = parseMoeda(document.getElementById('p-custo-prod').value) || 0;
     const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
+    const matProp = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
     const pag = getPag(); const taxaR = pv * (pag.taxa / 100);
-    const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
-    const ct = cp + cm + taxaR; const margem = pvEf > 0 ? (pvEf - ct) / pvEf : 0;
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ct), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: parseMoeda(document.getElementById('p-mat-prop').value) || 0, custo_mat: cm, custo_prod: cp };
+    // Margem considera só produto (sem material), igual ao calcMargem da proposta
+    const pvProd = pv - matProp;
+    const pvEfProd = pag.desc > 0 ? pvProd * (1 - pag.desc / 100) : pvProd;
+    const ctProd = cp + taxaR;
+    const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
+    const ctTotal = cp + cm + taxaR; // custo total real (para referência)
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
