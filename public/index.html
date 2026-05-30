@@ -388,6 +388,7 @@ select option { background: var(--surface); color: var(--text); }
     <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
     <button onclick="irPara('sincronizar', this)" id="btn-sincronizar" style="display:none"><span class="nav-icon">↓</span><span class="nav-label">Sincronizar</span></button>
     <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none"><span class="nav-icon">Au</span><span class="nav-label">Auditoria</span></button>
+    <button onclick="irPara('parametros', this)" id="btn-parametros" style="display:none"><span class="nav-icon">⚙</span><span class="nav-label">Parâmetros</span></button>
     <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none"><span class="nav-icon">Us</span><span class="nav-label">Usuários</span></button>
   </div>
   <!-- Rodapé da sidebar -->
@@ -601,29 +602,25 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
-  <!-- Card 2: Taxa do cartão e margem desejada -->
+  <!-- Card 2: Forma de pagamento -->
   <div class="card">
-    <p class="sec">Taxa do cartão e margem</p>
-    <div class="g2">
-      <div class="campo">
-        <label>Forma de pagamento</label>
-        <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos();autoFillMatProp()">
-          <option value="pix">PIX — sem taxa</option>
-          <option value="deb">Débito — 0,79%</option>
-          <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
-          <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
-          <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
-          <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
-          <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
-          <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
-          <option value="boleto">Boleto</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>Margem desejada (%)</label>
-        <input type="number" id="p-margem-desejada" placeholder="Ex: 38" min="0" max="99" step="0.1" value="38" oninput="recalcPrecoProdutos();calcMargem()">
-      </div>
+    <p class="sec">Forma de pagamento</p>
+    <div class="campo" style="max-width:340px">
+      <label>Forma de pagamento</label>
+      <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos();autoFillMatProp()">
+        <option value="pix">PIX — sem taxa</option>
+        <option value="deb">Débito — 0,79%</option>
+        <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
+        <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
+        <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
+        <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
+        <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
+        <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
+        <option value="boleto">Boleto</option>
+      </select>
     </div>
+    <!-- Campo oculto de compatibilidade — valor vem dos parâmetros -->
+    <input type="hidden" id="p-margem-desejada" value="38">
     <div id="info-pag" class="info-pag" style="display:none"></div>
   </div>
 
@@ -694,19 +691,18 @@ select option { background: var(--surface); color: var(--text); }
     <p class="sec">Calculadora de margem</p>
     <div class="g3">
       <div class="campo"><label>Custo equipamento (R$)</label><input type="text" inputmode="decimal" id="p-custo-prod" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="calcMargem()"></div>
-      <div class="campo"><label>Custo material (R$) <span style="font-size:11px;font-weight:400;color:var(--text2)">(taxa + 8%)</span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
+      <div class="campo"><label>Custo material (R$) <span id="label-custo-mat" style="font-size:11px;font-weight:400;color:var(--text2)"></span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
       <div class="campo"><label>Total da proposta (R$)</label><input type="text" inputmode="decimal" id="p-venda" placeholder="Auto" onblur="formatMoedaInput(this)" oninput="calcMargem()" style="background:var(--surface2)"></div>
     </div>
-    <div class="stat3">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
       <div class="stat"><div class="lbl">Taxa</div><div class="val" id="res-taxa">—</div></div>
       <div class="stat"><div class="lbl">Custo produto</div><div class="val" id="res-custo">—</div></div>
-      <div class="stat"><div class="lbl">Margem</div><div class="val" id="res-margem">—</div>
-        <div class="margem-wrap"><div class="margem-bar" id="margem-bar" style="width:0%"></div></div>
-      </div>
     </div>
-    <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+    <!-- campos ocultos mantidos para compatibilidade com calcMargem -->
+    <span id="res-margem" style="display:none"></span>
+    <div id="margem-bar" style="display:none"></div>
+    <div style="margin-top:10px">
       <span class="badge" id="margem-badge" style="background:var(--bronze-bg);color:var(--bronze-txt)">Preencha os valores</span>
-      <span style="font-size:12px;color:#888780">Mínimo: 38%</span>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <label style="font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -974,6 +970,51 @@ select option { background: var(--surface); color: var(--text); }
   </div>
   <!-- Lista -->
   <div id="lista-fechamentos"></div>
+</div>
+
+<!-- TELA PARÂMETROS -->
+<div id="tela-parametros" class="tela">
+  <div class="card" style="max-width:520px;margin:0 auto;padding:24px">
+    <p style="font-size:17px;font-weight:600;margin:0 0 4px">⚙️ Parâmetros de Proposta</p>
+    <p style="font-size:13px;color:var(--text2);margin:0 0 24px">Defina as margens e impostos usados nos cálculos de precificação. As mudanças aplicam imediatamente em novas propostas.</p>
+
+    <!-- PRODUTO -->
+    <div style="background:var(--surface2);border-radius:10px;padding:16px 18px;margin-bottom:16px">
+      <p style="font-size:13px;font-weight:700;color:var(--text2);margin:0 0 14px;text-transform:uppercase;letter-spacing:.5px">📦 Produto</p>
+      <div class="g2" style="gap:12px">
+        <div class="campo">
+          <label>Margem desejada (%)</label>
+          <input type="number" id="param-margem-prod" min="0" max="99" step="0.1" placeholder="Ex: 38"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Margem mínima esperada sobre o preço de venda</span>
+        </div>
+        <div class="campo">
+          <label>Imposto (%)</label>
+          <input type="number" id="param-imposto-prod" min="0" max="99" step="0.1" placeholder="Ex: 0"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Imposto embutido no preço do produto</span>
+        </div>
+      </div>
+      <div id="param-preview-prod" style="margin-top:12px;padding:10px 12px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.7"></div>
+    </div>
+
+    <!-- MATERIAL -->
+    <div style="background:var(--surface2);border-radius:10px;padding:16px 18px;margin-bottom:24px">
+      <p style="font-size:13px;font-weight:700;color:var(--text2);margin:0 0 14px;text-transform:uppercase;letter-spacing:.5px">🔩 Material</p>
+      <div class="campo" style="max-width:240px">
+        <label>Imposto (%)</label>
+        <input type="number" id="param-imposto-mat" min="0" max="99" step="0.1" placeholder="Ex: 8"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+        <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Acréscimo sobre o custo do material (além da taxa do cartão)</span>
+      </div>
+      <div id="param-preview-mat" style="margin-top:12px;padding:10px 12px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.7"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-preto" onclick="salvarParametros()">Salvar parâmetros</button>
+      <span id="param-msg" style="font-size:13px;display:none"></span>
+    </div>
+  </div>
 </div>
 
 <!-- TELA AUDITORIA -->
@@ -1274,7 +1315,9 @@ select option { background: var(--surface); color: var(--text); }
 <script>
 
 // ═══ DADOS ═══
-const MARGEM_MIN = 0.38;
+let MARGEM_MIN = 0.38; // atualizado dinamicamente pelos parâmetros
+// Parâmetros globais de proposta (carregados da API)
+let _params = { margem_prod: 38, imposto_prod: 0, imposto_mat: 8 };
 let propModoEdit = false;
 let visitas = [];
 let aprovacoes = [];
@@ -2178,13 +2221,14 @@ function calcTotalProposta() {
   if (custoProdutos > 0) setMoedaInput('p-custo-prod', custoProdutos);
   calcMargem();
 }
-// Calcula preço de venda a partir do custo, usando taxa do cartão + margem desejada
+// Calcula preço de venda a partir do custo, usando taxa do cartão + margem + imposto (parâmetros)
 function calcPrecoFromCusto(custoUn) {
   if (!custoUn || custoUn <= 0) return 0;
   const pag = getPag();
   const taxa = pag ? pag.taxa : 0;
-  const margem = parseFloat(document.getElementById('p-margem-desejada')?.value) || 38;
-  const totalDesc = (taxa + margem) / 100;
+  const margem = _params.margem_prod || 38;
+  const imposto = _params.imposto_prod || 0;
+  const totalDesc = (taxa + margem + imposto) / 100;
   if (totalDesc >= 1) return 0;
   return custoUn / (1 - totalDesc);
 }
@@ -2357,11 +2401,15 @@ function renderPropAnexos() {
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Material: acréscimo direto de (taxa do cartão + 8%) sobre o custo
+    // Material: acréscimo direto de (taxa do cartão + imposto_mat) sobre o custo
     const pag = getPag();
     const taxa = pag ? pag.taxa : 0;
-    const preco = cm * (1 + (taxa + 8) / 100);
+    const impostoMat = _params.imposto_mat ?? 8;
+    const preco = cm * (1 + (taxa + impostoMat) / 100);
     document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Atualiza label dinâmico
+    const lbl = document.getElementById('label-custo-mat');
+    if (lbl) lbl.textContent = '(taxa + ' + impostoMat + '%)';
   } else {
     document.getElementById('p-mat-prop').value = '';
   }
@@ -2952,6 +3000,7 @@ function iniciarApp() {
   initTemaBtn();
   restaurarCollapse();
   carregarPermissoes().then(() => aplicarRole(usuarioLogado.role));
+  carregarParametros();
   carregarTudo();
 }
 
@@ -3644,14 +3693,14 @@ async function pedidoParaCompras(fonte, id) {
 
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'],
+  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', usuarios:'Usuários' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'];
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'];
 
 async function carregarPermissoes() {
   try {
@@ -4302,14 +4351,19 @@ function renderFechamentos() {
 }
 
 // Modal de edição de fechamento
+function _taxaFromPagLabel(label) {
+  // Busca a taxa pelo label salvo na aprovação (ex: "Cartão 10x" → 8.49)
+  const found = Object.values(TAXAS).find(t => t.label === label);
+  return found ? found.taxa : 0;
+}
 function abrirEditFech(id) {
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
   const fmtI = v => (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Cria overlay
+  const taxaInicial = _taxaFromPagLabel(a.pag || '');
   const overlay = document.createElement('div');
   overlay.id = 'modal-edit-fech';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
   overlay.innerHTML = `
     <div style="background:var(--bg);border-radius:12px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.25)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
@@ -4322,6 +4376,12 @@ function abrirEditFech(id) {
       <input id="efech-valor" type="text" inputmode="decimal" value="${fmtI(a.valor)}"
         oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
         style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Taxa do cartão (%)</label>
+      <input id="efech-taxa" type="number" min="0" max="30" step="0.01" value="${taxaInicial}"
+        oninput="calcPreviewFech()"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:4px;box-sizing:border-box">
+      <span style="font-size:11px;color:var(--text2);display:block;margin-bottom:12px">Detectado: ${a.pag || '—'} (${taxaInicial}%)</span>
 
       <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Custo equipamento (R$)</label>
       <input id="efech-custo-prod" type="text" inputmode="decimal" value="${fmtI(a.custo_prod)}"
@@ -4338,7 +4398,7 @@ function abrirEditFech(id) {
         oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
         style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:16px;box-sizing:border-box">
 
-      <div id="efech-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.7"></div>
+      <div id="efech-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.8"></div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="fecharEditFech()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px">Cancelar</button>
@@ -4350,19 +4410,24 @@ function abrirEditFech(id) {
   calcPreviewFech();
 }
 function calcPreviewFech() {
-  const valor    = parseMoeda(document.getElementById('efech-valor')?.value) || 0;
-  const cp       = parseMoeda(document.getElementById('efech-custo-prod')?.value) || 0;
-  const cm       = parseMoeda(document.getElementById('efech-custo-mat')?.value) || 0;
-  const matProp  = parseMoeda(document.getElementById('efech-mat-prop')?.value) || 0;
-  const pvProd   = valor - matProp;
-  const margem   = pvProd > 0 && cp > 0 ? ((pvProd - cp) / pvProd * 100) : null;
-  const lucro    = valor - cp - cm;
+  const valor   = parseMoeda(document.getElementById('efech-valor')?.value) || 0;
+  const taxa    = parseFloat(document.getElementById('efech-taxa')?.value) || 0;
+  const cp      = parseMoeda(document.getElementById('efech-custo-prod')?.value) || 0;
+  const cm      = parseMoeda(document.getElementById('efech-custo-mat')?.value) || 0;
+  const matProp = parseMoeda(document.getElementById('efech-mat-prop')?.value) || 0;
+  const pvProd  = valor - matProp;                      // receita só de produto
+  const taxaR   = pvProd * (taxa / 100);                // taxa sobre receita produto
+  const ctProd  = cp + taxaR;                           // custo produto + taxa
+  const margem  = pvProd > 0 && cp > 0 ? ((pvProd - ctProd) / pvProd * 100) : null;
+  const lucro   = valor - cp - cm - (valor * taxa / 100);
   const fmtR = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const el = document.getElementById('efech-preview');
   if (!el) return;
+  const cor = margem >= 35 ? 'var(--mineral-txt)' : margem >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
   el.innerHTML =
-    '<span style="color:var(--text2)">Margem produto: </span><strong style="color:' + (margem >= 35 ? 'var(--mineral-txt)' : margem >= 25 ? 'var(--bronze-txt)' : 'var(--terra)') + '">' + (margem !== null ? margem.toFixed(1).replace('.',',') + '%' : '—') + '</strong>' +
-    ' &nbsp;·&nbsp; <span style="color:var(--text2)">Lucro estimado: </span><strong>' + fmtR(lucro) + '</strong>';
+    '<span style="color:var(--text2)">Margem produto: </span><strong style="color:' + cor + '">' + (margem !== null ? margem.toFixed(1).replace('.',',') + '%' : '—') + '</strong><br>' +
+    '<span style="color:var(--text2)">Taxa cartão sobre venda: </span><strong>' + fmtR(valor * taxa / 100) + '</strong><br>' +
+    '<span style="color:var(--text2)">Lucro estimado: </span><strong>' + fmtR(lucro) + '</strong>';
 }
 function fecharEditFech() {
   const m = document.getElementById('modal-edit-fech');
@@ -4372,12 +4437,15 @@ async function salvarEditFech(id) {
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
   const valor   = parseMoeda(document.getElementById('efech-valor').value) || 0;
+  const taxa    = parseFloat(document.getElementById('efech-taxa').value) || 0;
   const cp      = parseMoeda(document.getElementById('efech-custo-prod').value) || 0;
   const cm      = parseMoeda(document.getElementById('efech-custo-mat').value) || 0;
   const matProp = parseMoeda(document.getElementById('efech-mat-prop').value) || 0;
   const pvProd  = valor - matProp;
-  const margem  = pvProd > 0 && cp > 0 ? (pvProd - cp) / pvProd : (a.margem || 0);
-  const custo   = cp + cm;
+  const taxaR   = pvProd * (taxa / 100);
+  const ctProd  = cp + taxaR;
+  const margem  = pvProd > 0 && cp > 0 ? (pvProd - ctProd) / pvProd : (a.margem || 0);
+  const custo   = cp + cm + (valor * taxa / 100); // custo total inclui taxa sobre valor total
   const payload = { ...a, valor, custo_prod: cp, custo_mat: cm, mat_prop: matProp, custo, margem };
   const btn = document.querySelector('#modal-edit-fech button[onclick^="salvarEditFech"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
@@ -4426,7 +4494,8 @@ function acaoLabel(acao) {
     CRIAR_INSTALACAO: '🔧 Criou instalação', EDITAR_INSTALACAO: '✏️ Editou instalação', EXCLUIR_INSTALACAO: '🗑 Excluiu instalação',
     EDITAR_COMPRAS: '🛒 Editou Compras',
     CRIAR_USUARIO: '👤 Criou usuário', EDITAR_USUARIO: '✏️ Editou usuário',
-    SYNC_TINY: '🔄 Sincronização Tiny'
+    SYNC_TINY: '🔄 Sincronização Tiny',
+    EDITAR_PARAMETROS: '⚙️ Editou parâmetros', EDITAR_PERMISSOES: '🔒 Editou permissões'
   };
   return labels[acao] || acao;
 }
@@ -4808,6 +4877,7 @@ function irPara(tela, btn) {
   if (tela === 'meta') { initMeta(); renderMeta(); carregarVendedoras().then(() => carregarMetas()).catch(() => carregarMetas()); }
   if (tela === 'sincronizar') initSincronizar();
   if (tela === 'auditoria') carregarAuditoria();
+  if (tela === 'parametros') initParametros();
   if (tela === 'usuarios') carregarListaUsuarios();
   if (window.innerWidth < 768) {
     document.getElementById('nav-principal').classList.remove('aberta');
@@ -4876,6 +4946,78 @@ async function excluirUsuario(id, nome) {
   if (!confirm('Excluir o usuário "' + nome + '"? Esta ação não pode ser desfeita.')) return;
   await fetch('/api/usuarios/' + id, { method: 'DELETE' });
   carregarListaUsuarios();
+}
+
+// ═══ PARÂMETROS DE PROPOSTA ═══
+async function carregarParametros() {
+  try {
+    const r = await fetch('/api/parametros');
+    const data = await r.json();
+    _params = { margem_prod: 38, imposto_prod: 0, imposto_mat: 8, ...data };
+    // Atualiza campo oculto de compatibilidade (usado por calcPrecoFromCusto via _params)
+    const el = document.getElementById('p-margem-desejada');
+    if (el) el.value = _params.margem_prod;
+    MARGEM_MIN = (_params.margem_prod || 38) / 100;
+    // Atualiza label do custo mat
+    const lbl = document.getElementById('label-custo-mat');
+    if (lbl) lbl.textContent = '(taxa + ' + (_params.imposto_mat ?? 8) + '%)';
+  } catch(e) {}
+}
+function initParametros() {
+  document.getElementById('param-margem-prod').value  = _params.margem_prod ?? 38;
+  document.getElementById('param-imposto-prod').value = _params.imposto_prod ?? 0;
+  document.getElementById('param-imposto-mat').value  = _params.imposto_mat  ?? 8;
+  atualizarPreviewParams();
+  document.getElementById('param-margem-prod').oninput  = atualizarPreviewParams;
+  document.getElementById('param-imposto-prod').oninput = atualizarPreviewParams;
+  document.getElementById('param-imposto-mat').oninput  = atualizarPreviewParams;
+}
+function atualizarPreviewParams() {
+  const m  = parseFloat(document.getElementById('param-margem-prod').value) || 0;
+  const ip = parseFloat(document.getElementById('param-imposto-prod').value) || 0;
+  const im = parseFloat(document.getElementById('param-imposto-mat').value)  || 0;
+  const taxa = 8.49; // Cartão 10x como exemplo
+  // Produto: preço = custo / (1 - taxa% - margem% - imposto%)
+  const descProd = (taxa + m + ip) / 100;
+  const ex_custo_prod = 1000;
+  const ex_preco_prod = descProd < 1 ? (ex_custo_prod / (1 - descProd)).toFixed(2) : '—';
+  const fmtR = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('param-preview-prod').innerHTML =
+    '<strong>Exemplo</strong> (Cartão 10x · custo R$ 1.000,00):<br>' +
+    '↳ Taxa cartão: <strong>' + taxa + '%</strong> + Margem: <strong>' + m + '%</strong> + Imposto: <strong>' + ip + '%</strong> = desconto total <strong>' + (taxa+m+ip).toFixed(2) + '%</strong><br>' +
+    '↳ Preço de venda calculado: <strong>' + (ex_preco_prod !== '—' ? fmtR(ex_preco_prod) : '—') + '</strong>';
+  // Material: preço = custo × (1 + taxa% + imposto%)
+  const ex_custo_mat = 500;
+  const ex_preco_mat = ex_custo_mat * (1 + (taxa + im) / 100);
+  document.getElementById('param-preview-mat').innerHTML =
+    '<strong>Exemplo</strong> (Cartão 10x · custo R$ 500,00):<br>' +
+    '↳ Taxa cartão: <strong>' + taxa + '%</strong> + Imposto: <strong>' + im + '%</strong> = acréscimo total <strong>' + (taxa+im).toFixed(2) + '%</strong><br>' +
+    '↳ Preço repassado ao cliente: <strong>' + fmtR(ex_preco_mat) + '</strong>';
+}
+async function salvarParametros() {
+  const data = {
+    margem_prod:  parseFloat(document.getElementById('param-margem-prod').value)  || 0,
+    imposto_prod: parseFloat(document.getElementById('param-imposto-prod').value) || 0,
+    imposto_mat:  parseFloat(document.getElementById('param-imposto-mat').value)  || 0,
+  };
+  const msg = document.getElementById('param-msg');
+  try {
+    const r = await fetch('/api/parametros', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const d = await r.json();
+    if (!d.sucesso) throw new Error(d.erro || 'Erro');
+    _params = data;
+    MARGEM_MIN = (data.margem_prod || 38) / 100;
+    const el = document.getElementById('p-margem-desejada');
+    if (el) el.value = data.margem_prod;
+    const lbl = document.getElementById('label-custo-mat');
+    if (lbl) lbl.textContent = '(taxa + ' + data.imposto_mat + '%)';
+    msg.style.cssText = 'display:inline;color:var(--mineral-txt);font-weight:600';
+    msg.textContent = '✓ Parâmetros salvos!';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+  } catch(e) {
+    msg.style.cssText = 'display:inline;color:var(--terra-txt)';
+    msg.textContent = 'Erro: ' + e.message;
+  }
 }
 
 // ═══ INICIAR ═══

@@ -325,7 +325,7 @@ app.get('/api/me', (req, res) => {
 
 // ── PERMISSÕES POR PERFIL ──
 const DEFAULT_ROLE_PAGES = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','usuarios'],
+  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
@@ -342,6 +342,25 @@ app.put('/api/role-permissions', auth, adminOnly, (req, res) => {
   db.prepare("INSERT INTO config (chave,valor) VALUES ('role_permissions',?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor")
     .run(JSON.stringify(data));
   audit(req, 'EDITAR_PERMISSOES', 'config', 0, null, data);
+  res.json({ sucesso: true });
+});
+
+// ── PARÂMETROS DE PROPOSTA ──
+const DEFAULT_PARAMS = {
+  margem_prod: 38,    // % margem desejada de produto
+  imposto_prod: 0,    // % imposto sobre produto
+  imposto_mat: 8,     // % imposto sobre material (era hardcoded 8%)
+};
+app.get('/api/parametros', auth, (req, res) => {
+  const row = db.prepare("SELECT valor FROM config WHERE chave='parametros_proposta'").get();
+  const saved = row ? JSON.parse(row.valor) : {};
+  res.json({ ...DEFAULT_PARAMS, ...saved });
+});
+app.put('/api/parametros', auth, adminOnly, (req, res) => {
+  const data = { ...DEFAULT_PARAMS, ...req.body };
+  db.prepare("INSERT INTO config (chave,valor) VALUES ('parametros_proposta',?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor")
+    .run(JSON.stringify(data));
+  audit(req, 'EDITAR_PARAMETROS', 'config', 0, null, data);
   res.json({ sucesso: true });
 });
 
