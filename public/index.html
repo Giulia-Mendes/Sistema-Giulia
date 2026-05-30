@@ -738,11 +738,16 @@ select option { background: var(--surface); color: var(--text); }
 
 <!-- ═══════════ APROVAÇÃO ═══════════ -->
 <div id="tela-aprovacao" class="tela">
-  <div class="stat4" style="margin-bottom:16px">
+  <div class="stat4" style="margin-bottom:10px">
     <div class="stat"><div class="lbl">Aguardando</div><div class="val" id="ap-total">0</div></div>
     <div class="stat"><div class="lbl">Objeção temp.</div><div class="val" id="ap-objec">0</div></div>
-    <div class="stat"><div class="lbl">Aprovadas hoje</div><div class="val" id="ap-ok">0</div></div>
+    <div class="stat"><div class="lbl">Aprovadas</div><div class="val" id="ap-ok">0</div></div>
     <div class="stat"><div class="lbl">Valor pendente</div><div class="val" id="ap-valor">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+    <div class="stat"><div class="lbl">Valor aprovado</div><div class="val" id="ap-valor-aprov" style="font-size:14px">—</div></div>
+    <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="ap-margem-aprov" style="font-size:22px;font-weight:700">—</div></div>
+    <div class="stat"><div class="lbl">Ticket médio aprovado</div><div class="val" id="ap-ticket-aprov" style="font-size:14px">—</div></div>
   </div>
   <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
     <input type="text" id="busca-aprov" placeholder="🔍 Buscar por cliente, vendedora, lead Kommo..." oninput="renderAprovacao()" style="width:100%;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
@@ -2388,10 +2393,28 @@ function setFiltroAprov(f) {
 }
 function renderAprovacao() {
   const pend = aprovacoes.filter(a => a.status === 'pendente');
+  const aprov = aprovacoes.filter(a => a.status === 'aprovado');
   document.getElementById('ap-total').textContent = pend.length;
   document.getElementById('ap-objec').textContent = aprovacoes.filter(a => a.status === 'objecao').length;
-  document.getElementById('ap-ok').textContent = aprovacoes.filter(a => a.status === 'aprovado').length;
+  document.getElementById('ap-ok').textContent = aprov.length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Aprovadas: valor total, margem combinada ponderada, ticket médio
+  const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
+  const totalCustoAprov = aprov.reduce((s,a) => s + (a.custo||0), 0);
+  const margemCombinada = totalValorAprov > 0 ? (totalValorAprov - totalCustoAprov) / totalValorAprov : null;
+  const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
+  const elValorAprov = document.getElementById('ap-valor-aprov');
+  const elMargem = document.getElementById('ap-margem-aprov');
+  const elTicket = document.getElementById('ap-ticket-aprov');
+  if (elValorAprov) elValorAprov.textContent = aprov.length ? 'R$ ' + totalValorAprov.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  if (elMargem) {
+    if (margemCombinada !== null && aprov.length) {
+      const pct = (margemCombinada * 100).toFixed(1).replace('.',',') + '%';
+      elMargem.textContent = pct;
+      elMargem.style.color = margemCombinada >= 0.35 ? 'var(--mineral-txt)' : margemCombinada >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra)';
+    } else { elMargem.textContent = '—'; elMargem.style.color = ''; }
+  }
+  if (elTicket) elTicket.textContent = aprov.length ? 'R$ ' + ticketMedio.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
   // Atualiza estado dos botões de filtro
   ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
     const btn = document.getElementById('filtro-aprov-' + k);
