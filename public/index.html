@@ -2499,8 +2499,9 @@ function renderAprovacao() {
   // Aprovadas: valor total, margem combinada ponderada, ticket médio
   // Margem combinada exclui material (igual à lógica da proposta)
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
+  // custo_prod não inclui taxa do cartão; usar (custo - custo_mat) = cp + taxaR
   const totalValorProd  = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
-  const totalCustoProd  = aprov.reduce((s,a) => s + (a.custo_prod||0), 0);
+  const totalCustoProd  = aprov.reduce((s,a) => s + ((a.custo||0) - (a.custo_mat||0)), 0);
   const margemCombinada = totalValorProd > 0 ? (totalValorProd - totalCustoProd) / totalValorProd : null;
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
   const elValorAprov = document.getElementById('ap-valor-aprov');
