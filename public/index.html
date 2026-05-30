@@ -2294,7 +2294,12 @@ function renderPropAnexos() {
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    document.getElementById('p-mat-prop').value = (cm * 1.1).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    // Usa a mesma fórmula dos produtos: custo / (1 - taxa - margem)
+    // para que o material também contribua com a margem desejada
+    const preco = calcPrecoFromCusto(cm);
+    document.getElementById('p-mat-prop').value = preco > 0
+      ? preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : (cm * 1.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else {
     document.getElementById('p-mat-prop').value = '';
   }
