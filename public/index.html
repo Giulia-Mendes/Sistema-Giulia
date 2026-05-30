@@ -738,8 +738,9 @@ select option { background: var(--surface); color: var(--text); }
 
 <!-- ═══════════ APROVAÇÃO ═══════════ -->
 <div id="tela-aprovacao" class="tela">
-  <div class="stat3" style="margin-bottom:16px">
+  <div class="stat4" style="margin-bottom:16px">
     <div class="stat"><div class="lbl">Aguardando</div><div class="val" id="ap-total">0</div></div>
+    <div class="stat"><div class="lbl">Objeção temp.</div><div class="val" id="ap-objec">0</div></div>
     <div class="stat"><div class="lbl">Aprovadas hoje</div><div class="val" id="ap-ok">0</div></div>
     <div class="stat"><div class="lbl">Valor pendente</div><div class="val" id="ap-valor">—</div></div>
   </div>
@@ -748,6 +749,7 @@ select option { background: var(--surface); color: var(--text); }
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <button id="filtro-aprov-todas"    class="btn btn-preto"  onclick="setFiltroAprov('todas')">Todas</button>
       <button id="filtro-aprov-pendente" class="btn btn-branco" onclick="setFiltroAprov('pendente')">⏳ Aguardando</button>
+      <button id="filtro-aprov-objecao" class="btn btn-branco" onclick="setFiltroAprov('objecao')">⏸ Objeção</button>
       <button id="filtro-aprov-aprovado" class="btn btn-branco" onclick="setFiltroAprov('aprovado')">✓ Aprovadas</button>
       <button id="filtro-aprov-rejeitado" class="btn btn-branco" onclick="setFiltroAprov('rejeitado')">✕ Rejeitadas</button>
       <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
@@ -2304,7 +2306,7 @@ function atualizarBadge() { document.getElementById('badge-aprovacao').textConte
 // ═══ APROVAÇÃO ═══
 function setFiltroAprov(f) {
   filtroAprov = f;
-  ['todas','pendente','aprovado','rejeitado'].forEach(k => {
+  ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
     const btn = document.getElementById('filtro-aprov-' + k);
     if (btn) btn.className = 'btn ' + (k === f ? 'btn-preto' : 'btn-branco');
   });
@@ -2314,10 +2316,11 @@ function setFiltroAprov(f) {
 function renderAprovacao() {
   const pend = aprovacoes.filter(a => a.status === 'pendente');
   document.getElementById('ap-total').textContent = pend.length;
+  document.getElementById('ap-objec').textContent = aprovacoes.filter(a => a.status === 'objecao').length;
   document.getElementById('ap-ok').textContent = aprovacoes.filter(a => a.status === 'aprovado').length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   // Atualiza estado dos botões de filtro
-  ['todas','pendente','aprovado','rejeitado'].forEach(k => {
+  ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
     const btn = document.getElementById('filtro-aprov-' + k);
     if (btn) btn.className = 'btn ' + (k === filtroAprov ? 'btn-preto' : 'btn-branco');
   });
@@ -2333,13 +2336,14 @@ function renderAprovacao() {
     const isExp = expandidoAprov === a.id;
     const pct = Math.round(a.margem * 100);
     const mcls = a.margem >= MARGEM_MIN ? 'badge-verde' : a.margem >= 0.28 ? 'badge-amarelo' : 'badge-vermelho';
-    const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : 'badge-vermelho';
-    const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : 'Rejeitada';
+    const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : a.status === 'objecao' ? 'badge-teal' : 'badge-vermelho';
+    const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : a.status === 'objecao' ? 'Objeção temp.' : 'Rejeitada';
     let bodyHtml = '';
     if (isExp) {
       bodyHtml = '<div class="item-body">' +
         (a.custos ? '<div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px"><span style="font-weight:600;color:var(--text2)">🔒 Custos considerados</span><div style="margin-top:4px;white-space:pre-wrap;color:var(--text);line-height:1.6">' + a.custos.replace(/</g,'&lt;') + '</div></div>' : '') +
         (a.status === 'rejeitado' && a.motivo_recusa ? '<div style="background:var(--terra-bg);border:1px solid var(--terra);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--terra)">Motivo da recusa:</span> <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span></div>' : '') +
+        (a.status === 'objecao' ? '<div style="background:var(--slate-bg);border:1px solid var(--slate);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--slate-txt)">⏸ Objeção temporária' + (a.motivo_recusa ? ':' : '') + '</span>' + (a.motivo_recusa ? ' <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span>' : '') + '</div>' : '') +
         (a.temperatura_alvo ? '<div style="background:var(--surface2);border-radius:8px;padding:8px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--text2)">🌡️ Temp. alvo:</span> <span>' + a.temperatura_alvo + '°C</span></div>' : '') +
         '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">' + a.texto + '</div>' +
         (Array.isArray(a.anexos) && a.anexos.length ? '<div style="margin-top:10px"><span style="font-size:12px;font-weight:600;color:var(--text2)">Arquivos anexados</span><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">' + a.anexos.map((ax, i) => { const isImg = ax.tipo && ax.tipo.startsWith('image/'); return '<a href="' + ax.dados + '" download="' + ax.nome + '" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2);width:80px;text-decoration:none">' + (isImg ? '<img src="' + ax.dados + '" style="width:80px;height:60px;object-fit:cover">' : '<div style="width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>') + '<span style="font-size:10px;color:var(--text2);padding:2px 4px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">' + ax.nome + '</span></a>'; }).join('') + '</div></div>' : '') +
@@ -2350,10 +2354,13 @@ function renderAprovacao() {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
         (a.status === 'pendente'
-          ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovada pelo cliente</button>' +
+          ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovada</button>' +
+            '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'objecao\',event)" style="border-color:var(--slate);color:var(--slate-txt)">⏸ Objeção temp.</button>' +
             '<button class="btn btn-vermelho" onclick="acaoAprov(' + a.id + ',\'rejeitado\',event)">✕ Rejeitar</button>'
-          : a.status === 'aprovado'
-            ? '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>'
+          : a.status === 'objecao'
+            ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovada</button>' +
+              '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>' +
+              '<button class="btn btn-vermelho" onclick="acaoAprov(' + a.id + ',\'rejeitado\',event)">✕ Rejeitar</button>'
             : '<button class="btn btn-branco" onclick="acaoAprov(' + a.id + ',\'pendente\',event)">↺ Reabrir</button>') +
         '<button class="btn btn-branco" onclick="reimprimirAprov(' + a.id + ',event)">🖨️ Imprimir</button>' +
         '<button class="btn btn-branco" onclick="abrirEditarAprov(' + a.id + ',event)">✏️ Editar</button>' +
@@ -2389,6 +2396,12 @@ function acaoAprov(id, status, e) {
     document.getElementById('modal-rejeicao').style.display = 'flex';
     return;
   }
+  if (status === 'objecao') {
+    _rejeitandoId = id;
+    document.getElementById('motivo-objecao-input').value = aprovacoes.find(a => a.id === id)?.motivo_recusa || '';
+    document.getElementById('modal-objecao').style.display = 'flex';
+    return;
+  }
   const a = aprovacoes.find(x => x.id === id);
   a.status = status;
   if (status === 'pendente') a.motivo_recusa = null;
@@ -2405,6 +2418,18 @@ function confirmarRejeicao() {
   a.motivo_recusa = motivo || null;
   salvarStatusAprov(a);
   fecharModalRejeicao();
+  expandidoAprov = null;
+  renderAprovacao();
+}
+function fecharModalObjecao() { document.getElementById('modal-objecao').style.display = 'none'; _rejeitandoId = null; }
+function confirmarObjecao() {
+  if (!_rejeitandoId) return;
+  const motivo = document.getElementById('motivo-objecao-input').value.trim();
+  const a = aprovacoes.find(x => x.id === _rejeitandoId);
+  a.status = 'objecao';
+  a.motivo_recusa = motivo || null;
+  salvarStatusAprov(a);
+  fecharModalObjecao();
   expandidoAprov = null;
   renderAprovacao();
 }
@@ -4362,6 +4387,19 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
       <button class="btn btn-branco" onclick="fecharModalRejeicao()">Cancelar</button>
       <button class="btn btn-vermelho" onclick="confirmarRejeicao()">Confirmar rejeição</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBJEÇÃO TEMPORÁRIA -->
+<div class="modal-bg" id="modal-objecao" style="display:none" onclick="if(event.target===this)fecharModalObjecao()">
+  <div class="modal-sm">
+    <p style="font-size:16px;font-weight:500;margin-bottom:4px">⏸ Objeção temporária</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Registre o motivo da objeção — o cliente ainda pode voltar a fechar.</p>
+    <textarea id="motivo-objecao-input" placeholder="Ex: Vai pesquisar mais, voltamos em 15 dias..." rows="4" style="width:100%;font-size:13px;padding:10px;border:1px solid var(--slate);border-radius:8px;background:var(--surface);color:var(--text);resize:vertical;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="fecharModalObjecao()">Cancelar</button>
+      <button class="btn btn-branco" onclick="confirmarObjecao()" style="border-color:var(--slate);color:var(--slate-txt);font-weight:600">⏸ Confirmar objeção</button>
     </div>
   </div>
 </div>
