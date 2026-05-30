@@ -4234,10 +4234,11 @@ function renderFechamentos() {
 
   // Stats
   const totalFat   = lista.reduce((s,a) => s + (a.valor  || 0), 0);
-  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod || a.custo || 0), 0);
-  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat || 0), 0);
-  const lucro      = totalFat - lista.reduce((s,a) => s + (a.custo || 0), 0);
-  const margem     = totalFat > 0 ? (totalFat - totalCusto) / totalFat : null;
+  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod || 0), 0); // custo equipamento
+  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat  || 0), 0); // custo material
+  const totalCustoReal = lista.reduce((s,a) => s + (a.custo  || 0), 0); // custo total (equip+mat+taxa)
+  const lucro      = totalFat - totalCustoReal;
+  const margem     = totalFat > 0 && totalCustoReal > 0 ? (totalFat - totalCustoReal) / totalFat : (totalFat > 0 ? lista.reduce((s,a)=>s+(a.margem||0),0)/lista.length : null);
   const ticket     = lista.length > 0 ? totalFat / lista.length : 0;
   const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -4258,21 +4259,33 @@ function renderFechamentos() {
   // Lista
   const el = document.getElementById('lista-fechamentos');
   if (!lista.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--text2);padding:2rem 0">Nenhum fechamento no período.</div>'; return; }
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   el.innerHTML = lista.map(a => {
     const data = a.criado_em ? a.criado_em.slice(0,10).split('-').reverse().join('/') : '—';
-    const margemA = a.valor > 0 ? ((a.valor - (a.custo_prod || a.custo || 0)) / a.valor * 100).toFixed(0) : null;
+    // Margem usando custo total (inclui taxa do cartão)
+    const custoTotal = a.custo || 0;
+    const custoEquip = a.custo_prod || 0;
+    const custoMat   = a.custo_mat  || 0;
+    const margemA = a.valor > 0 && custoTotal > 0 ? ((a.valor - custoTotal) / a.valor * 100) : (a.margem ? a.margem * 100 : null);
+    const margemPct = margemA !== null ? margemA.toFixed(0) : null;
     const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
+    const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
     return '<div class="card" style="margin-bottom:8px;padding:14px 16px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
         '<div style="flex:1;min-width:0">' +
           '<p style="font-size:15px;font-weight:600;margin:0 0 2px">' + (a.cliente || '—') + '</p>' +
           '<p style="font-size:13px;color:var(--text2);margin:0 0 2px">' + (a.equip || '—') + '</p>' +
           '<p style="font-size:12px;color:var(--text2);margin:0">' + (a.vendedora || '—') + ' · ' + (a.pag || '—') + ' · ' + data + '</p>' +
+          // Linha de custos
+          '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">' +
+            (custoEquip > 0 ? '<span style="font-size:12px;color:var(--text2)">🔧 Custo equip.: <strong>' + fmtR(custoEquip) + '</strong></span>' : '') +
+            (custoMat   > 0 ? '<span style="font-size:12px;color:var(--text2)">📦 Material: <strong>' + fmtR(custoMat) + '</strong></span>' : '') +
+            (lucroCard  > 0 ? '<span style="font-size:12px;color:var(--mineral-txt)">💰 Lucro: <strong>' + fmtR(lucroCard) + '</strong></span>' : '') +
+          '</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0">' +
-          '<p style="font-size:17px;font-weight:700;margin:0 0 2px">R$ ' + (a.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
-          (margemA !== null ? '<p style="font-size:13px;font-weight:600;margin:0;color:' + margemCor + '">' + margemA + '% margem</p>' : '') +
-          (a.custo_mat > 0 ? '<p style="font-size:11px;color:var(--text2);margin:2px 0 0">Material: R$ ' + (a.custo_mat||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' : '') +
+          '<p style="font-size:17px;font-weight:700;margin:0 0 4px">' + fmtR(a.valor) + '</p>' +
+          (margemPct !== null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + margemPct + '% margem</p>' : '') +
         '</div>' +
       '</div>' +
     '</div>';
