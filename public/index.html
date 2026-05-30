@@ -2319,12 +2319,14 @@ function autoFillMatProp() {
 function calcMargem() {
   const cp = parseMoeda(document.getElementById('p-custo-prod').value) || 0;
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
-  const pv = parseMoeda(document.getElementById('p-venda').value) || 0;
+  const pvTotal = parseMoeda(document.getElementById('p-venda').value) || 0;
+  const matProp = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
+  const pv = pvTotal - matProp; // receita somente de produto (exclui material)
   const pag = getPag(); const pagKey = getPagKey();
   document.getElementById('res-taxa').textContent = pag.taxa > 0 ? pag.taxa.toFixed(2) + '%' : pag.desc > 0 ? '-' + pag.desc + '% desc.' : 'Sem taxa';
   const taxaR = pv * (pag.taxa / 100);
   const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
-  const ct = cp + taxaR; // material não entra na margem de produto
+  const ct = cp + taxaR; // custo somente de produto
   document.getElementById('res-custo').textContent = 'R$ ' + ct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const ip = document.getElementById('info-pag');
   if (pagKey === 'bol_parc') { const sn = pv*.3, pa = pv*.7/3; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + 3x R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (30/60/90)'; }
