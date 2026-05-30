@@ -4269,11 +4269,13 @@ function renderFechamentos() {
   const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   el.innerHTML = lista.map(a => {
     const data = a.criado_em ? a.criado_em.slice(0,10).split('-').reverse().join('/') : '—';
-    // Margem usando custo total (inclui taxa do cartão)
     const custoTotal = a.custo || 0;
     const custoEquip = a.custo_prod || 0;
     const custoMat   = a.custo_mat  || 0;
-    const margemA = a.valor > 0 && custoTotal > 0 ? ((a.valor - custoTotal) / a.valor * 100) : (a.margem ? a.margem * 100 : null);
+    const matProp    = a.mat_prop   || 0;
+    // Margem só produto (sem material), igual à proposta
+    const pvProd  = a.valor - matProp;
+    const margemA = pvProd > 0 && custoEquip > 0 ? ((pvProd - custoEquip) / pvProd * 100) : (a.margem ? a.margem * 100 : null);
     const margemPct = margemA !== null ? margemA.toFixed(0) : null;
     const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
     const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
@@ -4283,20 +4285,111 @@ function renderFechamentos() {
           '<p style="font-size:15px;font-weight:600;margin:0 0 2px">' + (a.cliente || '—') + '</p>' +
           '<p style="font-size:13px;color:var(--text2);margin:0 0 2px">' + (a.equip || '—') + '</p>' +
           '<p style="font-size:12px;color:var(--text2);margin:0">' + (a.vendedora || '—') + ' · ' + (a.pag || '—') + ' · ' + data + '</p>' +
-          // Linha de custos
           '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">' +
             (custoEquip > 0 ? '<span style="font-size:12px;color:var(--text2)">🔧 Custo equip.: <strong>' + fmtR(custoEquip) + '</strong></span>' : '') +
             (custoMat   > 0 ? '<span style="font-size:12px;color:var(--text2)">📦 Material: <strong>' + fmtR(custoMat) + '</strong></span>' : '') +
             (lucroCard  > 0 ? '<span style="font-size:12px;color:var(--mineral-txt)">💰 Lucro: <strong>' + fmtR(lucroCard) + '</strong></span>' : '') +
           '</div>' +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0">' +
+        '<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
           '<p style="font-size:17px;font-weight:700;margin:0 0 4px">' + fmtR(a.valor) + '</p>' +
           (margemPct !== null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + margemPct + '% margem</p>' : '') +
+          '<button onclick="abrirEditFech(' + a.id + ')" style="margin-top:4px;font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2)">✏️ Editar</button>' +
         '</div>' +
       '</div>' +
     '</div>';
   }).join('');
+}
+
+// Modal de edição de fechamento
+function abrirEditFech(id) {
+  const a = aprovacoes.find(x => x.id === id);
+  if (!a) return;
+  const fmtI = v => (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Cria overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-edit-fech';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg);border-radius:12px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <strong style="font-size:15px">✏️ Editar fechamento</strong>
+        <button onclick="fecharEditFech()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin:0 0 16px">${(a.cliente||'').replace(/</g,'&lt;')} — ${(a.equip||'').replace(/</g,'&lt;')}</p>
+
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Valor de venda (R$)</label>
+      <input id="efech-valor" type="text" inputmode="decimal" value="${fmtI(a.valor)}"
+        oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Custo equipamento (R$)</label>
+      <input id="efech-custo-prod" type="text" inputmode="decimal" value="${fmtI(a.custo_prod)}"
+        oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Custo material (R$)</label>
+      <input id="efech-custo-mat" type="text" inputmode="decimal" value="${fmtI(a.custo_mat)}"
+        oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Preço material repassado (R$)</label>
+      <input id="efech-mat-prop" type="text" inputmode="decimal" value="${fmtI(a.mat_prop)}"
+        oninput="calcPreviewFech()" onblur="formatMoedaInput(this);calcPreviewFech()"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:16px;box-sizing:border-box">
+
+      <div id="efech-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.7"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="fecharEditFech()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px">Cancelar</button>
+        <button onclick="salvarEditFech(${id})" style="padding:8px 18px;border:none;border-radius:8px;background:var(--text);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharEditFech(); });
+  calcPreviewFech();
+}
+function calcPreviewFech() {
+  const valor    = parseMoeda(document.getElementById('efech-valor')?.value) || 0;
+  const cp       = parseMoeda(document.getElementById('efech-custo-prod')?.value) || 0;
+  const cm       = parseMoeda(document.getElementById('efech-custo-mat')?.value) || 0;
+  const matProp  = parseMoeda(document.getElementById('efech-mat-prop')?.value) || 0;
+  const pvProd   = valor - matProp;
+  const margem   = pvProd > 0 && cp > 0 ? ((pvProd - cp) / pvProd * 100) : null;
+  const lucro    = valor - cp - cm;
+  const fmtR = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const el = document.getElementById('efech-preview');
+  if (!el) return;
+  el.innerHTML =
+    '<span style="color:var(--text2)">Margem produto: </span><strong style="color:' + (margem >= 35 ? 'var(--mineral-txt)' : margem >= 25 ? 'var(--bronze-txt)' : 'var(--terra)') + '">' + (margem !== null ? margem.toFixed(1).replace('.',',') + '%' : '—') + '</strong>' +
+    ' &nbsp;·&nbsp; <span style="color:var(--text2)">Lucro estimado: </span><strong>' + fmtR(lucro) + '</strong>';
+}
+function fecharEditFech() {
+  const m = document.getElementById('modal-edit-fech');
+  if (m) m.remove();
+}
+async function salvarEditFech(id) {
+  const a = aprovacoes.find(x => x.id === id);
+  if (!a) return;
+  const valor   = parseMoeda(document.getElementById('efech-valor').value) || 0;
+  const cp      = parseMoeda(document.getElementById('efech-custo-prod').value) || 0;
+  const cm      = parseMoeda(document.getElementById('efech-custo-mat').value) || 0;
+  const matProp = parseMoeda(document.getElementById('efech-mat-prop').value) || 0;
+  const pvProd  = valor - matProp;
+  const margem  = pvProd > 0 && cp > 0 ? (pvProd - cp) / pvProd : (a.margem || 0);
+  const custo   = cp + cm;
+  const payload = { ...a, valor, custo_prod: cp, custo_mat: cm, mat_prop: matProp, custo, margem };
+  const btn = document.querySelector('#modal-edit-fech button[onclick^="salvarEditFech"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    const r = await fetch('/api/aprovacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const d = await r.json();
+    if (!d.sucesso) { alert('Erro: ' + (d.erro || 'Tente novamente.')); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
+    fecharEditFech();
+    await carregarAprovacoes();
+    renderFechamentos();
+    renderAprovacao();
+  } catch(e) { alert('Erro: ' + e.message); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } }
 }
 
 // ═══ AUDITORIA ═══
