@@ -641,10 +641,10 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <div style="width:54px">
         <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Qtd</label>
-        <input type="number" id="novo-prod-qtd" placeholder="1" value="1" style="width:100%">
+        <input type="number" id="novo-prod-qtd" placeholder="1" value="1" style="width:100%" oninput="autoCalcNovoProdPreco()">
       </div>
       <div style="flex:1;min-width:90px">
-        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Custo un. (R$)</label>
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:3px">Custo total (R$)</label>
         <input type="text" inputmode="decimal" id="novo-prod-custo" placeholder="0,00" style="width:100%" onblur="formatMoedaInput(this)" oninput="autoCalcNovoProdPreco()">
       </div>
       <div style="flex:1;min-width:90px">
@@ -2106,8 +2106,8 @@ function calcTotalProposta() {
     const desc = tipo === 'pct' ? subtotal * (dv / 100) : dv;
     document.getElementById('p-venda').value = Math.max(0, subtotal - desc).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
-  // Auto-preenche custo de equipamento com soma dos custos dos produtos
-  const custoProdutos = produtosAdicionais.reduce((s, p) => s + ((p.custo || 0) * p.qtd), 0);
+  // Auto-preenche custo de equipamento com soma dos custos totais dos produtos
+  const custoProdutos = produtosAdicionais.reduce((s, p) => s + (p.custo || 0), 0);
   if (custoProdutos > 0) setMoedaInput('p-custo-prod', custoProdutos);
   calcMargem();
 }
@@ -2121,11 +2121,13 @@ function calcPrecoFromCusto(custoUn) {
   if (totalDesc >= 1) return 0;
   return custoUn / (1 - totalDesc);
 }
-// Auto-calcula o preço do novo produto ao digitar o custo
+// Auto-calcula o preço do novo produto ao digitar o custo ou mudar a quantidade
+// custo = custo TOTAL da linha; custo unitário = custo / qty
 function autoCalcNovoProdPreco() {
   const custo = parseMoeda(document.getElementById('novo-prod-custo').value) || 0;
+  const qty = parseFloat(document.getElementById('novo-prod-qtd').value) || 1;
   if (custo > 0) {
-    const preco = calcPrecoFromCusto(custo);
+    const preco = calcPrecoFromCusto(custo / qty);
     if (preco > 0) {
       const el = document.getElementById('novo-prod-preco');
       el.value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2137,7 +2139,8 @@ function recalcPrecoProdutos() {
   let changed = false;
   produtosAdicionais.forEach(p => {
     if (p.custo > 0) {
-      const preco = calcPrecoFromCusto(p.custo);
+      const custoUnit = p.custo / (p.qtd || 1);
+      const preco = calcPrecoFromCusto(custoUnit);
       if (preco > 0) { p.precoUn = preco; changed = true; }
     }
   });
@@ -2150,7 +2153,7 @@ function addProduto() {
   const qtd = parseFloat(document.getElementById('novo-prod-qtd').value) || 1;
   const custo = parseMoeda(document.getElementById('novo-prod-custo').value) || 0;
   const precoManual = parseMoeda(document.getElementById('novo-prod-preco').value) || 0;
-  const precoUn = precoManual || (custo ? calcPrecoFromCusto(custo) : 0);
+  const precoUn = precoManual || (custo ? calcPrecoFromCusto(custo / qtd) : 0);
   produtosAdicionais.push({ nome, sku, qtd, custo, precoUn });
   document.getElementById('novo-prod-nome').value = '';
   document.getElementById('novo-prod-sku').value = '';
@@ -2177,8 +2180,8 @@ function renderProdutosAdicionais() {
     return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">' +
       '<input type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" placeholder="Nome" style="' + inp + ';flex:2;min-width:100px" onchange="editarProd(' + i + ',\'nome\',this.value)">' +
       '<input type="text" value="' + (p.sku||'').replace(/"/g,'&quot;') + '" placeholder="SKU" style="' + inp + ';width:66px" onchange="editarProd(' + i + ',\'sku\',this.value)">' +
-      '<input type="number" value="' + p.qtd + '" min="1" step="1" placeholder="Qtd" style="' + inp + ';width:48px;text-align:center" onchange="editarProd(' + i + ',\'qtd\',this.value)">' +
-      '<input type="text" value="' + custoFmt + '" placeholder="Custo R$" title="Custo unitário" style="' + inp + ';width:88px;text-align:right;background:var(--surface2)" oninput="editarProdCusto(' + i + ',this.value)" onblur="formatMoedaInput(this);renderProdutosAdicionais()">' +
+      '<input type="number" value="' + p.qtd + '" min="1" step="1" placeholder="Qtd" style="' + inp + ';width:48px;text-align:center" oninput="editarProd(' + i + ',\'qtd\',this.value)">' +
+      '<input type="text" value="' + custoFmt + '" placeholder="Custo total" title="Custo total da linha" style="' + inp + ';width:88px;text-align:right;background:var(--surface2)" oninput="editarProdCusto(' + i + ',this.value)" onblur="formatMoedaInput(this);renderProdutosAdicionais()">' +
       '<span style="color:var(--text2);white-space:nowrap;flex-shrink:0;font-size:12px">→ R$</span>' +
       '<input type="number" value="' + p.precoUn + '" step="0.01" min="0" placeholder="Preço" style="' + inp + ';width:88px;text-align:right" onchange="editarProd(' + i + ',\'precoUn\',this.value)">' +
       '<span style="color:var(--text2);white-space:nowrap;min-width:64px;text-align:right;flex-shrink:0">= R$ ' + total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</span>' +
@@ -2190,7 +2193,8 @@ function editarProdCusto(idx, val) {
   const custo = parseMoeda(val) || 0;
   produtosAdicionais[idx].custo = custo;
   if (custo > 0) {
-    const preco = calcPrecoFromCusto(custo);
+    const custoUnit = custo / (produtosAdicionais[idx].qtd || 1);
+    const preco = calcPrecoFromCusto(custoUnit);
     if (preco > 0) produtosAdicionais[idx].precoUn = preco;
   }
   calcTotalProposta();
@@ -2198,6 +2202,12 @@ function editarProdCusto(idx, val) {
 }
 function editarProd(idx, campo, val) {
   produtosAdicionais[idx][campo] = (campo === 'nome' || campo === 'sku') ? val : (parseFloat(val) || 0);
+  // Quando muda a quantidade e tem custo, recalcula o preço unitário (custo total ÷ nova qtd)
+  if (campo === 'qtd' && produtosAdicionais[idx].custo > 0) {
+    const novaQtd = produtosAdicionais[idx].qtd || 1;
+    const preco = calcPrecoFromCusto(produtosAdicionais[idx].custo / novaQtd);
+    if (preco > 0) produtosAdicionais[idx].precoUn = preco;
+  }
   calcTotalProposta();
   gerarProposta();
   renderProdutosAdicionais();
