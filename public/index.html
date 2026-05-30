@@ -2499,10 +2499,11 @@ function renderAprovacao() {
   // Aprovadas: valor total, margem combinada ponderada, ticket médio
   // Margem combinada exclui material (igual à lógica da proposta)
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
-  // custo_prod não inclui taxa do cartão; usar (custo - custo_mat) = cp + taxaR
-  const totalValorProd  = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
-  const totalCustoProd  = aprov.reduce((s,a) => s + ((a.custo||0) - (a.custo_mat||0)), 0);
-  const margemCombinada = totalValorProd > 0 ? (totalValorProd - totalCustoProd) / totalValorProd : null;
+  // Margem combinada: média ponderada do a.margem de cada proposta (já inclui taxa do cartão)
+  // Peso = receita de produto (valor - mat_prop) de cada aprovação
+  const totalValorProd = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
+  const totalLucro     = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)) * (a.margem||0), 0);
+  const margemCombinada = totalValorProd > 0 ? totalLucro / totalValorProd : null;
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
   const elValorAprov = document.getElementById('ap-valor-aprov');
   const elMargem = document.getElementById('ap-margem-aprov');
@@ -4290,12 +4291,15 @@ function renderFechamentos() {
   if (ate)  lista = lista.filter(a => (a.criado_em || '').slice(0,10) <= ate);
 
   // Stats
-  const totalFat   = lista.reduce((s,a) => s + (a.valor  || 0), 0);
-  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod || 0), 0); // custo equipamento
-  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat  || 0), 0); // custo material
-  const totalCustoReal = lista.reduce((s,a) => s + (a.custo  || 0), 0); // custo total (equip+mat+taxa)
+  const totalFat   = lista.reduce((s,a) => s + (a.valor     || 0), 0);
+  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod|| 0), 0); // custo equipamento
+  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat || 0), 0); // custo material
+  const totalCustoReal = lista.reduce((s,a) => s + (a.custo || 0), 0); // custo total (equip+mat+taxa)
   const lucro      = totalFat - totalCustoReal;
-  const margem     = totalFat > 0 && totalCustoReal > 0 ? (totalFat - totalCustoReal) / totalFat : (totalFat > 0 ? lista.reduce((s,a)=>s+(a.margem||0),0)/lista.length : null);
+  // Margem combinada: média ponderada por receita de produto (igual ao card)
+  const _totalVProd = lista.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
+  const _totalLucro = lista.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)) * (a.margem||0), 0);
+  const margem = _totalVProd > 0 ? _totalLucro / _totalVProd : null;
   const ticket     = lista.length > 0 ? totalFat / lista.length : 0;
   const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
