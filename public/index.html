@@ -4341,49 +4341,47 @@ const CAMPOS_IGNORAR = new Set([
   'checks' // tratado separado
 ]);
 function fmtValAudit(v, campo) {
-  if (v === true || v === 1) return '<span style="color:var(--mineral-txt);font-weight:600">✓ Sim</span>';
-  if (v === false || v === 0 && typeof v !== 'number') return '<span style="color:var(--terra-txt)">✗ Não</span>';
-  if (v === null || v === undefined || v === '') return '<em style="color:#bbb">—</em>';
-  // Valor monetário
-  const camposMoeda = ['valor','mat','sinal','receber'];
-  if (camposMoeda.includes(campo) && typeof v === 'number') return '<strong>R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</strong>';
-  // Margem %
-  if (campo === 'margem' && typeof v === 'number') return '<strong>' + Math.round(v*100) + '%</strong>';
-  // Data
-  if (campo === 'data' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return '<strong>' + new Date(v+'T12:00').toLocaleDateString('pt-BR') + '</strong>';
-  // Array (técnicos)
-  if (Array.isArray(v)) return '<strong>' + (v.length ? v.join(', ') : '—') + '</strong>';
-  // JSON string de array (tecnicos guardado como string)
-  if (typeof v === 'string' && v.startsWith('[')) { try { const arr = JSON.parse(v); return '<strong>' + (arr.length ? arr.join(', ') : '—') + '</strong>'; } catch(e){} }
-  return '<strong>' + String(v).replace(/</g,'&lt;') + '</strong>';
+  if (v === true || v === 1) return '✓ Sim';
+  if (v === false || (v === 0 && typeof v !== 'number')) return '✗ Não';
+  if (v === null || v === undefined || v === '') return '—';
+  const camposMoeda = ['valor','mat','sinal','receber','mat_prop','custo_mat','custo_prod','custo'];
+  if (camposMoeda.includes(campo) && typeof v === 'number') return 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (campo === 'margem' && typeof v === 'number') return Math.round(v*100) + '%';
+  if (campo === 'data' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(v+'T12:00').toLocaleDateString('pt-BR');
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+  if (typeof v === 'string' && v.startsWith('[')) { try { const arr = JSON.parse(v); return arr.length ? arr.join(', ') : '—'; } catch(e){} }
+  // Trunca textos longos
+  const s = String(v).replace(/</g,'&lt;');
+  return s.length > 80 ? s.slice(0,80) + '…' : s;
 }
 function buildDiffs(antes, depois) {
   const diffs = [];
-  // Trata checklist separado
   if ((antes&&antes.checks) || (depois&&depois.checks)) {
     const ca = (antes&&antes.checks)||{}, cd = (depois&&depois.checks)||{};
-    const ck = new Set([...Object.keys(ca), ...Object.keys(cd)]);
-    ck.forEach(k => {
-      if (JSON.stringify(ca[k]) !== JSON.stringify(cd[k])) {
-        const lbl = CAMPO_LABEL[k] || k;
-        diffs.push({ lbl, av: ca[k], dv: cd[k], k });
-      }
+    new Set([...Object.keys(ca), ...Object.keys(cd)]).forEach(k => {
+      if (JSON.stringify(ca[k]) !== JSON.stringify(cd[k]))
+        diffs.push({ lbl: CAMPO_LABEL[k] || k, av: ca[k], dv: cd[k], k, isCheck: true });
     });
   }
-  const keys = new Set([...Object.keys(antes||{}), ...Object.keys(depois||{})]);
-  keys.forEach(k => {
+  new Set([...Object.keys(antes||{}), ...Object.keys(depois||{})]).forEach(k => {
     if (k === 'checks' || CAMPOS_IGNORAR.has(k)) return;
     const av = (antes||{})[k], dv = (depois||{})[k];
-    if (JSON.stringify(av) !== JSON.stringify(dv)) {
-      const lbl = CAMPO_LABEL[k] || k;
-      diffs.push({ lbl, av, dv, k });
-    }
+    if (JSON.stringify(av) !== JSON.stringify(dv))
+      diffs.push({ lbl: CAMPO_LABEL[k] || k, av, dv, k, isCheck: false });
   });
   return diffs;
 }
 function resumoRegistro(dados) {
   if (!dados) return '';
   return dados.cliente || dados.nome || dados.login || dados.equip || '';
+}
+function fmtMomento(m) {
+  if (!m) return '—';
+  // "2026-05-30 14:32:00" → "30/05/2026 às 14:32"
+  const [data, hora] = m.split(' ');
+  if (!data) return m;
+  const [y,mo,d] = data.split('-');
+  return d + '/' + mo + '/' + y + ' às ' + (hora||'').slice(0,5);
 }
 function renderAuditoria(registros) {
   const lista = document.getElementById('lista-auditoria');
@@ -4392,39 +4390,67 @@ function renderAuditoria(registros) {
     let detalheHtml = '';
     let resumo = '';
     try {
-      const antes = a.dados_antes ? JSON.parse(a.dados_antes) : null;
+      const antes  = a.dados_antes  ? JSON.parse(a.dados_antes)  : null;
       const depois = a.dados_depois ? JSON.parse(a.dados_depois) : null;
       resumo = resumoRegistro(depois || antes);
+
       if (antes && depois) {
         const diffs = buildDiffs(antes, depois);
         if (diffs.length) {
-          detalheHtml = '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px">' +
-            diffs.map(d =>
-              '<div style="display:flex;align-items:baseline;gap:6px;font-size:12px;flex-wrap:wrap">' +
-              '<span style="color:var(--text2);min-width:130px;flex-shrink:0">' + d.lbl + '</span>' +
-              '<span style="color:var(--terra-txt);text-decoration:line-through;opacity:.8">' + fmtValAudit(d.av, d.k) + '</span>' +
-              '<span style="color:var(--text2)">→</span>' +
-              '<span style="color:var(--mineral-txt)">' + fmtValAudit(d.dv, d.k) + '</span>' +
-              '</div>'
-            ).join('') + '</div>';
+          // Separar checklist de campos normais
+          const checks = diffs.filter(d => d.isCheck);
+          const campos = diffs.filter(d => !d.isCheck);
+          let tabela = '';
+          // Cabeçalho da tabela
+          tabela += '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">';
+          tabela += '<p style="font-size:11px;font-weight:700;color:var(--text2);margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em">' + diffs.length + ' alteração' + (diffs.length>1?'s':'') + '</p>';
+          tabela += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px">';
+          // Linha de cabeçalho
+          tabela += '<div style="padding:5px 10px;background:var(--surface2);font-weight:600;color:var(--text2);border-bottom:1px solid var(--border)">Campo</div>' +
+                    '<div style="padding:5px 10px;background:#fdf0f0;font-weight:600;color:#a33;border-bottom:1px solid var(--border)">Antes</div>' +
+                    '<div style="padding:5px 10px;background:#f0fdf4;font-weight:600;color:#1a6b3a;border-bottom:1px solid var(--border)">Depois</div>';
+          // Linhas de dados
+          const todasLinhas = [...campos, ...checks];
+          todasLinhas.forEach((d, idx) => {
+            const bg = idx % 2 === 0 ? '' : 'background:var(--surface2)';
+            const av = fmtValAudit(d.av, d.k);
+            const dv = fmtValAudit(d.dv, d.k);
+            const sep = idx < todasLinhas.length - 1 ? 'border-bottom:1px solid var(--border);' : '';
+            tabela += '<div style="padding:7px 10px;' + bg + ';' + sep + 'font-weight:500;white-space:nowrap">' + d.lbl + '</div>' +
+                      '<div style="padding:7px 10px;' + sep + 'color:#c0392b;background:#fff8f8">' + av + '</div>' +
+                      '<div style="padding:7px 10px;' + sep + 'color:#1a6b3a;background:#f6fef8;font-weight:600">' + dv + '</div>';
+          });
+          tabela += '</div></div>';
+          detalheHtml = tabela;
         } else {
-          detalheHtml = '<p style="font-size:12px;color:#bbb;margin-top:6px">Nenhuma alteração detectada.</p>';
+          detalheHtml = '<p style="font-size:12px;color:#bbb;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)">Nenhuma alteração relevante detectada.</p>';
         }
       } else if (depois || antes) {
         const d = depois || antes;
-        const infos = [d.cliente||d.nome||d.login, d.equip, d.valor ? 'R$ '+(d.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2}) : ''].filter(Boolean);
-        if (infos.length) detalheHtml = '<p style="font-size:12px;color:var(--text2);margin-top:4px">' + infos.join(' · ') + '</p>';
+        const infos = [
+          d.cliente||d.nome||d.login ? '<strong>' + (d.cliente||d.nome||d.login).replace(/</g,'&lt;') + '</strong>' : '',
+          d.equip ? d.equip : '',
+          d.valor  ? 'R$ ' + Number(d.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '',
+          d.vendedora ? '👤 ' + d.vendedora : '',
+          d.data   ? new Date(d.data+'T12:00').toLocaleDateString('pt-BR') : ''
+        ].filter(Boolean);
+        if (infos.length) detalheHtml = '<p style="font-size:13px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">' + infos.join(' · ') + '</p>';
       }
     } catch(e) {}
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">' +
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-      '<span class="badge badge-roxo">' + acaoLabel(a.acao) + '</span>' +
-      '<span style="font-size:13px;font-weight:500">' + (resumo ? resumo.replace(/</g,'&lt;') : '') + '</span>' +
-      '<span style="font-size:12px;color:var(--text2)">por <strong>' + (a.usuario_nome || '—') + '</strong></span>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<span class="badge badge-roxo">' + acaoLabel(a.acao) + '</span>' +
+          (resumo ? '<span style="font-size:14px;font-weight:600">' + resumo.replace(/</g,'&lt;') + '</span>' : '') +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<p style="font-size:12px;color:var(--text2);margin:0">' + fmtMomento(a.momento) + '</p>' +
+          '<p style="font-size:11px;color:var(--text2);margin:2px 0 0">por <strong>' + (a.usuario_nome||'—') + '</strong></p>' +
+        '</div>' +
       '</div>' +
-      '<span style="font-size:11px;color:var(--text2);flex-shrink:0;white-space:nowrap">' + (a.momento || '') + '</span>' +
-      '</div>' + detalheHtml + '</div>';
+      detalheHtml +
+    '</div>';
   }).join('');
 }
 
