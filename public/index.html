@@ -824,6 +824,12 @@ select option { background: var(--surface); color: var(--text); }
   <div class="stat4" id="resumo-inst"></div>
   <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
     <input type="text" id="busca-inst" placeholder="🔍 Buscar por cliente, nº pedido, lead Kommo, vendedora..." oninput="renderInstalacoes()" style="width:100%;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <button id="finst-todas"      class="btn btn-preto"  onclick="setFiltroInst('todas')">Todas</button>
+      <button id="finst-aguardando" class="btn btn-branco" onclick="setFiltroInst('aguardando')">⏳ Aguardando</button>
+      <button id="finst-andamento"  class="btn btn-branco" onclick="setFiltroInst('andamento')" style="border-color:var(--bronze);color:var(--bronze-txt)">🔄 Em andamento</button>
+      <button id="finst-concluido"  class="btn btn-branco" onclick="setFiltroInst('concluido')" style="border-color:var(--mineral);color:var(--mineral-txt)">✓ Concluídas</button>
+    </div>
     <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
       <label style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">📅 Mês da instalação:</label>
       <input type="month" id="filtro-mes-inst" onchange="renderInstalacoes()" style="font-size:13px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
@@ -2683,12 +2689,41 @@ function abrirArquivo(data, nome) {
   if (w) { w.document.write('<html><head><title>' + nome + '</title></head><body style="margin:0"><iframe src="' + data + '" style="width:100%;height:100vh;border:none"></iframe></body></html>'); w.document.close(); }
 }
 // rmAnexo e addAnexo estão definidos como async mais abaixo
+let filtroInst = 'todas';
+function setFiltroInst(f) {
+  filtroInst = f;
+  ['todas','aguardando','andamento','concluido'].forEach(k => {
+    const btn = document.getElementById('finst-' + k);
+    if (!btn) return;
+    if (k === filtroInst) { btn.className = 'btn btn-preto'; btn.style.cssText = ''; }
+    else if (k === 'andamento') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--bronze);color:var(--bronze-txt)'; }
+    else if (k === 'concluido') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--mineral);color:var(--mineral-txt)'; }
+    else { btn.className = 'btn btn-branco'; btn.style.cssText = ''; }
+  });
+  renderInstalacoes();
+}
 function renderInstalacoes() {
   const lista = document.getElementById('lista-instalacoes');
   const qI = (document.getElementById('busca-inst')?.value || '').toLowerCase().trim();
   const mesInst = document.getElementById('filtro-mes-inst')?.value || '';
-  let instFiltradas = mesInst ? instalacoes.filter(i => (i.data || '').startsWith(mesInst)) : instalacoes;
-  if (qI) instFiltradas = instFiltradas.filter(i => [i.cliente, i.vend, i.lead_id, i.pedido_ref, i.pedido].some(v => (v||'').toLowerCase().includes(qI)));
+  let instFiltradas = instalacoes.filter(i => {
+    if (mesInst && !(i.data || '').startsWith(mesInst)) return false;
+    if (qI && ![i.cliente, i.vend, i.lead_id, i.pedido_ref, i.pedido].some(v => (v||'').toLowerCase().includes(qI))) return false;
+    const p = progresso(i.checks);
+    if (filtroInst === 'aguardando') return p === 0;
+    if (filtroInst === 'andamento')  return p > 0 && p < ETAPAS.length;
+    if (filtroInst === 'concluido')  return p === ETAPAS.length;
+    return true;
+  });
+  // Atualiza estado visual dos botões
+  ['todas','aguardando','andamento','concluido'].forEach(k => {
+    const btn = document.getElementById('finst-' + k);
+    if (!btn) return;
+    if (k === filtroInst) { btn.className = 'btn btn-preto'; btn.style.cssText = ''; }
+    else if (k === 'andamento') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--bronze);color:var(--bronze-txt)'; }
+    else if (k === 'concluido') { btn.className = 'btn btn-branco'; btn.style.cssText = 'border-color:var(--mineral);color:var(--mineral-txt)'; }
+    else { btn.className = 'btn btn-branco'; btn.style.cssText = ''; }
+  });
   if (!instFiltradas.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">' + (qI ? 'Nenhum resultado.' : 'Nenhuma instalação.') + '</p>'; return; }
   lista.innerHTML = instFiltradas.map(inst => {
     const isExp = expandidoInst === inst.id;
