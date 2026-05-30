@@ -383,6 +383,7 @@ select option { background: var(--surface); color: var(--text); }
     <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">Pd</span><span class="nav-label">Pedidos</span></button>
     <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">In</span><span class="nav-label">Instalações</span></button>
     <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">Co</span><span class="nav-label">Compras</span></button>
+    <button onclick="irPara('fechamentos', this)" id="btn-fechamentos"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
     <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">Me</span><span class="nav-label">Metas</span></button>
     <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
     <button onclick="irPara('sincronizar', this)" id="btn-sincronizar" style="display:none"><span class="nav-icon">↓</span><span class="nav-label">Sincronizar</span></button>
@@ -935,6 +936,44 @@ select option { background: var(--surface); color: var(--text); }
     <button class="btn btn-preto" style="width:100%;padding:12px" onclick="sincronizarTinyPage(this)">↓ Sincronizar agora</button>
     <p id="sync-msg" style="font-size:13px;margin-top:12px;display:none;text-align:center"></p>
   </div>
+</div>
+
+<!-- TELA FECHAMENTOS -->
+<div id="tela-fechamentos" class="tela">
+  <!-- Stats -->
+  <div class="stat4" style="margin-bottom:10px" id="fech-stats">
+    <div class="stat"><div class="lbl">Faturamento</div><div class="val" id="fech-fat" style="font-size:15px">—</div></div>
+    <div class="stat"><div class="lbl">Custo produto</div><div class="val" id="fech-custo" style="font-size:15px">—</div></div>
+    <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="fech-margem" style="font-size:22px;font-weight:700">—</div></div>
+    <div class="stat"><div class="lbl">Fechamentos</div><div class="val" id="fech-count">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+    <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="fech-ticket" style="font-size:15px">—</div></div>
+    <div class="stat"><div class="lbl">Custo material</div><div class="val" id="fech-mat" style="font-size:15px">—</div></div>
+    <div class="stat"><div class="lbl">Lucro estimado</div><div class="val" id="fech-lucro" style="font-size:15px">—</div></div>
+  </div>
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="fech-filtro-vend" onchange="renderFechamentos()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+        <option value="">Todas as vendedoras</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--text2);white-space:nowrap">📅 Mês:</label>
+        <input type="month" id="fech-filtro-mes" onchange="onFechMesChange()" style="font-size:13px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--text2);white-space:nowrap">De:</label>
+        <input type="date" id="fech-filtro-de" onchange="onFechDataChange()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+        <label style="font-size:12px;color:var(--text2);white-space:nowrap">Até:</label>
+        <input type="date" id="fech-filtro-ate" onchange="onFechDataChange()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+      </div>
+      <button class="btn btn-branco" onclick="limparFiltrosFech()" style="font-size:12px;padding:3px 8px">✕ limpar</button>
+      <span id="fech-contagem" style="font-size:12px;color:var(--text2);margin-left:auto"></span>
+    </div>
+  </div>
+  <!-- Lista -->
+  <div id="lista-fechamentos"></div>
 </div>
 
 <!-- TELA AUDITORIA -->
@@ -4152,6 +4191,94 @@ async function rmAnexo(instId, idx) {
   renderInstalacoes(); renderResumoInst();
 }
 
+// ═══ FECHAMENTOS ═══
+function initFechamentos() {
+  // Preenche select de vendedoras
+  const sel = document.getElementById('fech-filtro-vend');
+  if (!sel) return;
+  const vends = [...new Set(aprovacoes.filter(a => a.status === 'aprovado' && a.vendedora).map(a => a.vendedora))].sort();
+  sel.innerHTML = '<option value="">Todas as vendedoras</option>' + vends.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+  renderFechamentos();
+}
+function onFechMesChange() {
+  const mes = document.getElementById('fech-filtro-mes').value;
+  if (mes) {
+    // Preenche De/Até com início/fim do mês selecionado
+    const [y, m] = mes.split('-').map(Number);
+    const ultimo = new Date(y, m, 0).getDate();
+    document.getElementById('fech-filtro-de').value  = mes + '-01';
+    document.getElementById('fech-filtro-ate').value = mes + '-' + String(ultimo).padStart(2,'0');
+  }
+  renderFechamentos();
+}
+function onFechDataChange() {
+  document.getElementById('fech-filtro-mes').value = '';
+  renderFechamentos();
+}
+function limparFiltrosFech() {
+  document.getElementById('fech-filtro-vend').value = '';
+  document.getElementById('fech-filtro-mes').value  = '';
+  document.getElementById('fech-filtro-de').value   = '';
+  document.getElementById('fech-filtro-ate').value  = '';
+  renderFechamentos();
+}
+function renderFechamentos() {
+  const vend = document.getElementById('fech-filtro-vend')?.value || '';
+  const de   = document.getElementById('fech-filtro-de')?.value  || '';
+  const ate  = document.getElementById('fech-filtro-ate')?.value || '';
+
+  let lista = aprovacoes.filter(a => a.status === 'aprovado');
+  if (vend) lista = lista.filter(a => a.vendedora === vend);
+  if (de)   lista = lista.filter(a => (a.criado_em || '') >= de);
+  if (ate)  lista = lista.filter(a => (a.criado_em || '').slice(0,10) <= ate);
+
+  // Stats
+  const totalFat   = lista.reduce((s,a) => s + (a.valor  || 0), 0);
+  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod || a.custo || 0), 0);
+  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat || 0), 0);
+  const lucro      = totalFat - lista.reduce((s,a) => s + (a.custo || 0), 0);
+  const margem     = totalFat > 0 ? (totalFat - totalCusto) / totalFat : null;
+  const ticket     = lista.length > 0 ? totalFat / lista.length : 0;
+  const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  document.getElementById('fech-fat').textContent    = lista.length ? fmt(totalFat)   : '—';
+  document.getElementById('fech-custo').textContent  = lista.length ? fmt(totalCusto) : '—';
+  document.getElementById('fech-mat').textContent    = lista.length ? fmt(totalMat)   : '—';
+  document.getElementById('fech-lucro').textContent  = lista.length ? fmt(lucro)      : '—';
+  document.getElementById('fech-ticket').textContent = lista.length ? fmt(ticket)     : '—';
+  document.getElementById('fech-count').textContent  = lista.length || '—';
+  const elM = document.getElementById('fech-margem');
+  if (margem !== null && lista.length) {
+    const pct = (margem * 100).toFixed(1).replace('.',',') + '%';
+    elM.textContent = pct;
+    elM.style.color = margem >= 0.35 ? 'var(--mineral-txt)' : margem >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra)';
+  } else { elM.textContent = '—'; elM.style.color = ''; }
+  document.getElementById('fech-contagem').textContent = lista.length + ' fechamento' + (lista.length !== 1 ? 's' : '');
+
+  // Lista
+  const el = document.getElementById('lista-fechamentos');
+  if (!lista.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--text2);padding:2rem 0">Nenhum fechamento no período.</div>'; return; }
+  el.innerHTML = lista.map(a => {
+    const data = a.criado_em ? a.criado_em.slice(0,10).split('-').reverse().join('/') : '—';
+    const margemA = a.valor > 0 ? ((a.valor - (a.custo_prod || a.custo || 0)) / a.valor * 100).toFixed(0) : null;
+    const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
+    return '<div class="card" style="margin-bottom:8px;padding:14px 16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:0">' +
+          '<p style="font-size:15px;font-weight:600;margin:0 0 2px">' + (a.cliente || '—') + '</p>' +
+          '<p style="font-size:13px;color:var(--text2);margin:0 0 2px">' + (a.equip || '—') + '</p>' +
+          '<p style="font-size:12px;color:var(--text2);margin:0">' + (a.vendedora || '—') + ' · ' + (a.pag || '—') + ' · ' + data + '</p>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<p style="font-size:17px;font-weight:700;margin:0 0 2px">R$ ' + (a.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
+          (margemA !== null ? '<p style="font-size:13px;font-weight:600;margin:0;color:' + margemCor + '">' + margemA + '% margem</p>' : '') +
+          (a.custo_mat > 0 ? '<p style="font-size:11px;color:var(--text2);margin:2px 0 0">Material: R$ ' + (a.custo_mat||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
 // ═══ AUDITORIA ═══
 async function carregarAuditoria() {
   const r = await fetch('/api/auditoria');
@@ -4532,6 +4659,7 @@ function irPara(tela, btn) {
   if (tela === 'visita') renderVisitas();
   if (tela === 'calendario') renderCalendario();
   if (tela === 'financeiro') renderFinanceiro();
+  if (tela === 'fechamentos') initFechamentos();
   if (tela === 'meta') { initMeta(); renderMeta(); carregarVendedoras().then(() => carregarMetas()).catch(() => carregarMetas()); }
   if (tela === 'sincronizar') initSincronizar();
   if (tela === 'auditoria') carregarAuditoria();
