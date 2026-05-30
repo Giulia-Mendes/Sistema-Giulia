@@ -326,6 +326,7 @@ app.get('/api/me', (req, res) => {
 // ── PERMISSÕES POR PERFIL ──
 const DEFAULT_ROLE_PAGES = {
   admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],

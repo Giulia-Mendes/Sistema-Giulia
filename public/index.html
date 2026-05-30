@@ -1070,6 +1070,7 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo" style="margin:0">
         <label>Perfil</label>
         <select id="nu-role" style="width:auto;min-width:160px">
+          <option value="gerente">🏆 Gerente</option>
           <option value="vendedor">💼 Vendedor</option>
           <option value="tecnico">🔧 Técnico</option>
           <option value="user">👤 Usuário</option>
@@ -3696,11 +3697,12 @@ async function pedidoParaCompras(fonte, id) {
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
   admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
-const ROLE_LABEL = { admin:'👑 Administrador', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
+const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
 const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários' };
 const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'];
 
@@ -4668,7 +4670,7 @@ async function carregarListaUsuarios() {
   const usuarios = await r.json();
   const lista = document.getElementById('lista-usuarios');
 
-  const editRoles = ['vendedor','tecnico','user'];
+  const editRoles = ['gerente','vendedor','tecnico','user'];
   const tHead = '<tr><th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border)">Página</th>' +
     editRoles.map(r => '<th style="padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);text-align:center;min-width:90px">' + ROLE_LABEL[r] + '</th>').join('') + '</tr>';
   const tBody = ALL_PAGES.filter(p => p !== 'auditoria' && p !== 'usuarios').map(p =>
@@ -4709,7 +4711,7 @@ async function carregarListaUsuarios() {
       '</div>'
     : '';
   lista.innerHTML = tinyHtml + legendaHtml + usuarios.map(u => {
-    const roleOpts = ['admin','vendedor','tecnico','user'].map(rv =>
+    const roleOpts = ['admin','gerente','vendedor','tecnico','user'].map(rv =>
       '<option value="' + rv + '"' + (u.role === rv ? ' selected' : '') + '>' + ROLE_LABEL[rv] + '</option>'
     ).join('');
     const protegido = u.login === 'giulia';
