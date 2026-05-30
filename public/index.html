@@ -2210,7 +2210,7 @@ function renderProdutosAdicionais() {
       '<input type="number" value="' + p.qtd + '" min="1" step="1" placeholder="Qtd" style="' + inp + ';width:48px;text-align:center" oninput="editarProd(' + i + ',\'qtd\',this.value)">' +
       '<input id="prod-custo-' + i + '" type="text" value="' + custoFmt + '" placeholder="Custo total" title="Custo total da linha" style="' + inp + ';width:88px;text-align:right;background:var(--surface2)" oninput="editarProdCusto(' + i + ',this.value)" onblur="formatMoedaInput(this);renderProdutosAdicionais()">' +
       '<span style="color:var(--text2);white-space:nowrap;flex-shrink:0;font-size:12px">→ R$</span>' +
-      '<input id="prod-preco-' + i + '" type="number" value="' + p.precoUn.toFixed(2) + '" step="0.01" min="0" placeholder="Preço" style="' + inp + ';width:88px;text-align:right" onchange="editarProd(' + i + ',\'precoUn\',this.value)">' +
+      '<input id="prod-preco-' + i + '" type="text" inputmode="decimal" value="' + p.precoUn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '" placeholder="Preço" style="' + inp + ';width:88px;text-align:right" onblur="formatMoedaInput(this);editarProd(' + i + ',\'precoUn\',this.value)" oninput="editarProd(' + i + ',\'precoUn\',this.value)">' +
       '<span id="prod-total-' + i + '" style="color:var(--text2);white-space:nowrap;min-width:64px;text-align:right;flex-shrink:0">= R$ ' + total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</span>' +
       '<button onclick="removeProduto(' + i + ')" style="background:none;border:none;cursor:pointer;color:var(--terra);font-size:18px;padding:0 2px;line-height:1;flex-shrink:0">×</button>' +
       '</div>';
@@ -2227,7 +2227,7 @@ function editarProdCusto(idx, val) {
       produtosAdicionais[idx].precoUn = preco;
       // Atualiza campo de preço direto no DOM sem re-renderizar (para não perder foco)
       const elPreco = document.getElementById('prod-preco-' + idx);
-      if (elPreco) elPreco.value = preco.toFixed(2);
+      if (elPreco) elPreco.value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const elTotal = document.getElementById('prod-total-' + idx);
       if (elTotal) elTotal.textContent = '= R$ ' + (preco * qtd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -2236,7 +2236,10 @@ function editarProdCusto(idx, val) {
   gerarProposta();
 }
 function editarProd(idx, campo, val) {
-  produtosAdicionais[idx][campo] = (campo === 'nome' || campo === 'sku') ? val : (parseFloat(val) || 0);
+  // precoUn usa parseMoeda para aceitar formato pt-BR (5.200,32); qtd usa parseFloat
+  if (campo === 'nome' || campo === 'sku') produtosAdicionais[idx][campo] = val;
+  else if (campo === 'precoUn') produtosAdicionais[idx][campo] = parseMoeda(val) || 0;
+  else produtosAdicionais[idx][campo] = parseFloat(val) || 0;
   // Quando muda a quantidade: escala custo total e recalcula preço unitário
   if (campo === 'qtd') {
     const novaQtd = produtosAdicionais[idx].qtd || 1;
@@ -2253,7 +2256,7 @@ function editarProd(idx, campo, val) {
     const elCusto = document.getElementById('prod-custo-' + idx);
     if (elCusto && custoUn > 0) elCusto.value = produtosAdicionais[idx].custo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const elPreco = document.getElementById('prod-preco-' + idx);
-    if (elPreco && novoPreco > 0) elPreco.value = novoPreco.toFixed(2);
+    if (elPreco && novoPreco > 0) elPreco.value = novoPreco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const elTotal = document.getElementById('prod-total-' + idx);
     if (elTotal) elTotal.textContent = '= R$ ' + (produtosAdicionais[idx].precoUn * novaQtd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
