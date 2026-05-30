@@ -2305,15 +2305,13 @@ function renderPropAnexos() {
       '</div>';
   }).join('');
 }
-const MARGEM_MATERIAL_PCT = 8; // margem líquida do material após taxa do cartão
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Material: custo / (1 - taxa_cartao - 8%), cobre a taxa e garante 8% líquido
+    // Material: acréscimo direto de (taxa do cartão + 8%) sobre o custo
     const pag = getPag();
     const taxa = pag ? pag.taxa : 0;
-    const totalDesc = (taxa + MARGEM_MATERIAL_PCT) / 100;
-    const preco = totalDesc < 1 ? cm / (1 - totalDesc) : cm * 1.08;
+    const preco = cm * (1 + (taxa + 8) / 100);
     document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else {
     document.getElementById('p-mat-prop').value = '';
