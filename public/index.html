@@ -4174,65 +4174,114 @@ function acaoLabel(acao) {
   return labels[acao] || acao;
 }
 const CAMPO_LABEL = {
-  cliente: 'Cliente', equip: 'Equipamento', pedido: 'Nº pedido', valor: 'Valor', mat: 'Valor do material',
-  sinal: 'Sinal do cliente', receber: 'Valor final a receber', matComprar: 'Equipamento a comprar',
-  data: 'Data', vend: 'Vendedora', obs: 'Observação',
-  equip_comprado: 'Equipamento comprado', mat_pago: 'Material pago',
-  sinal_pago: 'Sinal recebido', valor_pago: 'Valor final recebido', instalado: 'Instalação concluída'
+  // Instalação / Compras
+  cliente: 'Cliente', equip: 'Equipamento', pedido: 'Nº pedido', valor: 'Valor de venda',
+  mat: 'Valor do material', sinal: 'Sinal do cliente', receber: 'A receber',
+  data: 'Data', vend: 'Vendedora', obs: 'Observação', lead_id: 'Lead Kommo',
+  pedido_ref: 'Referência pedido', tipo_servico: 'Tipo de serviço',
+  // Checklist
+  equip_comprado: '✔ Equipamento comprado', mat_pago: '✔ Material pago',
+  sinal_pago: '✔ Sinal recebido', valor_pago: '✔ Valor final recebido', instalado: '✔ Instalação concluída',
+  // Proposta / Aprovação
+  status: 'Status', motivo_recusa: 'Motivo', margem: 'Margem', pag: 'Pagamento',
+  texto: 'Texto da proposta', custos: 'Custos internos', temperatura_alvo: 'Temperatura alvo',
+  // Visita
+  tipo: 'Tipo', nome: 'Nome', cel: 'Celular', endereco: 'Endereço', cep: 'CEP',
+  hora_ini: 'Hora início', hora_fim: 'Hora fim', periodo: 'Período', tecnicos: 'Técnicos',
+  // Usuário
+  login: 'Login', role: 'Perfil',
 };
-function fmtVal(v) {
-  if (v === true || v === 1) return '<span style="color:var(--mineral-txt);font-weight:500">✓ marcado</span>';
-  if (v === false || v === 0 && typeof v === 'boolean') return '<span style="color:var(--terra-txt)">✗ desmarcado</span>';
-  if (v === null || v === undefined || v === '') return '<em style="color:#aaa">vazio</em>';
-  return '<strong>' + v + '</strong>';
+// Campos internos que não devem aparecer no diff
+const CAMPOS_IGNORAR = new Set([
+  'id','criado_em','google_event_id','_tem_anexos','anexos','html_proposta',
+  'criado_por_id','criado_por_nome','lead_id_num','obs_compras','comprovantes',
+  'checks' // tratado separado
+]);
+function fmtValAudit(v, campo) {
+  if (v === true || v === 1) return '<span style="color:var(--mineral-txt);font-weight:600">✓ Sim</span>';
+  if (v === false || v === 0 && typeof v !== 'number') return '<span style="color:var(--terra-txt)">✗ Não</span>';
+  if (v === null || v === undefined || v === '') return '<em style="color:#bbb">—</em>';
+  // Valor monetário
+  const camposMoeda = ['valor','mat','sinal','receber'];
+  if (camposMoeda.includes(campo) && typeof v === 'number') return '<strong>R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</strong>';
+  // Margem %
+  if (campo === 'margem' && typeof v === 'number') return '<strong>' + Math.round(v*100) + '%</strong>';
+  // Data
+  if (campo === 'data' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return '<strong>' + new Date(v+'T12:00').toLocaleDateString('pt-BR') + '</strong>';
+  // Array (técnicos)
+  if (Array.isArray(v)) return '<strong>' + (v.length ? v.join(', ') : '—') + '</strong>';
+  // JSON string de array (tecnicos guardado como string)
+  if (typeof v === 'string' && v.startsWith('[')) { try { const arr = JSON.parse(v); return '<strong>' + (arr.length ? arr.join(', ') : '—') + '</strong>'; } catch(e){} }
+  return '<strong>' + String(v).replace(/</g,'&lt;') + '</strong>';
 }
 function buildDiffs(antes, depois) {
   const diffs = [];
+  // Trata checklist separado
+  if ((antes&&antes.checks) || (depois&&depois.checks)) {
+    const ca = (antes&&antes.checks)||{}, cd = (depois&&depois.checks)||{};
+    const ck = new Set([...Object.keys(ca), ...Object.keys(cd)]);
+    ck.forEach(k => {
+      if (JSON.stringify(ca[k]) !== JSON.stringify(cd[k])) {
+        const lbl = CAMPO_LABEL[k] || k;
+        diffs.push({ lbl, av: ca[k], dv: cd[k], k });
+      }
+    });
+  }
   const keys = new Set([...Object.keys(antes||{}), ...Object.keys(depois||{})]);
   keys.forEach(k => {
-    if (k === 'checks') {
-      const ca = (antes&&antes.checks)||{}, cd = (depois&&depois.checks)||{};
-      const ck = new Set([...Object.keys(ca), ...Object.keys(cd)]);
-      ck.forEach(ck => {
-        if (JSON.stringify(ca[ck]) !== JSON.stringify(cd[ck])) {
-          const lbl = CAMPO_LABEL[ck] || ck;
-          diffs.push('<span style="color:var(--text2)">' + lbl + ':</span> ' + fmtVal(ca[ck]) + ' → ' + fmtVal(cd[ck]));
-        }
-      });
-    } else if (JSON.stringify((antes||{})[k]) !== JSON.stringify((depois||{})[k])) {
+    if (k === 'checks' || CAMPOS_IGNORAR.has(k)) return;
+    const av = (antes||{})[k], dv = (depois||{})[k];
+    if (JSON.stringify(av) !== JSON.stringify(dv)) {
       const lbl = CAMPO_LABEL[k] || k;
-      const av = (antes||{})[k], dv = (depois||{})[k];
-      diffs.push('<span style="color:var(--text2)">' + lbl + ':</span> ' + fmtVal(av) + ' → ' + fmtVal(dv));
+      diffs.push({ lbl, av, dv, k });
     }
   });
   return diffs;
+}
+function resumoRegistro(dados) {
+  if (!dados) return '';
+  return dados.cliente || dados.nome || dados.login || dados.equip || '';
 }
 function renderAuditoria(registros) {
   const lista = document.getElementById('lista-auditoria');
   if (!registros.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum registro encontrado.</p>'; return; }
   lista.innerHTML = registros.map(a => {
-    let detalhe = '';
+    let detalheHtml = '';
+    let resumo = '';
     try {
       const antes = a.dados_antes ? JSON.parse(a.dados_antes) : null;
       const depois = a.dados_depois ? JSON.parse(a.dados_depois) : null;
+      resumo = resumoRegistro(depois || antes);
       if (antes && depois) {
         const diffs = buildDiffs(antes, depois);
-        if (diffs.length) detalhe = '<div style="font-size:12px;margin-top:8px;line-height:2;padding:8px 10px;background:#fafaf8;border-radius:6px;border:1px solid #eee">' + diffs.join('<br>') + '</div>';
-        else detalhe = '<div style="font-size:12px;color:#aaa;margin-top:4px">Sem alterações registradas.</div>';
-      } else if (depois) {
-        const info = depois.cliente || depois.nome || depois.login || '';
-        if (info) detalhe = '<div style="font-size:12px;color:#888780;margin-top:4px">' + info + '</div>';
-      } else if (antes) {
-        const info = antes.cliente || antes.nome || antes.login || '';
-        if (info) detalhe = '<div style="font-size:12px;color:#888780;margin-top:4px">' + info + '</div>';
+        if (diffs.length) {
+          detalheHtml = '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px">' +
+            diffs.map(d =>
+              '<div style="display:flex;align-items:baseline;gap:6px;font-size:12px;flex-wrap:wrap">' +
+              '<span style="color:var(--text2);min-width:130px;flex-shrink:0">' + d.lbl + '</span>' +
+              '<span style="color:var(--terra-txt);text-decoration:line-through;opacity:.8">' + fmtValAudit(d.av, d.k) + '</span>' +
+              '<span style="color:var(--text2)">→</span>' +
+              '<span style="color:var(--mineral-txt)">' + fmtValAudit(d.dv, d.k) + '</span>' +
+              '</div>'
+            ).join('') + '</div>';
+        } else {
+          detalheHtml = '<p style="font-size:12px;color:#bbb;margin-top:6px">Nenhuma alteração detectada.</p>';
+        }
+      } else if (depois || antes) {
+        const d = depois || antes;
+        const infos = [d.cliente||d.nome||d.login, d.equip, d.valor ? 'R$ '+(d.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2}) : ''].filter(Boolean);
+        if (infos.length) detalheHtml = '<p style="font-size:12px;color:var(--text2);margin-top:4px">' + infos.join(' · ') + '</p>';
       }
     } catch(e) {}
-    return '<div style="background:#fff;border:1px solid #e5e3db;border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">' +
-      '<div><span class="badge badge-roxo">' + acaoLabel(a.acao) + '</span>' +
-      '<span style="font-size:12px;color:#888780;margin-left:8px">por <strong>' + (a.usuario_nome || '—') + '</strong></span></div>' +
-      '<span style="font-size:11px;color:#b4b2a9;flex-shrink:0">' + (a.momento || '') + '</span>' +
-      '</div>' + detalhe + '</div>';
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+      '<span class="badge badge-roxo">' + acaoLabel(a.acao) + '</span>' +
+      '<span style="font-size:13px;font-weight:500">' + (resumo ? resumo.replace(/</g,'&lt;') : '') + '</span>' +
+      '<span style="font-size:12px;color:var(--text2)">por <strong>' + (a.usuario_nome || '—') + '</strong></span>' +
+      '</div>' +
+      '<span style="font-size:11px;color:var(--text2);flex-shrink:0;white-space:nowrap">' + (a.momento || '') + '</span>' +
+      '</div>' + detalheHtml + '</div>';
   }).join('');
 }
 
