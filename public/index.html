@@ -940,9 +940,12 @@ select option { background: var(--surface); color: var(--text); }
 <!-- TELA AUDITORIA -->
 <div id="tela-auditoria" class="tela">
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <p class="sec" style="margin:0">Histórico de ações</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <p class="sec" style="margin:0">Histórico de ações</p>
+        <span id="audit-contagem" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="audit-filtro-acao" onchange="filtrarAuditoria()" style="font-size:12px;padding:5px 8px;width:auto">
           <option value="">Todas as ações</option>
           <option value="LOGIN">Login</option>
@@ -961,6 +964,13 @@ select option { background: var(--surface); color: var(--text); }
         <select id="audit-filtro-usuario" onchange="filtrarAuditoria()" style="font-size:12px;padding:5px 8px;width:auto">
           <option value="">Todos os usuários</option>
         </select>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap">De:</label>
+          <input type="date" id="audit-filtro-de" onchange="filtrarAuditoria()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap">Até:</label>
+          <input type="date" id="audit-filtro-ate" onchange="filtrarAuditoria()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+          <button class="btn btn-branco" onclick="document.getElementById('audit-filtro-de').value='';document.getElementById('audit-filtro-ate').value='';filtrarAuditoria()" style="font-size:11px;padding:3px 8px">✕ limpar</button>
+        </div>
       </div>
     </div>
     <div id="lista-auditoria"><p style="text-align:center;color:#888780;padding:2rem 0">Carregando...</p></div>
@@ -4157,9 +4167,15 @@ function preencherFiltroUsuarios() {
 function filtrarAuditoria() {
   const filtroAcao = document.getElementById('audit-filtro-acao').value;
   const filtroUser = document.getElementById('audit-filtro-usuario').value;
+  const filtroDe  = document.getElementById('audit-filtro-de').value;   // YYYY-MM-DD
+  const filtroAte = document.getElementById('audit-filtro-ate').value;   // YYYY-MM-DD
   let registros = todosRegistrosAuditoria;
   if (filtroAcao) registros = registros.filter(a => a.acao === filtroAcao);
   if (filtroUser) registros = registros.filter(a => a.usuario_nome === filtroUser);
+  if (filtroDe)  registros = registros.filter(a => (a.momento || '') >= filtroDe);
+  if (filtroAte) registros = registros.filter(a => (a.momento || '').slice(0,10) <= filtroAte);
+  const cont = document.getElementById('audit-contagem');
+  if (cont) cont.textContent = registros.length + ' registro' + (registros.length !== 1 ? 's' : '');
   renderAuditoria(registros);
 }
 function acaoLabel(acao) {
