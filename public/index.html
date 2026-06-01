@@ -602,29 +602,7 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
-  <!-- Card 2: Forma de pagamento -->
-  <div class="card">
-    <p class="sec">Forma de pagamento</p>
-    <div class="campo" style="max-width:340px">
-      <label>Forma de pagamento</label>
-      <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos();autoFillMatProp()">
-        <option value="pix">PIX — sem taxa</option>
-        <option value="deb">Débito — 0,79%</option>
-        <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
-        <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
-        <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
-        <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
-        <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
-        <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
-        <option value="boleto">Boleto</option>
-      </select>
-    </div>
-    <!-- Campo oculto de compatibilidade — valor vem dos parâmetros -->
-    <input type="hidden" id="p-margem-desejada" value="38">
-    <div id="info-pag" class="info-pag" style="display:none"></div>
-  </div>
-
-  <!-- Card 3: Produtos -->
+  <!-- Card 2: Produtos -->
   <div class="card">
     <p class="sec">Produtos</p>
     <div id="lista-prod-adicionais"></div>
@@ -651,6 +629,28 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <button class="btn btn-branco" onclick="addProduto()" style="white-space:nowrap;flex-shrink:0">+ Add produto</button>
     </div>
+  </div>
+
+  <!-- Card 3: Forma de pagamento -->
+  <div class="card">
+    <p class="sec">Forma de pagamento</p>
+    <div class="campo" style="max-width:340px">
+      <label>Forma de pagamento</label>
+      <select id="p-pag" onchange="calcMargem();recalcPrecoProdutos();autoFillMatProp()">
+        <option value="pix">PIX — sem taxa</option>
+        <option value="deb">Débito — 0,79%</option>
+        <option value="c1x">Cartão 1x — 2,79%</option><option value="c2x">Cartão 2x — 4,08%</option>
+        <option value="c3x">Cartão 3x — 4,65%</option><option value="c4x">Cartão 4x — 5,21%</option>
+        <option value="c5x">Cartão 5x — 5,77%</option><option value="c6x">Cartão 6x — 6,32%</option>
+        <option value="c7x">Cartão 7x — 6,87%</option><option value="c8x">Cartão 8x — 7,42%</option>
+        <option value="c9x">Cartão 9x — 7,96%</option><option value="c10x">Cartão 10x — 8,49%</option>
+        <option value="c11x">Cartão 11x — 9,03%</option><option value="c12x">Cartão 12x — 9,56%</option>
+        <option value="boleto">Boleto</option>
+      </select>
+    </div>
+    <!-- Campo oculto de compatibilidade — valor vem dos parâmetros -->
+    <input type="hidden" id="p-margem-desejada" value="38">
+    <div id="info-pag" class="info-pag" style="display:none"></div>
   </div>
 
   <!-- Card 4: Material, prazo, validade e desconto -->
