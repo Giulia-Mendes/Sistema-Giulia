@@ -810,7 +810,15 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo"><label>A receber (R$)</label><input type="text" id="i-receber" readonly placeholder="Auto"></div>
     </div>
     <div class="g2">
-      <div class="campo"><label>Data</label><input type="date" id="i-data"></div>
+      <div class="campo">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          Datas de instalação
+          <button type="button" onclick="addDataInst('i-datas-lista')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2)">+ dia</button>
+        </label>
+        <div id="i-datas-lista">
+          <input type="date" style="width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+        </div>
+      </div>
       <div class="campo"><label>Observações</label><input type="text" id="i-obs" placeholder="Anotações gerais"></div>
     </div>
     <div class="campo">
@@ -1283,7 +1291,15 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo"><label>A receber (R$)</label><input type="text" id="ei-receber" readonly></div>
     </div>
     <div class="g2">
-      <div class="campo"><label>Data</label><input type="date" id="ei-data"></div>
+      <div class="campo">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          Datas de instalação
+          <button type="button" onclick="addDataInst('ei-datas-lista')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2)">+ dia</button>
+        </label>
+        <div id="ei-datas-lista">
+          <input type="date" id="ei-data" style="width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+        </div>
+      </div>
       <div class="campo"><label>Observações</label><input type="text" id="ei-obs"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -2910,6 +2926,42 @@ async function toggleInst(id) {
   renderInstalacoes();
 }
 function toggleCk(id, key) { instalacoes.find(i => i.id === id).checks[key] ^= true; renderInstalacoes(); renderResumoInst(); }
+// Adiciona campo de data extra em uma lista de datas
+function addDataInst(listaId) {
+  const lista = document.getElementById(listaId);
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;align-items:center';
+  row.innerHTML = '<input type="date" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
+    '<button type="button" onclick="this.parentElement.remove()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:13px">✕</button>';
+  lista.appendChild(row);
+}
+// Coleta todas as datas de uma lista (ignora vazias)
+function coletarDatas(listaId) {
+  return [...document.getElementById(listaId).querySelectorAll('input[type="date"]')]
+    .map(el => el.value).filter(Boolean).sort();
+}
+// Preenche a lista de datas a partir de um array
+function preencherDatasLista(listaId, datas) {
+  const lista = document.getElementById(listaId);
+  lista.innerHTML = '';
+  const arr = (datas && datas.length) ? datas : [''];
+  arr.forEach((d, idx) => {
+    if (idx === 0) {
+      // Primeiro campo: simples (o id ei-data ou input sem botão de remover)
+      const inp = document.createElement('input');
+      inp.type = 'date'; inp.value = d;
+      inp.style.cssText = 'width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)';
+      if (listaId === 'ei-datas-lista') inp.id = 'ei-data';
+      lista.appendChild(inp);
+    } else {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;align-items:center';
+      row.innerHTML = '<input type="date" value="' + d + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
+        '<button type="button" onclick="this.parentElement.remove()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:13px">✕</button>';
+      lista.appendChild(row);
+    }
+  });
+}
 function abrirEditarInst(id) {
   editandoInstId = id; const i = instalacoes.find(x => x.id === id);
   document.getElementById('ei-cliente').value = i.cliente || '';
@@ -2921,7 +2973,9 @@ function abrirEditarInst(id) {
   setMoedaInput('ei-mat', i.mat);
   setMoedaInput('ei-sinal', i.sinal);
   setMoedaInput('ei-receber', i.receber);
-  document.getElementById('ei-data').value = i.data || '';
+  // Preenche datas (suporte a múltiplas)
+  const datas = i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : []);
+  preencherDatasLista('ei-datas-lista', datas);
   document.getElementById('ei-vend').value = i.vend || '';
   document.getElementById('ei-obs').value = i.obs || '';
   abrirModal('modal-edit-inst');
@@ -2937,7 +2991,8 @@ async function salvarEditarInst() {
   i.mat = parseMoeda(document.getElementById('ei-mat').value)||0;
   i.sinal = parseMoeda(document.getElementById('ei-sinal').value)||0;
   i.receber = parseMoeda(document.getElementById('ei-receber').value)||0;
-  i.data = document.getElementById('ei-data').value;
+  const datas = coletarDatas('ei-datas-lista');
+  i.data = datas[0] || ''; i.datas = datas;
   i.vend = document.getElementById('ei-vend').value;
   i.obs = document.getElementById('ei-obs').value;
   await fetch('/api/instalacoes/' + i.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(i) });
@@ -3248,13 +3303,13 @@ async function addInstalacao() {
     pedido_ref: document.getElementById('i-pedido-ref').value,
     lead_id: document.getElementById('i-lead').value,
     valor, mat: parseMoeda(document.getElementById('i-mat').value) || 0, sinal, receber: Math.max(valor - sinal, 0),
-    matComprar: '', data: document.getElementById('i-data').value,
+    matComprar: '', data: (coletarDatas('i-datas-lista')[0] || ''), datas: coletarDatas('i-datas-lista'),
     vend: document.getElementById('i-vend').value, obs: document.getElementById('i-obs').value,
     custos: document.getElementById('i-custos').value.trim() || null,
     anexos: [], checks: { equip_comprado: false, mat_pago: false, sinal_pago: false, valor_pago: false, instalado: false }
   })});
   ['i-cliente','i-equip','i-pedido','i-pedido-ref','i-lead','i-valor','i-mat','i-sinal','i-receber','i-obs'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('i-data').value = '';
+  preencherDatasLista('i-datas-lista', []);
   document.getElementById('i-vend').value = '';
   document.getElementById('i-custos').value = '';
   await carregarInstalacoes(); renderResumoInst(); renderInstalacoes();
@@ -3306,6 +3361,35 @@ async function setEquipQtd(id, idx, val) {
   const inst = instalacoes.find(i => i.id === id);
   if (inst.matComprar && inst.matComprar[idx]) inst.matComprar[idx].qtd = parseInt(val) || 1;
   await saveEquipList(id);
+}
+async function salvarDataFin(id, idx, valor) {
+  const inst = instalacoes.find(i => i.id === id);
+  const datas = inst.datas && inst.datas.length ? [...inst.datas] : (inst.data ? [inst.data] : []);
+  datas[idx] = valor;
+  inst.datas = datas.filter(Boolean).sort();
+  inst.data = inst.datas[0] || '';
+  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
+  renderInstalacoes();
+}
+async function removerDataFin(id, idx) {
+  const inst = instalacoes.find(i => i.id === id);
+  const datas = inst.datas && inst.datas.length ? [...inst.datas] : (inst.data ? [inst.data] : []);
+  datas.splice(idx, 1);
+  inst.datas = datas.filter(Boolean).sort();
+  inst.data = inst.datas[0] || '';
+  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
+  renderInstalacoes();
+}
+async function adicionarDataFin(id) {
+  const inst = instalacoes.find(i => i.id === id);
+  if (!inst.datas || !inst.datas.length) inst.datas = inst.data ? [inst.data] : [];
+  inst.datas.push('');
+  renderInstalacoes();
+  // Foca no novo input
+  setTimeout(() => {
+    const cont = document.getElementById('datas-fin-' + id);
+    if (cont) { const inputs = cont.querySelectorAll('input[type="date"]'); if (inputs.length) inputs[inputs.length-1].focus(); }
+  }, 50);
 }
 async function salvarCampoFin(id, campo, valor) {
   const inst = instalacoes.find(i => i.id === id);
@@ -4088,10 +4172,24 @@ function renderFinanceiro() {
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">' +
         '<button onclick="setTipoFin(' + i.id + ',\'instalacao\')" style="' + (!isCompra ? chipAtivo : chipInativo) + '">🔧 Instalação</button>' +
         '<button onclick="setTipoFin(' + i.id + ',\'compra\')" style="' + (isCompra ? chipAtivo : chipInativo) + '">📦 Compra</button>' +
-        '<div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">' +
-          '<label style="font-size:11px;color:var(--text2)">' + dateLabel + '</label>' +
-          '<input type="date" value="' + (i.data||'') + '" style="font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" onchange="salvarCampoFin(' + i.id + ',\'data\',this.value)">' +
-        '</div>' +
+        (function() {
+          const todasDatas = (i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : []));
+          const fmtD = d => { const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0].slice(2); };
+          const datasHtml = todasDatas.length
+            ? todasDatas.map((d,idx) =>
+                '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">' +
+                  '<input type="date" value="' + d + '" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" ' +
+                  'onchange="salvarDataFin(' + i.id + ',' + idx + ',this.value)">' +
+                  (idx > 0 ? '<button onclick="removerDataFin(' + i.id + ',' + idx + ')" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:11px">✕</button>' : '') +
+                '</div>'
+              ).join('') +
+            '<button onclick="adicionarDataFin(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2);margin-top:2px">+ dia</button>'
+            : '<input type="date" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" onchange="salvarCampoFin(' + i.id + ',\'data\',this.value)">' +
+              '<button onclick="adicionarDataFin(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2);margin-top:2px">+ dia</button>';
+          return '<div id="datas-fin-' + i.id + '" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">' +
+            '<label style="font-size:11px;color:var(--text2)">' + dateLabel + '</label>' +
+            datasHtml + '</div>';
+        })() +
       '</div>';
 
     // Seção Compras
@@ -4202,7 +4300,7 @@ function renderFinanceiro() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0">' +
           '<p style="font-size:11px;color:var(--text2);margin:0 0 1px;text-align:right">' + (isCompra ? 'Entrega' : 'Instalação') + '</p>' +
-          '<p style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + '</p>' +
+          '<p style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:12px;font-weight:500;background:var(--surface2);padding:1px 7px;border-radius:10px">+' + (i.datas.length - 1) + ' dia(s)</span>' : '') + '</p>' +
           '<p style="font-size:13px;font-weight:500;margin:3px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
           (alertaBadge ? '<div style="margin-top:6px">' + alertaBadge + '</div>' : '') +
         '</div>' +
