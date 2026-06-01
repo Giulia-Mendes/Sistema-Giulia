@@ -240,6 +240,7 @@ try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN anexos TEXT DEFAULT '[]'").r
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN mat_prop REAL DEFAULT 0").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN custo_mat REAL DEFAULT 0").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN custo_prod REAL DEFAULT 0").run(); } catch(e) {}
+try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN aprovado_em TEXT DEFAULT NULL").run(); } catch(e) {}
 
 
 // ── CRIAR USUÁRIOS INICIAIS ──
@@ -472,7 +473,7 @@ app.post('/api/proposta/numero', auth, (req, res) => {
 // ── APROVAÇÕES ──
 app.get('/api/aprovacoes', auth, (req, res) => {
   // Não retorna o campo 'anexos' (base64 pesado) na listagem — carregado sob demanda
-  const rows = db.prepare('SELECT id,cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,motivo_recusa,temperatura_alvo,mat_prop,custo_mat,custo_prod,lead_id,criado_por_id,criado_por_nome,criado_em FROM aprovacoes ORDER BY criado_em DESC').all();
+  const rows = db.prepare('SELECT id,cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,motivo_recusa,temperatura_alvo,mat_prop,custo_mat,custo_prod,lead_id,criado_por_id,criado_por_nome,criado_em,aprovado_em FROM aprovacoes ORDER BY criado_em DESC').all();
   rows.forEach(r => { r.anexos = []; r._tem_anexos = false; });
   // Marca quais têm anexos sem carregar os dados
   const comAnexos = db.prepare("SELECT id FROM aprovacoes WHERE anexos IS NOT NULL AND anexos != '[]' AND anexos != ''").all().map(r => r.id);
@@ -493,10 +494,16 @@ app.post('/api/aprovacoes', auth, (req, res) => {
   res.json({ sucesso: true, id: r.lastInsertRowid });
 });
 app.put('/api/aprovacoes/:id', auth, (req, res) => {
-  const antes = db.prepare('SELECT cliente,valor,status,texto FROM aprovacoes WHERE id=?').get(req.params.id);
+  const antes = db.prepare('SELECT cliente,valor,status,texto,aprovado_em FROM aprovacoes WHERE id=?').get(req.params.id);
   const d = req.body;
-  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(html_proposta,?),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=? WHERE id=?')
-    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, d.status, d.texto, d.custos || null, d.html_proposta || null, d.motivo_recusa || null, d.temperatura_alvo || null, d.anexos ? JSON.stringify(d.anexos) : null, d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, req.params.id);
+  // Grava aprovado_em: respeita valor enviado pelo cliente, ou define hoje quando aprovado pela primeira vez
+  const aprovadoEm = d.aprovado_em
+    ? d.aprovado_em
+    : (d.status === 'aprovado' && antes.status !== 'aprovado')
+      ? new Date().toISOString().slice(0, 10)
+      : (antes.aprovado_em || null);
+  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(html_proposta,?),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=?,aprovado_em=? WHERE id=?')
+    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, d.status, d.texto, d.custos || null, d.html_proposta || null, d.motivo_recusa || null, d.temperatura_alvo || null, d.anexos ? JSON.stringify(d.anexos) : null, d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, aprovadoEm, req.params.id);
   audit(req, 'EDITAR_PROPOSTA', 'aprovacoes', req.params.id, antes, { cliente: d.cliente, valor: d.valor, status: d.status });
   res.json({ sucesso: true });
 });

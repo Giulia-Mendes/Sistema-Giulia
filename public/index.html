@@ -2926,41 +2926,48 @@ async function toggleInst(id) {
   renderInstalacoes();
 }
 function toggleCk(id, key) { instalacoes.find(i => i.id === id).checks[key] ^= true; renderInstalacoes(); renderResumoInst(); }
-// Adiciona campo de data extra em uma lista de datas
+// Cria uma linha de data+obs para formulários (novo/edição)
+function _criarLinhaData(d, obs, listaId, removivel) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-bottom:6px';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:2px';
+  row.innerHTML = '<input type="date" value="' + (d||'') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
+    (removivel ? '<button type="button" onclick="this.closest(\'div[data-datarow]\').remove()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:13px">✕</button>' : '');
+  const obsInp = document.createElement('input');
+  obsInp.type = 'text'; obsInp.value = obs || ''; obsInp.placeholder = 'Obs do dia (opcional)';
+  obsInp.style.cssText = 'width:100%;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text2)';
+  wrap.setAttribute('data-datarow','1');
+  wrap.appendChild(row);
+  wrap.appendChild(obsInp);
+  return wrap;
+}
 function addDataInst(listaId) {
   const lista = document.getElementById(listaId);
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;align-items:center';
-  row.innerHTML = '<input type="date" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
-    '<button type="button" onclick="this.parentElement.remove()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:13px">✕</button>';
-  lista.appendChild(row);
+  lista.appendChild(_criarLinhaData('', '', listaId, true));
+  lista.lastElementChild.querySelector('input[type="date"]').focus();
 }
-// Coleta todas as datas de uma lista (ignora vazias)
 function coletarDatas(listaId) {
-  return [...document.getElementById(listaId).querySelectorAll('input[type="date"]')]
-    .map(el => el.value).filter(Boolean).sort();
+  return [...document.getElementById(listaId).querySelectorAll('[data-datarow]')]
+    .map(el => el.querySelector('input[type="date"]').value).filter(Boolean);
 }
-// Preenche a lista de datas a partir de um array
-function preencherDatasLista(listaId, datas) {
+function coletarDatasObs(listaId) {
+  return [...document.getElementById(listaId).querySelectorAll('[data-datarow]')]
+    .map(el => ({ data: el.querySelector('input[type="date"]').value, obs: el.querySelectorAll('input')[1]?.value || '' })).filter(o => o.data);
+}
+function preencherDatasLista(listaId, datas, datasObs) {
   const lista = document.getElementById(listaId);
   lista.innerHTML = '';
   const arr = (datas && datas.length) ? datas : [''];
   arr.forEach((d, idx) => {
-    if (idx === 0) {
-      // Primeiro campo: simples (o id ei-data ou input sem botão de remover)
-      const inp = document.createElement('input');
-      inp.type = 'date'; inp.value = d;
-      inp.style.cssText = 'width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)';
-      if (listaId === 'ei-datas-lista') inp.id = 'ei-data';
-      lista.appendChild(inp);
-    } else {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;align-items:center';
-      row.innerHTML = '<input type="date" value="' + d + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
-        '<button type="button" onclick="this.parentElement.remove()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:13px">✕</button>';
-      lista.appendChild(row);
-    }
+    const obs = (datasObs && datasObs[idx]) ? datasObs[idx] : '';
+    lista.appendChild(_criarLinhaData(d, obs, listaId, idx > 0));
   });
+  // Garante que o primeiro input de data tem id ei-data para compatibilidade
+  if (listaId === 'ei-datas-lista') {
+    const first = lista.querySelector('input[type="date"]');
+    if (first) first.id = 'ei-data';
+  }
 }
 function abrirEditarInst(id) {
   editandoInstId = id; const i = instalacoes.find(x => x.id === id);
@@ -2975,7 +2982,7 @@ function abrirEditarInst(id) {
   setMoedaInput('ei-receber', i.receber);
   // Preenche datas (suporte a múltiplas)
   const datas = i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : []);
-  preencherDatasLista('ei-datas-lista', datas);
+  preencherDatasLista('ei-datas-lista', datas, i.datas_obs || []);
   document.getElementById('ei-vend').value = i.vend || '';
   document.getElementById('ei-obs').value = i.obs || '';
   abrirModal('modal-edit-inst');
@@ -2991,8 +2998,10 @@ async function salvarEditarInst() {
   i.mat = parseMoeda(document.getElementById('ei-mat').value)||0;
   i.sinal = parseMoeda(document.getElementById('ei-sinal').value)||0;
   i.receber = parseMoeda(document.getElementById('ei-receber').value)||0;
-  const datas = coletarDatas('ei-datas-lista');
-  i.data = datas[0] || ''; i.datas = datas;
+  const datasInfo = coletarDatasObs('ei-datas-lista');
+  i.datas = datasInfo.map(x => x.data);
+  i.datas_obs = datasInfo.map(x => x.obs);
+  i.data = i.datas[0] || '';
   i.vend = document.getElementById('ei-vend').value;
   i.obs = document.getElementById('ei-obs').value;
   await fetch('/api/instalacoes/' + i.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(i) });
@@ -3000,10 +3009,15 @@ async function salvarEditarInst() {
   renderInstalacoes(); renderResumoInst();
 }
 function pedirExcluirInst(id) { excluindoId = id; excluindoTipo = 'inst'; document.getElementById('confirmar-titulo').textContent = 'Excluir instalação?'; abrirModal('modal-confirmar'); }
-function confirmarExclusao() {
+async function confirmarExclusao() {
   if (excluindoTipo === 'visita') { visitas = visitas.filter(v => v.id !== excluindoId); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas(); }
   else if (excluindoTipo === 'aprov') { aprovacoes.splice(aprovacoes.findIndex(a => a.id === excluindoId), 1); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao(); }
-  else { instalacoes = instalacoes.filter(i => i.id !== excluindoId); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst(); }
+  else {
+    await fetch('/api/instalacoes/' + excluindoId, { method: 'DELETE' });
+    instalacoes = instalacoes.filter(i => i.id !== excluindoId);
+    if (expandidoInst === excluindoId) expandidoInst = null;
+    renderInstalacoes(); renderResumoInst(); renderFinanceiro();
+  }
   excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
 }
 
@@ -3303,7 +3317,7 @@ async function addInstalacao() {
     pedido_ref: document.getElementById('i-pedido-ref').value,
     lead_id: document.getElementById('i-lead').value,
     valor, mat: parseMoeda(document.getElementById('i-mat').value) || 0, sinal, receber: Math.max(valor - sinal, 0),
-    matComprar: '', data: (coletarDatas('i-datas-lista')[0] || ''), datas: coletarDatas('i-datas-lista'),
+    matComprar: '', data: (coletarDatasObs('i-datas-lista')[0]?.data || ''), datas: coletarDatasObs('i-datas-lista').map(x=>x.data), datas_obs: coletarDatasObs('i-datas-lista').map(x=>x.obs),
     vend: document.getElementById('i-vend').value, obs: document.getElementById('i-obs').value,
     custos: document.getElementById('i-custos').value.trim() || null,
     anexos: [], checks: { equip_comprado: false, mat_pago: false, sinal_pago: false, valor_pago: false, instalado: false }
@@ -3362,34 +3376,58 @@ async function setEquipQtd(id, idx, val) {
   if (inst.matComprar && inst.matComprar[idx]) inst.matComprar[idx].qtd = parseInt(val) || 1;
   await saveEquipList(id);
 }
-async function salvarDataFin(id, idx, valor) {
-  const inst = instalacoes.find(i => i.id === id);
-  const datas = inst.datas && inst.datas.length ? [...inst.datas] : (inst.data ? [inst.data] : []);
-  datas[idx] = valor;
-  inst.datas = datas.filter(Boolean).sort();
-  inst.data = inst.datas[0] || '';
-  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
-  renderInstalacoes();
+// Coleta datas+obs do card diretamente do DOM
+function _coletarDatasFinDOM(id) {
+  const cont = document.getElementById('datas-fin-' + id);
+  if (!cont) return { datas: [], datas_obs: [] };
+  const rows = [...cont.querySelectorAll('[data-finrow]')];
+  const datas = [], datas_obs = [];
+  rows.forEach(row => {
+    const d = row.querySelector('input[type="date"]')?.value || '';
+    const o = row.querySelector('input[type="text"]')?.value || '';
+    if (d) { datas.push(d); datas_obs.push(o); }
+  });
+  return { datas, datas_obs };
 }
+async function _persistirDatasInst(id) {
+  const inst = instalacoes.find(i => i.id === id);
+  const { datas, datas_obs } = _coletarDatasFinDOM(id);
+  inst.datas = datas; inst.datas_obs = datas_obs; inst.data = datas[0] || '';
+  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
+  // Atualiza só o header do card sem re-renderizar tudo
+  const hdr = document.getElementById('data-hdr-' + id);
+  if (hdr) {
+    const fmtD = d => { const p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0].slice(2); };
+    const dataStr = datas[0] ? fmtD(datas[0]) : '—';
+    const extraSpan = datas.length > 1 ? ' <span style="font-size:12px;font-weight:500;background:var(--surface2);padding:1px 7px;border-radius:10px">+' + (datas.length-1) + ' dia(s)</span>' : '';
+    hdr.innerHTML = '📅 ' + dataStr + extraSpan;
+  }
+}
+function adicionarDataFin(id) {
+  const cont = document.getElementById('datas-fin-' + id);
+  if (!cont) return;
+  const addBtn = cont.querySelector('[data-addbtn]');
+  const row = document.createElement('div');
+  row.setAttribute('data-finrow','1');
+  row.style.cssText = 'margin-bottom:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)';
+  const _obsToggle = 'var o=this.closest(\'[data-finrow]\').querySelector(\'[data-obs]\');var vis=o.style.display===\'none\';o.style.display=vis?\'\':\'none\';this.style.background=vis?\'var(--accent2)\':\'\';this.style.color=vis?\'#fff\':\'var(--text2)\';if(vis)o.focus()';
+  row.innerHTML =
+    '<div style="display:flex;gap:4px;align-items:center">' +
+      '<input type="date" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px">' +
+      '<button type="button" title="Observação do dia" onclick="' + _obsToggle + '" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text2);font-size:12px;flex-shrink:0">📝</button>' +
+      '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">✕</button>' +
+    '</div>' +
+    '<input type="text" data-obs="1" placeholder="O que foi feito neste dia..." style="display:none;width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text2);box-sizing:border-box;margin-top:4px">';
+  cont.insertBefore(row, addBtn);
+  row.querySelector('input[type="date"]').focus();
+}
+async function salvarDataFin(id) { await _persistirDatasInst(id); }
 async function removerDataFin(id, idx) {
-  const inst = instalacoes.find(i => i.id === id);
-  const datas = inst.datas && inst.datas.length ? [...inst.datas] : (inst.data ? [inst.data] : []);
-  datas.splice(idx, 1);
-  inst.datas = datas.filter(Boolean).sort();
-  inst.data = inst.datas[0] || '';
-  await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
-  renderInstalacoes();
-}
-async function adicionarDataFin(id) {
-  const inst = instalacoes.find(i => i.id === id);
-  if (!inst.datas || !inst.datas.length) inst.datas = inst.data ? [inst.data] : [];
-  inst.datas.push('');
-  renderInstalacoes();
-  // Foca no novo input
-  setTimeout(() => {
-    const cont = document.getElementById('datas-fin-' + id);
-    if (cont) { const inputs = cont.querySelectorAll('input[type="date"]'); if (inputs.length) inputs[inputs.length-1].focus(); }
-  }, 50);
+  const cont = document.getElementById('datas-fin-' + id);
+  if (!cont) return;
+  const rows = cont.querySelectorAll('[data-finrow]');
+  if (rows[idx]) rows[idx].remove();
+  await _persistirDatasInst(id);
 }
 async function salvarCampoFin(id, campo, valor) {
   const inst = instalacoes.find(i => i.id === id);
@@ -4173,22 +4211,31 @@ function renderFinanceiro() {
         '<button onclick="setTipoFin(' + i.id + ',\'instalacao\')" style="' + (!isCompra ? chipAtivo : chipInativo) + '">🔧 Instalação</button>' +
         '<button onclick="setTipoFin(' + i.id + ',\'compra\')" style="' + (isCompra ? chipAtivo : chipInativo) + '">📦 Compra</button>' +
         (function() {
-          const todasDatas = (i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : []));
-          const fmtD = d => { const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0].slice(2); };
-          const datasHtml = todasDatas.length
-            ? todasDatas.map((d,idx) =>
-                '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">' +
-                  '<input type="date" value="' + d + '" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" ' +
-                  'onchange="salvarDataFin(' + i.id + ',' + idx + ',this.value)">' +
-                  (idx > 0 ? '<button onclick="removerDataFin(' + i.id + ',' + idx + ')" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:11px">✕</button>' : '') +
-                '</div>'
-              ).join('') +
-            '<button onclick="adicionarDataFin(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2);margin-top:2px">+ dia</button>'
-            : '<input type="date" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" onchange="salvarCampoFin(' + i.id + ',\'data\',this.value)">' +
-              '<button onclick="adicionarDataFin(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2);margin-top:2px">+ dia</button>';
-          return '<div id="datas-fin-' + i.id + '" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">' +
+          const todasDatas = (i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : ['']));
+          const todasObs = i.datas_obs || [];
+          const inpStyle = 'font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
+          const obsStyle = 'width:100%;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);margin-top:3px;color:var(--text2)';
+          const obsToggle = 'var o=this.closest(\'[data-finrow]\').querySelector(\'[data-obs]\');var vis=o.style.display===\'none\';o.style.display=vis?\'\':\'none\';this.style.background=vis?\'var(--accent2)\':\'\';this.style.color=vis?\'#fff\':\'var(--text2)\';if(vis)o.focus()';
+          const rowsHtml = todasDatas.map((d, idx) => {
+            const obs = (todasObs[idx] || '').replace(/"/g, '&quot;');
+            const hasObs = obs.length > 0;
+            return '<div data-finrow="1" style="margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px">' +
+              '<div style="display:flex;gap:4px;align-items:center">' +
+                '<input type="date" value="' + (d||'') + '" style="' + inpStyle + ';flex:1">' +
+                '<button type="button" title="Observação do dia" onclick="' + obsToggle + '" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:' + (hasObs ? 'var(--accent2)' : 'var(--surface)') + ';cursor:pointer;color:' + (hasObs ? '#fff' : 'var(--text2)') + ';font-size:12px;flex-shrink:0">📝</button>' +
+                (idx > 0 ? '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:11px">✕</button>' : '') +
+              '</div>' +
+              '<input type="text" data-obs="1" value="' + obs + '" placeholder="O que foi feito neste dia..." style="display:' + (hasObs ? 'block' : 'none') + ';width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);margin-top:4px;color:var(--text2);box-sizing:border-box">' +
+            '</div>';
+          }).join('');
+          return '<div id="datas-fin-' + i.id + '" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:190px">' +
             '<label style="font-size:11px;color:var(--text2)">' + dateLabel + '</label>' +
-            datasHtml + '</div>';
+            rowsHtml +
+            '<div style="display:flex;gap:4px;margin-top:2px">' +
+              '<button data-addbtn="1" onclick="adicionarDataFin(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--accent2)">+ dia</button>' +
+              '<button onclick="_persistirDatasInst(' + i.id + ')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer">✓ Salvar</button>' +
+            '</div>' +
+          '</div>';
         })() +
       '</div>';
 
@@ -4300,13 +4347,16 @@ function renderFinanceiro() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0">' +
           '<p style="font-size:11px;color:var(--text2);margin:0 0 1px;text-align:right">' + (isCompra ? 'Entrega' : 'Instalação') + '</p>' +
-          '<p style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:12px;font-weight:500;background:var(--surface2);padding:1px 7px;border-radius:10px">+' + (i.datas.length - 1) + ' dia(s)</span>' : '') + '</p>' +
+          '<p id="data-hdr-' + i.id + '" style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:12px;font-weight:500;background:var(--surface2);padding:1px 7px;border-radius:10px">+' + (i.datas.length - 1) + ' dia(s)</span>' : '') + '</p>' +
           '<p style="font-size:13px;font-weight:500;margin:3px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
           (alertaBadge ? '<div style="margin-top:6px">' + alertaBadge + '</div>' : '') +
         '</div>' +
       '</div>' +
       tipoHtml + comprasHtml + finHtml +
       (i.obs ? '<p style="font-size:12px;color:var(--text2);margin:10px 0 0;border-top:1px solid var(--border);padding-top:8px">📝 ' + i.obs + '</p>' : '') +
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">' +
+        '<button onclick="pedirExcluirInst(' + i.id + ')" style="font-size:12px;padding:4px 12px;border:1px solid var(--terra);border-radius:8px;background:transparent;color:var(--terra);cursor:pointer">🗑 Excluir pedido</button>' +
+      '</div>' +
       '</div>';
   }).join('');
 }
@@ -4387,8 +4437,9 @@ function renderFechamentos() {
 
   let lista = aprovacoes.filter(a => a.status === 'aprovado');
   if (vend) lista = lista.filter(a => a.vendedora === vend);
-  if (de)   lista = lista.filter(a => (a.criado_em || '') >= de);
-  if (ate)  lista = lista.filter(a => (a.criado_em || '').slice(0,10) <= ate);
+  // Filtra pelo mês de aprovação (aprovado_em), com fallback para criado_em em registros antigos
+  if (de)   lista = lista.filter(a => ((a.aprovado_em || a.criado_em) || '') >= de);
+  if (ate)  lista = lista.filter(a => ((a.aprovado_em || a.criado_em) || '').slice(0,10) <= ate);
 
   // Stats
   const totalFat   = lista.reduce((s,a) => s + (a.valor     || 0), 0);
@@ -4504,6 +4555,11 @@ function abrirEditFech(id) {
 
       <div id="efech-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.8"></div>
 
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Mês de fechamento</label>
+      <input id="efech-aprovado-em" type="month" value="${(a.aprovado_em || a.criado_em || '').slice(0,7)}"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;margin-bottom:16px;box-sizing:border-box">
+      <p style="font-size:11px;color:var(--text2);margin:-12px 0 16px">Altere se a proposta foi fechada em um mês diferente do que está sendo exibido.</p>
+
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="fecharEditFech()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px">Cancelar</button>
         <button onclick="salvarEditFech(${id})" style="padding:8px 18px;border:none;border-radius:8px;background:var(--text);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Salvar</button>
@@ -4550,7 +4606,9 @@ async function salvarEditFech(id) {
   const ctProd  = cp + taxaR;
   const margem  = pvProd > 0 && cp > 0 ? (pvProd - ctProd) / pvProd : (a.margem || 0);
   const custo   = cp + cm + (valor * taxa / 100); // custo total inclui taxa sobre valor total
-  const payload = { ...a, valor, custo_prod: cp, custo_mat: cm, mat_prop: matProp, custo, margem };
+  const mesFech = document.getElementById('efech-aprovado-em')?.value || '';
+  const aprovadoEm = mesFech ? mesFech + '-01' : (a.aprovado_em || null);
+  const payload = { ...a, valor, custo_prod: cp, custo_mat: cm, mat_prop: matProp, custo, margem, aprovado_em: aprovadoEm };
   const btn = document.querySelector('#modal-edit-fech button[onclick^="salvarEditFech"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
