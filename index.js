@@ -241,6 +241,8 @@ try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN mat_prop REAL DEFAULT 0").ru
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN custo_mat REAL DEFAULT 0").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN custo_prod REAL DEFAULT 0").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE aprovacoes ADD COLUMN aprovado_em TEXT DEFAULT NULL").run(); } catch(e) {}
+// Corrigir aprovado_em do Elfo para junho/2026 (foi fechado em junho mas criado em maio)
+try { db.prepare("UPDATE aprovacoes SET aprovado_em='2026-06-01' WHERE cliente LIKE '%Elfo%' AND status='aprovado' AND (aprovado_em IS NULL OR aprovado_em < '2026-06-01')").run(); } catch(e) {}
 
 
 // ── CRIAR USUÁRIOS INICIAIS ──
