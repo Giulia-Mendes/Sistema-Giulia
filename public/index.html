@@ -694,13 +694,13 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo"><label>Custo material (R$) <span id="label-custo-mat" style="font-size:11px;font-weight:400;color:var(--text2)"></span></label><input type="text" inputmode="decimal" id="p-custo-mat" placeholder="0,00" onblur="formatMoedaInput(this)" oninput="autoFillMatProp()"></div>
       <div class="campo"><label>Total da proposta (R$)</label><input type="text" inputmode="decimal" id="p-venda" placeholder="Auto" onblur="formatMoedaInput(this)" oninput="calcMargem()" style="background:var(--surface2)"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+    <div class="stat3" style="margin-top:12px">
       <div class="stat"><div class="lbl">Taxa</div><div class="val" id="res-taxa">—</div></div>
       <div class="stat"><div class="lbl">Custo produto</div><div class="val" id="res-custo">—</div></div>
+      <div class="stat"><div class="lbl">Margem</div><div class="val" id="res-margem">—</div>
+        <div class="margem-wrap"><div class="margem-bar" id="margem-bar" style="width:0%"></div></div>
+      </div>
     </div>
-    <!-- campos ocultos mantidos para compatibilidade com calcMargem -->
-    <span id="res-margem" style="display:none"></span>
-    <div id="margem-bar" style="display:none"></div>
     <div style="margin-top:10px">
       <span class="badge" id="margem-badge" style="background:var(--bronze-bg);color:var(--bronze-txt)">Preencha os valores</span>
     </div>
