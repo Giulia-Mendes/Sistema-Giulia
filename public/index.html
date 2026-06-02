@@ -3538,6 +3538,8 @@ function renderDashboard() {
   // base sets filtered by date
   const vsBase    = visitas.filter(v => inRange(v.data, r));
   const propsBase = aprovacoes.filter(a => inRange(a.criado_em, r));
+  // Aprovadas: usa aprovado_em quando disponível (igual ao Fechamentos)
+  const aprovBase = aprovacoes.filter(a => a.status === 'aprovado' && inRange(a.aprovado_em || a.criado_em, r));
   const instsBase = instalacoes.filter(i => inRange(i.criado_em || i.data, r));
   const pedsBase  = pedidos.filter(p => inRange(p.data, r));
 
@@ -3549,7 +3551,7 @@ function renderDashboard() {
 
   const vs    = vsBase.filter(v  => matchV(v.vendedora));
   const props = propsBase.filter(a => matchV(a.vendedora));
-  const aprov = props.filter(a => a.status === 'aprovado');
+  const aprov = aprovBase.filter(a => matchV(a.vendedora));
   const peds  = pedsBase.filter(p => matchV(p.vendedora));
   const insts = instsBase.filter(i => matchV(i.vend));
   const concl   = insts.filter(i => i.checks && i.checks.instalado);
@@ -3564,7 +3566,7 @@ function renderDashboard() {
     return a === b || b.includes(a) || a.includes(b);
   };
   const semProps = propsBase.filter(a => !a.vendedora);
-  const semAprov = semProps.filter(a => a.status === 'aprovado');
+  const semAprov = aprovBase.filter(a => !a.vendedora);
   const semPeds  = pedsBase.filter(p => !p.vendedora || !vends.some(v2 => matchPedVend(p.vendedora, v2)));
   const semVs    = vsBase.filter(v => !v.vendedora);
   _dashCache = {
@@ -3577,7 +3579,7 @@ function renderDashboard() {
       label: isSem ? 'Sem vendedor' : v,
       visitas: isSem ? semVs    : vsBase.filter(vi => vi.vendedora === v),
       props:   isSem ? semProps : propsBase.filter(a => a.vendedora === v),
-      aprov:   isSem ? semAprov : propsBase.filter(a => a.vendedora === v && a.status === 'aprovado'),
+      aprov:   isSem ? semAprov : aprovBase.filter(a => a.vendedora === v),
       peds:    isSem ? semPeds  : pedsBase.filter(p => matchPedVend(p.vendedora, v)),
       abertas: isSem ? instsBase.filter(i => !i.vend && (!i.checks || !i.checks.instalado))
                      : instsBase.filter(i => i.vend === v && (!i.checks || !i.checks.instalado)),
