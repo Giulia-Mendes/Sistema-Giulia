@@ -3384,10 +3384,55 @@ function _coletarDatasFinDOM(id) {
   const datas = [], datas_obs = [];
   rows.forEach(row => {
     const d = row.querySelector('input[type="date"]')?.value || '';
-    const o = row.querySelector('input[type="text"]')?.value || '';
+    const o = row.querySelector('[data-obs]')?.value || '';
     if (d) { datas.push(d); datas_obs.push(o); }
   });
   return { datas, datas_obs };
+}
+// Abre popover de observação do dia
+function abrirObsDia(btn) {
+  const existing = document.getElementById('obs-dia-popover');
+  if (existing) { if (existing._btn === btn) { existing.remove(); return; } existing.remove(); }
+  const row = btn.closest('[data-finrow]');
+  const hidden = row ? row.querySelector('[data-obs]') : null;
+  const val = hidden ? hidden.value : '';
+  const pop = document.createElement('div');
+  pop.id = 'obs-dia-popover';
+  pop._btn = btn; pop._hidden = hidden;
+  pop.style.cssText = 'position:fixed;z-index:10000;background:var(--bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:14px;width:280px;box-sizing:border-box';
+  const rect = btn.getBoundingClientRect();
+  let top = rect.bottom + 6, left = rect.left - 220;
+  if (left < 8) left = 8;
+  if (top + 190 > window.innerHeight) top = rect.top - 190;
+  pop.style.top = top + 'px'; pop.style.left = left + 'px';
+  pop.innerHTML =
+    '<p style="font-size:12px;font-weight:600;color:var(--text2);margin:0 0 8px">📝 Observação do dia</p>' +
+    '<textarea id="obs-dia-ta" placeholder="O que foi feito neste dia..." style="width:100%;height:90px;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:vertical;font-family:inherit;line-height:1.5;box-sizing:border-box">' + val.replace(/</g,'&lt;') + '</textarea>' +
+    '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">' +
+      '<button onclick="document.getElementById(\'obs-dia-popover\').remove()" style="font-size:12px;padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer">Cancelar</button>' +
+      '<button onclick="salvarObsDia()" style="font-size:12px;padding:4px 14px;border:none;border-radius:6px;background:var(--text);color:var(--bg);cursor:pointer;font-weight:600">✓ OK</button>' +
+    '</div>';
+  document.body.appendChild(pop);
+  document.getElementById('obs-dia-ta').focus();
+  setTimeout(() => {
+    document.addEventListener('click', function _closeObs(e) {
+      const p = document.getElementById('obs-dia-popover');
+      if (!p) { document.removeEventListener('click', _closeObs); return; }
+      if (!p.contains(e.target) && e.target !== btn) { p.remove(); document.removeEventListener('click', _closeObs); }
+    });
+  }, 0);
+}
+function salvarObsDia() {
+  const pop = document.getElementById('obs-dia-popover');
+  if (!pop) return;
+  const val = document.getElementById('obs-dia-ta').value;
+  if (pop._hidden) pop._hidden.value = val;
+  if (pop._btn) {
+    pop._btn.style.background = val ? 'var(--accent2)' : '';
+    pop._btn.style.color = val ? '#fff' : 'var(--text2)';
+    pop._btn.title = val || 'Observação do dia';
+  }
+  pop.remove();
 }
 async function _persistirDatasInst(id) {
   const inst = instalacoes.find(i => i.id === id);
@@ -3410,14 +3455,13 @@ function adicionarDataFin(id) {
   const row = document.createElement('div');
   row.setAttribute('data-finrow','1');
   row.style.cssText = 'margin-bottom:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)';
-  const _obsToggle = 'var o=this.closest(\'[data-finrow]\').querySelector(\'[data-obs]\');var vis=o.style.display===\'none\';o.style.display=vis?\'\':\'none\';this.style.background=vis?\'var(--accent2)\':\'\';this.style.color=vis?\'#fff\':\'var(--text2)\';if(vis)o.focus()';
   row.innerHTML =
     '<div style="display:flex;gap:4px;align-items:center">' +
       '<input type="date" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px">' +
-      '<button type="button" title="Observação do dia" onclick="' + _obsToggle + '" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text2);font-size:12px;flex-shrink:0">📝</button>' +
+      '<button type="button" title="Observação do dia" onclick="abrirObsDia(this)" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text2);font-size:12px;flex-shrink:0">📝</button>' +
       '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">✕</button>' +
     '</div>' +
-    '<input type="text" data-obs="1" placeholder="O que foi feito neste dia..." style="display:none;width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text2);box-sizing:border-box;margin-top:4px">';
+    '<input type="hidden" data-obs="1" value="">';
   cont.insertBefore(row, addBtn);
   row.querySelector('input[type="date"]').focus();
 }
@@ -4215,17 +4259,16 @@ function renderFinanceiro() {
           const todasObs = i.datas_obs || [];
           const inpStyle = 'font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
           const obsStyle = 'width:100%;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);margin-top:3px;color:var(--text2)';
-          const obsToggle = 'var o=this.closest(\'[data-finrow]\').querySelector(\'[data-obs]\');var vis=o.style.display===\'none\';o.style.display=vis?\'\':\'none\';this.style.background=vis?\'var(--accent2)\':\'\';this.style.color=vis?\'#fff\':\'var(--text2)\';if(vis)o.focus()';
           const rowsHtml = todasDatas.map((d, idx) => {
             const obs = (todasObs[idx] || '').replace(/"/g, '&quot;');
             const hasObs = obs.length > 0;
             return '<div data-finrow="1" style="margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px">' +
               '<div style="display:flex;gap:4px;align-items:center">' +
                 '<input type="date" value="' + (d||'') + '" style="' + inpStyle + ';flex:1">' +
-                '<button type="button" title="Observação do dia" onclick="' + obsToggle + '" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:' + (hasObs ? 'var(--accent2)' : 'var(--surface)') + ';cursor:pointer;color:' + (hasObs ? '#fff' : 'var(--text2)') + ';font-size:12px;flex-shrink:0">📝</button>' +
+                '<button type="button" title="' + (hasObs ? obs.replace(/"/g,'&quot;') : 'Observação do dia') + '" onclick="abrirObsDia(this)" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:' + (hasObs ? 'var(--accent2)' : 'var(--surface)') + ';cursor:pointer;color:' + (hasObs ? '#fff' : 'var(--text2)') + ';font-size:12px;flex-shrink:0">📝</button>' +
                 (idx > 0 ? '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:11px">✕</button>' : '') +
               '</div>' +
-              '<input type="text" data-obs="1" value="' + obs + '" placeholder="O que foi feito neste dia..." style="display:' + (hasObs ? 'block' : 'none') + ';width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);margin-top:4px;color:var(--text2);box-sizing:border-box">' +
+              '<input type="hidden" data-obs="1" value="' + obs + '">' +
             '</div>';
           }).join('');
           return '<div id="datas-fin-' + i.id + '" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:190px">' +
