@@ -3452,6 +3452,8 @@ function adicionarDataFin(id) {
   const cont = document.getElementById('datas-fin-' + id);
   if (!cont) return;
   const addBtn = cont.querySelector('[data-addbtn]');
+  // addBtn está dentro de uma <div> filha — precisamos inserir antes dessa div, não antes do botão
+  const refNode = addBtn ? addBtn.parentNode : null;
   const row = document.createElement('div');
   row.setAttribute('data-finrow','1');
   row.style.cssText = 'margin-bottom:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)';
@@ -3462,7 +3464,7 @@ function adicionarDataFin(id) {
       '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">✕</button>' +
     '</div>' +
     '<input type="hidden" data-obs="1" value="">';
-  cont.insertBefore(row, addBtn);
+  cont.insertBefore(row, refNode);
   row.querySelector('input[type="date"]').focus();
 }
 async function salvarDataFin(id) { await _persistirDatasInst(id); }
