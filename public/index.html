@@ -4209,12 +4209,18 @@ function renderFinanceiro() {
     if (mesFin && !(i.data || '').startsWith(mesFin)) return false;
     if (qF && ![i.cliente, i.vend, i.lead_id, i.pedido_ref, i.pedido].some(v => (v||'').toLowerCase().includes(qF))) return false;
     const instOk = !!i.checks.instalado;
-    const dataDate = i.data ? new Date(i.data + 'T00:00:00') : null;
+    // Usa a última data ainda não marcada como ok; se todas ok → allDone
+    const _dtArr = (i.datas && i.datas.length) ? i.datas : (i.data ? [i.data] : []);
+    const _okArr = i.datas_ok || [];
+    const _pend  = _dtArr.filter((d, idx) => d && !_okArr[idx]);
+    const allDone = _dtArr.length > 0 && _pend.length === 0;
+    const _dtEf   = _pend.length ? _pend[_pend.length - 1] : (_dtArr[_dtArr.length - 1] || null);
+    const dataDate = _dtEf ? new Date(_dtEf + 'T00:00:00') : null;
     const diasRestantes = dataDate ? Math.ceil((dataDate - hojeDate) / (1000*60*60*24)) : null;
-    if (filtroFin === 'aguardando') return !instOk && (diasRestantes === null || diasRestantes > 7);
-    if (filtroFin === 'atraso')    return !instOk && diasRestantes !== null && diasRestantes < 0;
-    if (filtroFin === 'semana')    return !instOk && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
-    if (filtroFin === 'concluidas') return instOk;
+    if (filtroFin === 'aguardando') return !instOk && !allDone && (diasRestantes === null || diasRestantes > 7);
+    if (filtroFin === 'atraso')    return !instOk && !allDone && diasRestantes !== null && diasRestantes < 0;
+    if (filtroFin === 'semana')    return !instOk && !allDone && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
+    if (filtroFin === 'concluidas') return instOk || allDone;
     return true;
   }).sort((a, b) => (a.data || '9').localeCompare(b.data || '9'));
   // Atualiza estado visual dos botões
@@ -4241,10 +4247,16 @@ function renderFinanceiro() {
     const tipoServico = i.tipo_servico || 'instalacao';
     const isCompra = tipoServico === 'compra';
     const dateLabel = isCompra ? 'Data da entrega' : 'Data da instalação';
-    const dataDate = i.data ? new Date(i.data + 'T00:00:00') : null;
+    // Badge: usa a última data não concluída; se todas ok → sem atraso
+    const _bDtArr = (i.datas && i.datas.length) ? i.datas : (i.data ? [i.data] : []);
+    const _bOkArr = i.datas_ok || [];
+    const _bPend  = _bDtArr.filter((d, idx) => d && !_bOkArr[idx]);
+    const allDaysOk = _bDtArr.length > 0 && _bPend.length === 0;
+    const _bDtEf  = _bPend.length ? _bPend[_bPend.length - 1] : (i.data || null);
+    const dataDate = _bDtEf ? new Date(_bDtEf + 'T00:00:00') : null;
     const diasRestantes = dataDate ? Math.ceil((dataDate - hojeDate) / (1000*60*60*24)) : null;
-    const emAtraso = !i.checks.instalado && diasRestantes !== null && diasRestantes < 0;
-    const urgente = !i.checks.instalado && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
+    const emAtraso = !i.checks.instalado && !allDaysOk && diasRestantes !== null && diasRestantes < 0;
+    const urgente  = !i.checks.instalado && !allDaysOk && diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 7;
     const alertaBadge = emAtraso
       ? '<span style="background:#c62828;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap">🔴 ' + Math.abs(diasRestantes) + ' dia(s) em atraso</span>'
       : urgente && diasRestantes === 0
