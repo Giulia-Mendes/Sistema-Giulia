@@ -3379,15 +3379,16 @@ async function setEquipQtd(id, idx, val) {
 // Coleta datas+obs do card diretamente do DOM
 function _coletarDatasFinDOM(id) {
   const cont = document.getElementById('datas-fin-' + id);
-  if (!cont) return { datas: [], datas_obs: [] };
+  if (!cont) return { datas: [], datas_obs: [], datas_ok: [] };
   const rows = [...cont.querySelectorAll('[data-finrow]')];
-  const datas = [], datas_obs = [];
+  const datas = [], datas_obs = [], datas_ok = [];
   rows.forEach(row => {
     const d = row.querySelector('input[type="date"]')?.value || '';
     const o = row.querySelector('[data-obs]')?.value || '';
-    if (d) { datas.push(d); datas_obs.push(o); }
+    const ok = row.querySelector('[data-okbtn]')?.dataset.ok === '1';
+    if (d) { datas.push(d); datas_obs.push(o); datas_ok.push(ok); }
   });
-  return { datas, datas_obs };
+  return { datas, datas_obs, datas_ok };
 }
 // Abre popover de observação do dia
 function abrirObsDia(btn) {
@@ -3422,6 +3423,13 @@ function abrirObsDia(btn) {
     });
   }, 0);
 }
+function toggleOkDia(btn) {
+  const isOk = btn.dataset.ok === '1';
+  btn.dataset.ok = isOk ? '0' : '1';
+  btn.style.background = isOk ? '' : 'var(--mineral)';
+  btn.style.color = isOk ? 'var(--text2)' : '#fff';
+  btn.style.borderColor = isOk ? 'var(--border)' : 'var(--mineral)';
+}
 function salvarObsDia() {
   const pop = document.getElementById('obs-dia-popover');
   if (!pop) return;
@@ -3436,8 +3444,8 @@ function salvarObsDia() {
 }
 async function _persistirDatasInst(id) {
   const inst = instalacoes.find(i => i.id === id);
-  const { datas, datas_obs } = _coletarDatasFinDOM(id);
-  inst.datas = datas; inst.datas_obs = datas_obs; inst.data = datas[0] || '';
+  const { datas, datas_obs, datas_ok } = _coletarDatasFinDOM(id);
+  inst.datas = datas; inst.datas_obs = datas_obs; inst.datas_ok = datas_ok; inst.data = datas[0] || '';
   await fetch('/api/instalacoes/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(inst) });
   // Atualiza só o header do card sem re-renderizar tudo
   const hdr = document.getElementById('data-hdr-' + id);
@@ -3460,6 +3468,7 @@ function adicionarDataFin(id) {
   row.innerHTML =
     '<div style="display:flex;gap:4px;align-items:center">' +
       '<input type="date" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px">' +
+      '<button type="button" data-okbtn="1" data-ok="0" onclick="toggleOkDia(this)" title="Marcar dia como concluído" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text2);font-size:12px;flex-shrink:0">✓</button>' +
       '<button type="button" title="Observação do dia" onclick="abrirObsDia(this)" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text2);font-size:12px;flex-shrink:0">📝</button>' +
       '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">✕</button>' +
     '</div>' +
@@ -4261,14 +4270,19 @@ function renderFinanceiro() {
         (function() {
           const todasDatas = (i.datas && i.datas.length ? i.datas : (i.data ? [i.data] : ['']));
           const todasObs = i.datas_obs || [];
+          const todasOk  = i.datas_ok  || [];
           const inpStyle = 'font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
-          const obsStyle = 'width:100%;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);margin-top:3px;color:var(--text2)';
           const rowsHtml = todasDatas.map((d, idx) => {
             const obs = (todasObs[idx] || '').replace(/"/g, '&quot;');
             const hasObs = obs.length > 0;
+            const isDone = !!todasOk[idx];
+            const okBg   = isDone ? 'var(--mineral)' : 'var(--surface)';
+            const okClr  = isDone ? '#fff' : 'var(--text2)';
+            const okBdr  = isDone ? 'var(--mineral)' : 'var(--border)';
             return '<div data-finrow="1" style="margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px">' +
               '<div style="display:flex;gap:4px;align-items:center">' +
                 '<input type="date" value="' + (d||'') + '" style="' + inpStyle + ';flex:1">' +
+                '<button type="button" data-okbtn="1" data-ok="' + (isDone?'1':'0') + '" onclick="toggleOkDia(this)" title="Marcar dia como concluído" style="padding:2px 7px;border:1px solid ' + okBdr + ';border-radius:5px;background:' + okBg + ';cursor:pointer;color:' + okClr + ';font-size:12px;flex-shrink:0">✓</button>' +
                 '<button type="button" title="' + (hasObs ? obs.replace(/"/g,'&quot;') : 'Observação do dia') + '" onclick="abrirObsDia(this)" style="padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:' + (hasObs ? 'var(--accent2)' : 'var(--surface)') + ';cursor:pointer;color:' + (hasObs ? '#fff' : 'var(--text2)') + ';font-size:12px;flex-shrink:0">📝</button>' +
                 (idx > 0 ? '<button onclick="this.closest(\'[data-finrow]\').remove()" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:11px">✕</button>' : '') +
               '</div>' +

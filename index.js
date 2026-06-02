@@ -518,7 +518,7 @@ app.delete('/api/aprovacoes/:id', auth, (req, res) => {
 
 // ── INSTALAÇÕES ──
 app.get('/api/instalacoes', auth, (req, res) => {
-  const rows = db.prepare('SELECT id,cliente,equip,pedido,valor,mat,sinal,receber,mat_comprar,data,vend,obs,checks,comprovante_pag,comprovantes,lead_id,pedido_ref,tipo_servico,custos,obs_compras,visita_ref_id,criado_por_id,criado_por_nome,criado_em FROM instalacoes ORDER BY criado_em DESC').all().map(i => {
+  const rows = db.prepare('SELECT id,cliente,equip,pedido,valor,mat,sinal,receber,mat_comprar,data,vend,obs,checks,comprovante_pag,comprovantes,lead_id,pedido_ref,tipo_servico,custos,obs_compras,visita_ref_id,criado_por_id,criado_por_nome,criado_em,datas,datas_obs,datas_ok FROM instalacoes ORDER BY criado_em DESC').all().map(i => {
     let comprovantes = JSON.parse(i.comprovantes || 'null');
     if (!comprovantes) comprovantes = i.comprovante_pag ? [i.comprovante_pag] : [];
     let matComprar = [];
@@ -528,7 +528,10 @@ app.get('/api/instalacoes', auth, (req, res) => {
       else if (mc && typeof mc === 'string' && mc.trim()) matComprar = [{ nome: mc, ok: false }];
       else if (i.mat_comprar && i.mat_comprar.trim()) matComprar = [{ nome: i.mat_comprar, ok: false }];
     } catch(e) { if (i.mat_comprar && i.mat_comprar.trim()) matComprar = [{ nome: i.mat_comprar, ok: false }]; }
-    return { ...i, matComprar, anexos: [], _tem_anexos: false, checks: JSON.parse(i.checks || '{}'), comprovantes };
+    const datas   = JSON.parse(i.datas    || 'null') || [];
+    const datasObs = JSON.parse(i.datas_obs || 'null') || [];
+    const datasOk  = JSON.parse(i.datas_ok  || 'null') || [];
+    return { ...i, matComprar, anexos: [], _tem_anexos: false, checks: JSON.parse(i.checks || '{}'), comprovantes, datas, datas_obs: datasObs, datas_ok: datasOk };
   });
   const comAnexos = new Set(db.prepare("SELECT id FROM instalacoes WHERE anexos IS NOT NULL AND anexos != '[]' AND anexos != ''").all().map(r => r.id));
   rows.forEach(r => { r._tem_anexos = comAnexos.has(r.id); });
@@ -544,8 +547,12 @@ app.post('/api/instalacoes', auth, (req, res) => {
 app.put('/api/instalacoes/:id', auth, (req, res) => {
   const antes = db.prepare('SELECT cliente,equip,valor,checks FROM instalacoes WHERE id=?').get(req.params.id);
   const d = req.body;
-  db.prepare('UPDATE instalacoes SET cliente=?,equip=?,pedido=?,valor=?,mat=?,sinal=?,receber=?,mat_comprar=?,data=?,vend=?,obs=?,anexos=?,checks=?,lead_id=?,pedido_ref=? WHERE id=?')
-    .run(d.cliente, d.equip, d.pedido, d.valor, d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), d.data, d.vend, d.obs, JSON.stringify(d.anexos || []), JSON.stringify(d.checks || {}), d.lead_id || null, d.pedido_ref || null, req.params.id);
+  db.prepare('UPDATE instalacoes SET cliente=?,equip=?,pedido=?,valor=?,mat=?,sinal=?,receber=?,mat_comprar=?,data=?,vend=?,obs=?,anexos=?,checks=?,lead_id=?,pedido_ref=?,datas=?,datas_obs=?,datas_ok=? WHERE id=?')
+    .run(d.cliente, d.equip, d.pedido, d.valor, d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), d.data, d.vend, d.obs, JSON.stringify(d.anexos || []), JSON.stringify(d.checks || {}), d.lead_id || null, d.pedido_ref || null,
+        Array.isArray(d.datas) ? JSON.stringify(d.datas) : null,
+        Array.isArray(d.datas_obs) ? JSON.stringify(d.datas_obs) : null,
+        Array.isArray(d.datas_ok) ? JSON.stringify(d.datas_ok) : null,
+        req.params.id);
   audit(req, 'EDITAR_INSTALACAO', 'instalacoes', req.params.id, antes ? { ...antes, checks: JSON.parse(antes.checks || '{}') } : null, { cliente: d.cliente, equip: d.equip });
   res.json({ sucesso: true });
 });
@@ -750,6 +757,9 @@ try { db.prepare('ALTER TABLE instalacoes ADD COLUMN visita_ref_id INTEGER DEFAU
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN custos TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN comprovantes TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN obs_compras TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_obs TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_ok TEXT DEFAULT NULL').run(); } catch(e) {}
 // Normaliza vendedora em tiny_pedidos para nome canônico (corrige registros com nome em minúsculo do tag Tiny)
 try {
   const normS2 = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
