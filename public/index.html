@@ -4770,11 +4770,12 @@ function resumoRegistro(dados) {
 }
 function fmtMomento(m) {
   if (!m) return '—';
-  // "2026-05-30 14:32:00" → "30/05/2026 às 14:32"
-  const [data, hora] = m.split(' ');
-  if (!data) return m;
-  const [y,mo,d] = data.split('-');
-  return d + '/' + mo + '/' + y + ' às ' + (hora||'').slice(0,5);
+  // Servidor guarda em UTC — converter para fuso local do navegador
+  const dt = new Date(m.replace(' ', 'T') + 'Z');
+  if (isNaN(dt)) return m;
+  const data = dt.toLocaleDateString('pt-BR');
+  const hora = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return data + ' às ' + hora;
 }
 function renderAuditoria(registros) {
   const lista = document.getElementById('lista-auditoria');
