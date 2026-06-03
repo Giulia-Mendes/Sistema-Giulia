@@ -3748,10 +3748,9 @@ function renderDashboard() {
 
   document.getElementById('dash-funnel').innerHTML =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-bottom:16px">' +
-    '<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:140px">' +
-      card('🔍','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') +
-      card('🔧','Inst. agendadas', vsInst.length, 0, '', '', 'instAgend') +
-    '</div>' +
+    card('🔍','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') +
+    arrow +
+    card('🔧','Inst. agendadas', vsInst.length, 0, '', '', 'instAgend') +
     arrow +
     card('📄','Propostas enviadas', props.length, props.reduce((s,a)=>s+(a.valor||0),0), '', '', 'props') +
     arrow +
