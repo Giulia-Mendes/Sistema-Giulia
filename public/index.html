@@ -3661,16 +3661,18 @@ function renderDashboard() {
   const semProps = propsBase.filter(a => !a.vendedora);
   const semAprov = aprovBase.filter(a => !a.vendedora);
   const semPeds  = pedsBase.filter(p => !p.vendedora || !vends.some(v2 => matchPedVend(p.vendedora, v2)));
-  const semVs    = vsBase.filter(v => !v.vendedora && v.tipo !== 'instalacao');
+  const semVs      = vsBase.filter(v => !v.vendedora && v.tipo !== 'instalacao');
+  const semVsInst  = vsBase.filter(v => !v.vendedora && v.tipo === 'instalacao');
   _dashCache = {
-    all: { visitas: vsVisit, props, aprov, peds, abertas, concl },
+    all: { visitas: vsVisit, instAgend: vsInst, props, aprov, peds, abertas, concl },
     byVend: {}
   };
   [...vends, '__sem__'].forEach((v, i) => {
     const isSem = v === '__sem__';
     _dashCache.byVend[i] = {
       label: isSem ? 'Sem vendedor' : v,
-      visitas: isSem ? semVs : vsBase.filter(vi => vi.vendedora === v && vi.tipo !== 'instalacao'),
+      visitas:   isSem ? semVs     : vsBase.filter(vi => vi.vendedora === v && vi.tipo !== 'instalacao'),
+      instAgend: isSem ? semVsInst : vsBase.filter(vi => vi.vendedora === v && vi.tipo === 'instalacao'),
       props:   isSem ? semProps : propsBase.filter(a => a.vendedora === v),
       aprov:   isSem ? semAprov : aprovBase.filter(a => a.vendedora === v),
       peds:    isSem ? semPeds  : pedsBase.filter(p => matchPedVend(p.vendedora, v)),
@@ -3703,8 +3705,9 @@ function renderDashboard() {
     const excluido = dashVendExcl.has(v);
     return '<tr style="opacity:' + (excluido ? '0.35' : '1') + '">' +
       '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px">' + v + '</td>' +
-      tdC('visitas', i, d.visitas.length) +
-      tdC('props',   i, d.props.length) +
+      tdC('visitas',   i, d.visitas.length) +
+      tdC('instAgend', i, d.instAgend.length) +
+      tdC('props',     i, d.props.length) +
       tdC('aprov',   i, d.aprov.length) +
       '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:center;color:' + (vTaxa>=50?'var(--mineral-txt)':'var(--text2)') + '">' + (d.props.length ? vTaxa + '%' : '—') + '</td>' +
       tdC('peds',    i, d.peds.length) +
@@ -3717,11 +3720,12 @@ function renderDashboard() {
   const semTaxa = semD && semD.props.length > 0 ? Math.round(semD.aprov.length / semD.props.length * 100) : 0;
   const semValPeds = semD ? semD.peds.reduce((s,p)=>s+(p.valor||0),0) : 0;
   const exclSem = dashVendExcl.has('__sem__');
-  const rowSem = semD && (semD.props.length || semD.peds.length || semD.visitas.length) ?
+  const rowSem = semD && (semD.props.length || semD.peds.length || semD.visitas.length || semD.instAgend.length) ?
     '<tr style="opacity:' + (exclSem ? '0.35' : '1') + ';color:var(--text2)">' +
     '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;font-style:italic">Sem vendedor</td>' +
-    tdC('visitas', semIdx, semD.visitas.length) +
-    tdC('props',   semIdx, semD.props.length) +
+    tdC('visitas',   semIdx, semD.visitas.length) +
+    tdC('instAgend', semIdx, semD.instAgend.length) +
+    tdC('props',     semIdx, semD.props.length) +
     tdC('aprov',   semIdx, semD.aprov.length) +
     '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:center">' + (semD.props.length ? semTaxa + '%' : '—') + '</td>' +
     tdC('peds',    semIdx, semD.peds.length) +
@@ -3734,6 +3738,7 @@ function renderDashboard() {
     '<table style="border-collapse:collapse;width:100%"><thead><tr>' +
     '<th style="' + thS + 'left">Vendedor</th>' +
     '<th style="' + thS + 'center">Visitas</th>' +
+    '<th style="' + thS + 'center">Inst. cal.</th>' +
     '<th style="' + thS + 'center">Propostas</th>' +
     '<th style="' + thS + 'center">Aprovadas</th>' +
     '<th style="' + thS + 'center">Taxa</th>' +
@@ -3743,7 +3748,10 @@ function renderDashboard() {
 
   document.getElementById('dash-funnel').innerHTML =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-bottom:16px">' +
-    card('📅','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') +
+    '<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:140px">' +
+      card('🔍','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') +
+      card('🔧','Inst. agendadas', vsInst.length, 0, '', '', 'instAgend') +
+    '</div>' +
     arrow +
     card('📄','Propostas enviadas', props.length, props.reduce((s,a)=>s+(a.valor||0),0), '', '', 'props') +
     arrow +
