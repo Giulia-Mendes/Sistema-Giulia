@@ -3773,14 +3773,14 @@ function abrirDashDetalhe(tipo, vendIdx) {
   if (!_dashCache) return;
   const items = vendIdx === -1 ? (_dashCache.all[tipo] || []) : ((_dashCache.byVend[vendIdx] || {})[tipo] || []);
   const label = vendIdx === -1 ? 'Todos' : (_dashCache.byVend[vendIdx]?.label || '');
-  const titulos = { visitas: 'Visitas', props: 'Propostas', aprov: 'Aprovadas', peds: 'Pedidos', abertas: 'Instalações abertas', concl: 'Instalações concluídas' };
+  const titulos = { visitas: 'Visitas técnicas', instAgend: 'Inst. agendadas', props: 'Propostas', aprov: 'Aprovadas', peds: 'Pedidos', abertas: 'Instalações abertas', concl: 'Instalações concluídas' };
   const titulo = (titulos[tipo] || tipo) + (label && label !== 'Todos' ? ' — ' + label : '');
 
   const linhas = items.map(item => {
     let linha = '';
-    if (tipo === 'visitas') {
+    if (tipo === 'visitas' || tipo === 'instAgend') {
       const dataFmt = (item.data||'').split('-').reverse().join('/');
-      const tipoLabel = item.tipo === 'instalacao' ? '🔧 Instalação' : '🔍 Visita';
+      const tipoLabel = tipo === 'instAgend' ? '🔧 Instalação' : '🔍 Visita técnica';
       linha = '<div style="padding:10px 0;border-bottom:1px solid var(--border)">' +
         '<div style="font-size:13px;font-weight:500">' + (item.nome||'—') + '</div>' +
         '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + tipoLabel + ' · ' + dataFmt + (item.hora_ini ? ' às ' + item.hora_ini : '') + '</div>' +
