@@ -3627,7 +3627,10 @@ function renderDashboard() {
     return !dashVendExcl.has(campo);
   };
 
-  const vs    = vsBase.filter(v  => matchV(v.vendedora));
+  const vs       = vsBase.filter(v  => matchV(v.vendedora));
+  // Separar visitas técnicas de instalações agendadas no calendário
+  const vsVisit  = vs.filter(v => v.tipo !== 'instalacao');
+  const vsInst   = vs.filter(v => v.tipo === 'instalacao');
   const props = propsBase.filter(a => matchV(a.vendedora));
   const aprov = aprovBase.filter(a => matchV(a.vendedora));
   const peds  = pedsBase.filter(p => matchV(p.vendedora));
@@ -3646,16 +3649,16 @@ function renderDashboard() {
   const semProps = propsBase.filter(a => !a.vendedora);
   const semAprov = aprovBase.filter(a => !a.vendedora);
   const semPeds  = pedsBase.filter(p => !p.vendedora || !vends.some(v2 => matchPedVend(p.vendedora, v2)));
-  const semVs    = vsBase.filter(v => !v.vendedora);
+  const semVs    = vsBase.filter(v => !v.vendedora && v.tipo !== 'instalacao');
   _dashCache = {
-    all: { visitas: vs, props, aprov, peds, abertas, concl },
+    all: { visitas: vsVisit, props, aprov, peds, abertas, concl },
     byVend: {}
   };
   [...vends, '__sem__'].forEach((v, i) => {
     const isSem = v === '__sem__';
     _dashCache.byVend[i] = {
       label: isSem ? 'Sem vendedor' : v,
-      visitas: isSem ? semVs    : vsBase.filter(vi => vi.vendedora === v),
+      visitas: isSem ? semVs : vsBase.filter(vi => vi.vendedora === v && vi.tipo !== 'instalacao'),
       props:   isSem ? semProps : propsBase.filter(a => a.vendedora === v),
       aprov:   isSem ? semAprov : aprovBase.filter(a => a.vendedora === v),
       peds:    isSem ? semPeds  : pedsBase.filter(p => matchPedVend(p.vendedora, v)),
@@ -3728,8 +3731,8 @@ function renderDashboard() {
 
   document.getElementById('dash-funnel').innerHTML =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-bottom:16px">' +
-    card('📅','Visitas agendadas', vs.length, 0,
-      vs.filter(v=>v.tipo==='instalacao').length + ' instalações · ' + vs.filter(v=>v.tipo!=='instalacao').length + ' visitas', '', 'visitas') +
+    card('📅','Visitas técnicas', vsVisit.length, 0,
+      vsInst.length > 0 ? '+ ' + vsInst.length + ' instalação(ões) agend.' : '', '', 'visitas') +
     arrow +
     card('📄','Propostas enviadas', props.length, props.reduce((s,a)=>s+(a.valor||0),0), '', '', 'props') +
     arrow +
