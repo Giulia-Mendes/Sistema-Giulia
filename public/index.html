@@ -3263,13 +3263,54 @@ function reimprimirAprov(id, e) {
   if (e) e.stopPropagation();
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
-  if (a.html_proposta) {
-    const w = window.open('', '_blank');
-    w.document.write(a.html_proposta);
-    w.document.close();
-  } else {
-    alert('Esta proposta foi enviada antes do sistema salvar o layout de impressão.\nGere a proposta novamente pelo campo Proposta para reimprimir com o layout completo.');
-  }
+  const htmlParaImprimir = a.html_proposta || _gerarHtmlSimplificado(a);
+  const w = window.open('', '_blank');
+  w.document.write(htmlParaImprimir);
+  w.document.close();
+}
+function _gerarHtmlSimplificado(a) {
+  const fmtV = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dataFmt = (a.criado_em || '').slice(0,10).split('-').reverse().join('/');
+  return `<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><title>Proposta — ${a.cliente}</title>
+<style>
+  @page { margin: 14mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; color: #1a1a1a; font-size: 11px; line-height: 1.5; }
+  h2 { text-align: center; font-size: 15px; font-weight: bold; margin: 18px 0 14px; }
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+  .hdr-r { text-align: right; font-size: 10px; line-height: 1.8; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  th { background: #222; color: #fff; padding: 6px 10px; font-size: 10px; border: 1px solid #222; text-align: left; }
+  td { border: 1px solid #ddd; padding: 6px 10px; }
+  .ft td { font-weight: bold; background: #f3f3f3; border: 1px solid #ddd; }
+  .box { border: 1px solid #ccc; padding: 12px 16px; margin-bottom: 14px; }
+  pre { white-space: pre-wrap; font-family: inherit; font-size: 11px; line-height: 1.7; }
+  .sig { margin-top: 28px; font-size: 11px; line-height: 2; }
+  .pbtn { position: fixed; top: 16px; right: 16px; background: #333; color: #fff; border: none; padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  @media print { .pbtn { display: none; } }
+</style></head><body>
+<button class="pbtn" onclick="window.print()">Imprimir / Salvar PDF</button>
+<div class="hdr">
+  <div><img src="/logo-capellato.jpeg" alt="Capellato" style="max-height:70px;max-width:200px;object-fit:contain"></div>
+  <div class="hdr-r"><strong>CAPELLATO DO BRASIL COMERCIO E PARTICIPACOES LTDA</strong><br>
+    53.854.025/0001-19<br>Estrada do Engenho da Pedra, 1081<br>Olaria, Rio de Janeiro - RJ<br>21.031-030</div>
+</div>
+<h2>Proposta Comercial</h2>
+<div style="margin-bottom:14px">Para<br><strong>${a.cliente}</strong></div>
+<table>
+  <thead><tr><th>Item</th><th style="width:140px;text-align:right">Total</th></tr></thead>
+  <tbody><tr><td>${(a.equip||'—').replace(/</g,'&lt;')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
+  <tr class="ft"><td style="text-align:right">Total da proposta</td><td style="text-align:right">${fmtV(a.valor)}</td></tr>
+</table>
+${a.texto ? `<div class="box"><pre>${a.texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></div>` : ''}
+<table>
+  <thead><tr><th>Data</th><th>Forma de pagamento</th><th style="text-align:right">Total</th></tr></thead>
+  <tbody><tr><td>${dataFmt}</td><td>${(a.pag||'—').replace(/</g,'&lt;')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
+</table>
+${a.temperatura_alvo ? `<p style="margin-bottom:12px">Temperatura alvo: ${a.temperatura_alvo}°C</p>` : ''}
+<div class="sig">Atenciosamente,<br>Departamento de vendas — Capellato do Brasil</div>
+</body></html>`;
 }
 
 // APROVAÇÃO - enviar para pedido (pré-preenche formulário de instalação)
