@@ -1393,7 +1393,7 @@ function formatMoedaInput(el) {
 function setMoedaInput(id, v) {
   const el = document.getElementById(id);
   if (!el) return;
-  const n = parseFloat(v) || 0;
+  const n = parseMoeda(v);
   el.value = n > 0 ? n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
 }
 let editandoInstId = null;
@@ -2057,7 +2057,7 @@ function renderVisitas() {
         '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dias p/ instalar</div><div style="font-size:13px">' + (l.dias||'—') + '</div></div>' +
         '</div>' +
         (l.material ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Material</div><div style="font-size:13px">' + l.material + '</div>' : '') +
-        (l.valorMat ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Valor material</div><div style="font-size:13px;font-weight:500">R$ ' + parseFloat(l.valorMat).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' : '') +
+        (l.valorMat ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Valor material</div><div style="font-size:13px;font-weight:500">R$ ' + parseMoeda(l.valorMat).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' : '') +
         (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
         '</div>';
     }
