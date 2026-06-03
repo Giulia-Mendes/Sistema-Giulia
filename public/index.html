@@ -3270,9 +3270,35 @@ function reimprimirAprov(id, e) {
 }
 function _gerarHtmlSimplificado(a) {
   const fmtV = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const dataFmt = (a.criado_em || '').slice(0,10).split('-').reverse().join('/');
+
+  // Extrair linhas de itens do campo texto (• NomeProduto ... (R$ x.xxx,xx))
+  // O texto salvo tem bullets de produtos antes das linhas de pagamento (• R$ ...)
+  const itensRows = [];
+  if (a.texto) {
+    for (const linha of a.texto.split('\n')) {
+      const t = linha.trim();
+      if (!t.startsWith('•')) continue;
+      if (/^•\s+R\$/.test(t)) break; // linha de pagamento → fim dos itens
+      if (/^•\s+Desconto/.test(t)) continue;
+      // Extrai valor entre parênteses: (R$ 1.234,56)
+      const mVal = t.match(/\(R\$\s*([\d.,]+)\)\s*$/);
+      const valor = mVal ? parseMoeda(mVal[1]) : 0;
+      // Extrai nome: remove bullet, SKU e valor
+      const nome = t.replace(/^•\s+/, '').replace(/\s*—\s*SKU\s+\S+/, '').replace(/\s*\(R\$[\s\d.,]+\)\s*$/, '').trim();
+      if (nome) itensRows.push({ nome, valor });
+    }
+  }
+  // Fallback: usa equip se não conseguiu extrair nada
+  if (!itensRows.length) itensRows.push({ nome: a.equip || '—', valor: a.valor || 0 });
+
+  const tbodyRows = itensRows.map((r, i) =>
+    `<tr style="background:${i%2===0?'#fff':'#f9f9f7'}"><td>${esc(r.nome)}</td><td style="text-align:right">${r.valor > 0 ? fmtV(r.valor) : '—'}</td></tr>`
+  ).join('');
+
   return `<!DOCTYPE html><html lang="pt-BR"><head>
-<meta charset="UTF-8"><title>Proposta — ${a.cliente}</title>
+<meta charset="UTF-8"><title>Proposta — ${esc(a.cliente)}</title>
 <style>
   @page { margin: 14mm 18mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3297,18 +3323,18 @@ function _gerarHtmlSimplificado(a) {
     53.854.025/0001-19<br>Estrada do Engenho da Pedra, 1081<br>Olaria, Rio de Janeiro - RJ<br>21.031-030</div>
 </div>
 <h2>Proposta Comercial</h2>
-<div style="margin-bottom:14px">Para<br><strong>${a.cliente}</strong></div>
+<div style="margin-bottom:14px">Para<br><strong>${esc(a.cliente)}</strong></div>
 <table>
   <thead><tr><th>Item</th><th style="width:140px;text-align:right">Total</th></tr></thead>
-  <tbody><tr><td>${(a.equip||'—').replace(/</g,'&lt;')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
+  <tbody>${tbodyRows}</tbody>
   <tr class="ft"><td style="text-align:right">Total da proposta</td><td style="text-align:right">${fmtV(a.valor)}</td></tr>
 </table>
-${a.texto ? `<div class="box"><pre>${a.texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></div>` : ''}
+${a.texto ? `<div class="box"><pre>${esc(a.texto)}</pre></div>` : ''}
 <table>
   <thead><tr><th>Data</th><th>Forma de pagamento</th><th style="text-align:right">Total</th></tr></thead>
-  <tbody><tr><td>${dataFmt}</td><td>${(a.pag||'—').replace(/</g,'&lt;')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
+  <tbody><tr><td>${dataFmt}</td><td>${esc(a.pag||'—')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
 </table>
-${a.temperatura_alvo ? `<p style="margin-bottom:12px">Temperatura alvo: ${a.temperatura_alvo}°C</p>` : ''}
+${a.temperatura_alvo ? `<p style="margin-bottom:12px">Temperatura alvo: ${esc(a.temperatura_alvo)}°C</p>` : ''}
 <div class="sig">Atenciosamente,<br>Departamento de vendas — Capellato do Brasil</div>
 </body></html>`;
 }
