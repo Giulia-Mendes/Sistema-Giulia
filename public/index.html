@@ -3259,10 +3259,18 @@ async function enviarAprovacao() {
   }
 }
 
-function reimprimirAprov(id, e) {
+async function reimprimirAprov(id, e) {
   if (e) e.stopPropagation();
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
+  // html_proposta não é carregado na listagem — busca sob demanda
+  if (!a.html_proposta) {
+    try {
+      const resp = await fetch('/api/aprovacoes/' + id + '/html');
+      const data = await resp.json();
+      if (data.html_proposta) a.html_proposta = data.html_proposta; // cache local
+    } catch(err) {}
+  }
   const htmlParaImprimir = a.html_proposta || _gerarHtmlSimplificado(a);
   const w = window.open('', '_blank');
   w.document.write(htmlParaImprimir);
@@ -3273,24 +3281,28 @@ function _gerarHtmlSimplificado(a) {
   const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const dataFmt = (a.criado_em || '').slice(0,10).split('-').reverse().join('/');
 
-  // Extrair linhas de itens do campo texto (• NomeProduto ... (R$ x.xxx,xx))
-  // O texto salvo tem bullets de produtos antes das linhas de pagamento (• R$ ...)
+  // Extrair linhas de itens do campo texto.
+  // Itens ficam na primeira sequência contínua de bullets (• ...) sem linha em branco.
+  // A primeira linha em branco após bullets marca fim da seção de itens.
   const itensRows = [];
   if (a.texto) {
+    let dentroItens = false;
     for (const linha of a.texto.split('\n')) {
       const t = linha.trim();
-      if (!t.startsWith('•')) continue;
-      if (/^•\s+R\$/.test(t)) break; // linha de pagamento → fim dos itens
-      if (/^•\s+Desconto/.test(t)) continue;
-      // Extrai valor entre parênteses: (R$ 1.234,56)
+      if (!t) {
+        if (dentroItens) break; // linha em branco após itens → fim da seção
+        continue;
+      }
+      if (!t.startsWith('•')) { dentroItens = false; continue; }
+      if (/^•\s+R\$/.test(t)) break; // linha de pagamento → fim
+      if (/^•\s+Desconto/.test(t)) { dentroItens = true; continue; }
+      dentroItens = true;
       const mVal = t.match(/\(R\$\s*([\d.,]+)\)\s*$/);
       const valor = mVal ? parseMoeda(mVal[1]) : 0;
-      // Extrai nome: remove bullet, SKU e valor
       const nome = t.replace(/^•\s+/, '').replace(/\s*—\s*SKU\s+\S+/, '').replace(/\s*\(R\$[\s\d.,]+\)\s*$/, '').trim();
       if (nome) itensRows.push({ nome, valor });
     }
   }
-  // Fallback: usa equip se não conseguiu extrair nada
   if (!itensRows.length) itensRows.push({ nome: a.equip || '—', valor: a.valor || 0 });
 
   const tbodyRows = itensRows.map((r, i) =>

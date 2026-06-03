@@ -483,6 +483,11 @@ app.get('/api/aprovacoes', auth, (req, res) => {
   rows.forEach(r => { r._tem_anexos = setAnexos.has(r.id); });
   res.json(rows);
 });
+app.get('/api/aprovacoes/:id/html', auth, (req, res) => {
+  const row = db.prepare('SELECT html_proposta FROM aprovacoes WHERE id=?').get(req.params.id);
+  if (!row) return res.json({ html_proposta: null });
+  res.json({ html_proposta: row.html_proposta || null });
+});
 app.get('/api/aprovacoes/:id/anexos', auth, (req, res) => {
   const row = db.prepare('SELECT anexos FROM aprovacoes WHERE id=?').get(req.params.id);
   if (!row) return res.json([]);
