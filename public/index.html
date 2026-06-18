@@ -2042,9 +2042,26 @@ function renderVisitas() {
     const tecs = (v.tecnicos||[]).map(t => t.split('|')[0]).join(', ') || '—';
     let bodyHtml = '';
     if (isExp) {
+      let laudoHtml = '';
+      if (v.laudo) {
+        const l = v.laudo;
+        laudoHtml = '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px">' +
+          '<p class="sec" style="margin-bottom:8px">📋 Laudo técnico</p>' +
+          '<div class="g3" style="margin-bottom:6px">' +
+          (l.comp || l.larg ? '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dimensões</div><div style="font-size:13px">' + (l.comp||'?') + 'm × ' + (l.larg||'?') + 'm' + (l.prof_min && l.prof_min !== l.prof ? ' × ' + l.prof_min + '–' + l.prof + 'm' : (l.prof ? ' × ' + l.prof + 'm' : '')) + (l.tem_prainha && l.prainha_comp ? ' + prainha ' + l.prainha_comp + '×' + l.prainha_larg + '×' + l.prainha_prof + 'm' : '') + '</div></div>' : '') +
+          (l.vol ? '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Volume</div><div style="font-size:13px">' + l.vol + ' m³</div></div>' : '') +
+          (l.dias ? '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dias p/ instalar</div><div style="font-size:13px">' + l.dias + '</div></div>' : '') +
+          '</div>' +
+          (l.tipo ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Tipo</div><div style="font-size:13px">' + l.tipo + '</div>' : '') +
+          (l.tensao ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Tensão</div><div style="font-size:13px">' + l.tensao + '</div>' : '') +
+          (l.obs ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Observações</div><div style="font-size:13px">' + l.obs + '</div>' : '') +
+          (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
+          '</div>';
+      }
       bodyHtml = '<div class="item-body">' +
         '<p class="sec" style="margin-top:14px">Texto do agendamento</p>' +
         '<div class="txt-agend">' + montarTextoVisita(v) + '</div>' +
+        laudoHtml +
         '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e5e3db;flex-wrap:wrap">' +
         '<button class="btn btn-branco" onclick="abrirEditarVisita(' + v.id + ')">✏️ Editar</button>' +
         '<button class="btn btn-branco" onclick="copiarAgend(' + v.id + ', event)">📋 Copiar</button>' +
