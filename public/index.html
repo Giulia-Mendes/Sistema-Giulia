@@ -5617,7 +5617,7 @@ function orcmatEditarOrcamento(id) {
   _popularClientesOrcmat();
   // Restaura visita vinculada (se houver)
   document.getElementById('orcmat-visita-id').value = o.visita_id || '';
-  document.getElementById('orcmat-visita-busca').value = '';
+  document.getElementById('orcmat-cliente-drop').style.display = 'none';
   if (o.visita_id) {
     const v = visitas.find(x => x.id === o.visita_id);
     if (v) {
