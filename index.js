@@ -1139,6 +1139,7 @@ app.get('/api/tiny/produtos/buscar', auth, async (req, res) => {
         nome: pr.nome || pr.descricao || '',
         unidade: pr.unidade || 'UN',
         preco: parseFloat(String(pr.preco_venda || pr.preco || '0').replace(',', '.')) || 0,
+        preco_custo: parseFloat(String(pr.preco_custo || '0').replace(',', '.')) || 0,
         estoque: pr.saldo_fisico_total != null ? String(pr.saldo_fisico_total) : null
       };
     });

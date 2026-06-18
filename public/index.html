@@ -5805,7 +5805,7 @@ async function orcmatBuscarMaterial(q) {
     const extras = tinyItens.filter(t => !t.sku || !skusLocais.has(t.sku));
     const todos = [
       ...locais.map(m => ({ sku: m.sku||'', nome: m.nome, unidade: m.unidade||'UN', preco: m.preco_custo||0, estoque: null, fonte: 'catalogo' })),
-      ...extras.map(t => ({ sku: t.sku||'', nome: t.nome, unidade: t.unidade||'UN', preco: t.preco||0, estoque: t.estoque, fonte: 'tiny' }))
+      ...extras.map(t => ({ sku: t.sku||'', nome: t.nome, unidade: t.unidade||'UN', preco: t.preco_custo||0, estoque: t.estoque, fonte: 'tiny' }))
     ];
     if (!todos.length) {
       cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">Nenhum material encontrado.</div>';
