@@ -765,6 +765,7 @@ try { db.prepare('ALTER TABLE instalacoes ADD COLUMN obs_compras TEXT DEFAULT NU
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_obs TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_ok TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE orcamentos_mat ADD COLUMN visita_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──
 db.exec(`
@@ -780,7 +781,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS orcamentos_mat (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cliente TEXT NOT NULL,
-    instalacao_id INTEGER DEFAULT NULL,
+    visita_id INTEGER DEFAULT NULL,
     status TEXT DEFAULT 'rascunho',
     obs TEXT DEFAULT NULL,
     valor_total REAL DEFAULT 0,
@@ -1146,11 +1147,11 @@ app.get('/api/orcamentos-mat', auth, (req, res) => {
 });
 
 app.post('/api/orcamentos-mat', auth, (req, res) => {
-  const { cliente, instalacao_id, obs, itens } = req.body;
+  const { cliente, visita_id, obs, itens } = req.body;
   if (!cliente || !cliente.trim()) return res.status(400).json({ erro: 'Cliente obrigatório.' });
   const criado_por = req.session.usuario?.nome || null;
   const valor_total = (itens || []).reduce((s, i) => s + (i.preco_total || 0), 0);
-  const r = db.prepare('INSERT INTO orcamentos_mat (cliente,instalacao_id,obs,valor_total,criado_por) VALUES (?,?,?,?,?)').run(cliente.trim(), instalacao_id || null, obs || null, valor_total, criado_por);
+  const r = db.prepare('INSERT INTO orcamentos_mat (cliente,visita_id,obs,valor_total,criado_por) VALUES (?,?,?,?,?)').run(cliente.trim(), visita_id || null, obs || null, valor_total, criado_por);
   const id = r.lastInsertRowid;
   const ins = db.prepare('INSERT INTO orcamentos_mat_itens (orcamento_id,sku,nome,unidade,quantidade,preco_unit,preco_total,obs,estoque_tiny,ordem) VALUES (?,?,?,?,?,?,?,?,?,?)');
   (itens || []).forEach((item, idx) => ins.run(id, item.sku || null, item.nome, item.unidade || 'UN', item.quantidade || 1, item.preco_unit || 0, item.preco_total || 0, item.obs || null, item.estoque_tiny || null, idx));
@@ -1159,10 +1160,10 @@ app.post('/api/orcamentos-mat', auth, (req, res) => {
 });
 
 app.put('/api/orcamentos-mat/:id', auth, (req, res) => {
-  const { cliente, instalacao_id, obs, status, itens } = req.body;
+  const { cliente, visita_id, obs, status, itens } = req.body;
   if (!cliente || !cliente.trim()) return res.status(400).json({ erro: 'Cliente obrigatório.' });
   const valor_total = (itens || []).reduce((s, i) => s + (i.preco_total || 0), 0);
-  db.prepare("UPDATE orcamentos_mat SET cliente=?,instalacao_id=?,obs=?,status=?,valor_total=?,atualizado_em=datetime('now','localtime') WHERE id=?").run(cliente.trim(), instalacao_id || null, obs || null, status || 'rascunho', valor_total, req.params.id);
+  db.prepare("UPDATE orcamentos_mat SET cliente=?,visita_id=?,obs=?,status=?,valor_total=?,atualizado_em=datetime('now','localtime') WHERE id=?").run(cliente.trim(), visita_id || null, obs || null, status || 'rascunho', valor_total, req.params.id);
   db.prepare('DELETE FROM orcamentos_mat_itens WHERE orcamento_id=?').run(req.params.id);
   const ins = db.prepare('INSERT INTO orcamentos_mat_itens (orcamento_id,sku,nome,unidade,quantidade,preco_unit,preco_total,obs,estoque_tiny,ordem) VALUES (?,?,?,?,?,?,?,?,?,?)');
   (itens || []).forEach((item, idx) => ins.run(req.params.id, item.sku || null, item.nome, item.unidade || 'UN', item.quantidade || 1, item.preco_unit || 0, item.preco_total || 0, item.obs || null, item.estoque_tiny || null, idx));

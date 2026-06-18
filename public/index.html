@@ -377,13 +377,13 @@ select option { background: var(--surface); color: var(--text); }
   <div class="nav-links">
     <button onclick="irPara('dashboard', this)" id="btn-dashboard"><span class="nav-icon">In</span><span class="nav-label">Dashboard</span></button>
     <button onclick="irPara('visita', this)" id="btn-visita"><span class="nav-icon">Vi</span><span class="nav-label">Visita</span></button>
+    <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">📦</span><span class="nav-label">Orç. Materiais</span></button>
     <button onclick="irPara('calendario', this)" id="btn-calendario"><span class="nav-icon">Ca</span><span class="nav-label">Calendário</span></button>
     <button onclick="irPara('proposta', this)" id="btn-proposta"><span class="nav-icon">Pr</span><span class="nav-label">Proposta</span></button>
     <button onclick="irPara('aprovacao', this)" id="btn-aprovacao"><span class="nav-icon">Ap</span><span class="nav-label">Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></span></button>
     <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">Pd</span><span class="nav-label">Pedidos</span></button>
     <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">In</span><span class="nav-label">Instalações</span></button>
     <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">Co</span><span class="nav-label">Compras</span></button>
-    <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">📦</span><span class="nav-label">Orç. Materiais</span></button>
     <button onclick="irPara('fechamentos', this)" id="btn-fechamentos" style="display:none"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
     <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">Me</span><span class="nav-label">Metas</span></button>
     <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
@@ -5359,7 +5359,7 @@ let _orcmatViewId = null;
 async function initOrcmat() {
   await Promise.all([carregarOrcamentos(), carregarCatalogo()]);
   _popularClientesOrcmat();
-  _popularInstalacoesOrcmat();
+  _popularVisitasOrcmat();
   renderOrcamentos();
 }
 
@@ -5387,13 +5387,31 @@ function _popularClientesOrcmat() {
   dl.innerHTML = [...nomes].sort().map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
 }
 
-function _popularInstalacoesOrcmat() {
-  const sel = document.getElementById('orcmat-instalacao');
+function _popularVisitasOrcmat() {
+  const sel = document.getElementById('orcmat-visita');
   if (!sel) return;
   const atual = sel.value;
+  // Mostra visitas técnicas (tipo != 'instalacao') ordenadas da mais recente
+  const visitasTec = [...visitas]
+    .filter(v => v.tipo !== 'instalacao')
+    .sort((a, b) => (b.data || '') > (a.data || '') ? 1 : -1);
   sel.innerHTML = '<option value="">— Nenhuma —</option>' +
-    instalacoes.map(i => `<option value="${i.id}">${i.cliente || '—'} · ${(i.data||i.criado_em||'').slice(0,10).split('-').reverse().join('/')} · ${i.equip||''}</option>`).join('');
+    visitasTec.map(v => {
+      const dataFmt = (v.data || '').split('-').reverse().join('/');
+      return `<option value="${v.id}" data-nome="${(v.nome||'').replace(/"/g,'&quot;')}">${v.nome || '—'} · ${dataFmt}${v.hora_ini ? ' ' + v.hora_ini : ''}${v.endereco ? ' · ' + v.endereco : ''}</option>`;
+    }).join('');
   sel.value = atual;
+}
+
+function orcmatVisitaSelecionada() {
+  const sel = document.getElementById('orcmat-visita');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const nome = opt.dataset.nome || opt.getAttribute('data-nome') || '';
+  if (nome) {
+    const clienteEl = document.getElementById('orcmat-cliente');
+    if (clienteEl && !clienteEl.value.trim()) clienteEl.value = nome;
+  }
 }
 
 function renderOrcamentos() {
@@ -5437,12 +5455,12 @@ function orcmatNovoOrcamento() {
   _orcmatEditId = null;
   document.getElementById('orcmat-form-titulo').textContent = 'Novo Orçamento';
   document.getElementById('orcmat-cliente').value = '';
-  document.getElementById('orcmat-instalacao').value = '';
+  document.getElementById('orcmat-visita').value = '';
   document.getElementById('orcmat-obs').value = '';
   document.getElementById('orcmat-linhas').innerHTML = '';
   _orcmatAtualizarTotal();
   _popularClientesOrcmat();
-  _popularInstalacoesOrcmat();
+  _popularVisitasOrcmat();
   document.getElementById('orcmat-lista-view').style.display = 'none';
   document.getElementById('orcmat-form-view').style.display = '';
 }
@@ -5455,8 +5473,8 @@ function orcmatEditarOrcamento(id) {
   document.getElementById('orcmat-cliente').value = o.cliente || '';
   document.getElementById('orcmat-obs').value = o.obs || '';
   _popularClientesOrcmat();
-  _popularInstalacoesOrcmat();
-  document.getElementById('orcmat-instalacao').value = o.instalacao_id || '';
+  _popularVisitasOrcmat();
+  document.getElementById('orcmat-visita').value = o.visita_id || '';
   // Preenche linhas
   document.getElementById('orcmat-linhas').innerHTML = '';
   (o.itens || []).forEach(item => {
@@ -5664,7 +5682,7 @@ async function orcmatSalvar(status) {
   if (!ok) { alert('Há linhas de material sem nome. Preencha ou remova-as.'); return; }
   const payload = {
     cliente,
-    instalacao_id: parseInt(document.getElementById('orcmat-instalacao').value) || null,
+    visita_id: parseInt(document.getElementById('orcmat-visita').value) || null,
     obs: document.getElementById('orcmat-obs').value.trim() || null,
     status, itens
   };
@@ -5893,8 +5911,8 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           <datalist id="orcmat-clientes-list"></datalist>
         </div>
         <div class="campo">
-          <label>Instalação vinculada <span style="font-weight:400;color:var(--text2)">(opcional)</span></label>
-          <select id="orcmat-instalacao" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <label>Visita vinculada <span style="font-weight:400;color:var(--text2)">(opcional — preenche o cliente automaticamente)</span></label>
+          <select id="orcmat-visita" onchange="orcmatVisitaSelecionada()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
             <option value="">— Nenhuma —</option>
           </select>
         </div>
