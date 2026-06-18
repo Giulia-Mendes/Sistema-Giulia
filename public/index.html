@@ -2555,13 +2555,16 @@ function calcMargem() {
     document.getElementById('res-custo').textContent = cp > 0 ? '—' : '—';
     document.getElementById('res-custo').style.color = '';
   }
-  // Margem material
+  // Margem material — subtrai taxa e imposto para mostrar só a margem real (igual ao produto)
   if (matProp > 0 && cm > 0) {
-    const mMat = (matProp - cm) / matProp;
+    const taxaMatR    = matProp * (pag.taxa / 100);
+    const impostoMatR = matProp * ((_params.imposto_mat ?? 8) / 100);
+    const matPropEf   = pag.desc > 0 ? matProp * (1 - pag.desc / 100) : matProp;
+    const mMat = (matPropEf - cm - taxaMatR - impostoMatR) / matPropEf;
     document.getElementById('res-margem').textContent = (mMat * 100).toFixed(1).replace('.',',') + '%';
     document.getElementById('res-margem').style.color = mMat >= MARGEM_MIN ? 'var(--mineral-txt)' : mMat >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
   } else {
-    document.getElementById('res-margem').textContent = matProp > 0 ? '—' : '—';
+    document.getElementById('res-margem').textContent = '—';
     document.getElementById('res-margem').style.color = '';
   }
   // Info pagamento (boleto)
@@ -2573,10 +2576,10 @@ function calcMargem() {
   const bar = document.getElementById('margem-bar');
   const badge = document.getElementById('margem-badge');
   if (pvTotal > 0) {
-    const pvTotalEf = pag.desc > 0 ? pvTotal * (1 - pag.desc / 100) : pvTotal;
-    const taxaTotalR = pvTotal * (pag.taxa / 100);
-    const custoComb = cp + cm + taxaTotalR;
-    const mComb = (pvTotalEf - cp - cm - taxaTotalR) / pvTotalEf;
+    const pvTotalEf   = pag.desc > 0 ? pvTotal * (1 - pag.desc / 100) : pvTotal;
+    const taxaTotalR  = pvTotal * (pag.taxa / 100);
+    const impostoMatR = matProp * ((_params.imposto_mat ?? 8) / 100);
+    const mComb = (pvTotalEf - cp - cm - taxaTotalR - impostoMatR) / pvTotalEf;
     const pctComb = (mComb * 100).toFixed(1).replace('.',',') + '%';
     bar.style.width = Math.min(Math.max(mComb * 100 * 2, 0), 100) + '%';
     if (mComb >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Margem combinada boa (' + pctComb + ')'; }
