@@ -5387,33 +5387,63 @@ function _popularClientesOrcmat() {
   dl.innerHTML = [...nomes].sort().map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
 }
 
-function _popularVisitasOrcmat() {
-  // Nada a popular — busca é feita ao vivo por digitação
+function _popularVisitasOrcmat() {} // noop — dropdown é gerado ao vivo
+
+function _visitasSemana() {
+  // Visitas técnicas dos últimos 7 dias + próximos 2 dias, ordenadas da mais recente
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const limite = new Date(hoje); limite.setDate(hoje.getDate() - 7);
+  const futuro = new Date(hoje); futuro.setDate(hoje.getDate() + 2);
+  return [...visitas]
+    .filter(v => {
+      if (v.tipo === 'instalacao') return false;
+      const d = v.data ? new Date(v.data + 'T00:00:00') : null;
+      return d && d >= limite && d <= futuro;
+    })
+    .sort((a, b) => (b.data || '') > (a.data || '') ? 1 : -1);
 }
 
-function orcmatFiltrarVisitas(q) {
-  const drop = document.getElementById('orcmat-visita-drop');
+function orcmatFiltrarCliente(q) {
+  const drop = document.getElementById('orcmat-cliente-drop');
   if (!drop) return;
-  if (!q || q.trim().length < 2) { drop.style.display = 'none'; return; }
-  const ql = q.toLowerCase();
-  const visitasTec = [...visitas]
-    .filter(v => v.tipo !== 'instalacao' && (v.nome||'').toLowerCase().includes(ql))
-    .sort((a, b) => (b.data || '') > (a.data || '') ? 1 : -1)
-    .slice(0, 12);
-  if (!visitasTec.length) {
-    drop.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text2);text-align:center">Nenhuma visita encontrada.</div>';
-    drop.style.display = '';
-    return;
+
+  let pool;
+  if (!q || !q.trim()) {
+    // Sem texto: mostra visitas da semana
+    pool = _visitasSemana();
+  } else {
+    // Com texto: filtra todas as visitas técnicas pelo nome
+    const ql = q.toLowerCase();
+    pool = [...visitas]
+      .filter(v => v.tipo !== 'instalacao' && (v.nome||'').toLowerCase().includes(ql))
+      .sort((a, b) => (b.data || '') > (a.data || '') ? 1 : -1);
   }
-  drop.innerHTML = visitasTec.map(v => {
+
+  if (!pool.length) { drop.style.display = 'none'; return; }
+
+  // Agrupa por data para mostrar separadores
+  const hoje = new Date().toISOString().slice(0,10);
+  const ontem = new Date(Date.now()-86400000).toISOString().slice(0,10);
+  let lastData = null;
+  const rows = pool.slice(0, 20).map(v => {
     const dataFmt = (v.data || '').split('-').reverse().join('/');
-    return `<div onclick="orcmatSelecionarVisita(${v.id})"
-      style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer"
+    let sep = '';
+    if (v.data !== lastData) {
+      lastData = v.data;
+      const label = v.data === hoje ? 'Hoje' : v.data === ontem ? 'Ontem' : dataFmt;
+      sep = `<div style="padding:5px 12px 2px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;background:var(--surface2)">${label}</div>`;
+    }
+    return sep + `<div onclick="orcmatSelecionarVisita(${v.id})"
+      style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer"
       onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
       <div style="font-size:13px;font-weight:500">${v.nome || '—'}</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">${dataFmt}${v.hora_ini ? ' às ' + v.hora_ini : ''}${v.endereco ? ' · ' + v.endereco : ''}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:1px">${dataFmt}${v.hora_ini ? ' às ' + v.hora_ini : ''}${v.endereco ? ' · ' + v.endereco : ''}</div>
     </div>`;
   }).join('');
+
+  drop.innerHTML = (!q || !q.trim())
+    ? `<div style="padding:5px 12px 2px;font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px">Visitas recentes</div>` + rows
+    : rows;
   drop.style.display = '';
 }
 
@@ -5421,27 +5451,21 @@ function orcmatSelecionarVisita(id) {
   const v = visitas.find(x => x.id === id);
   if (!v) return;
   document.getElementById('orcmat-visita-id').value = id;
-  document.getElementById('orcmat-visita-busca').value = '';
-  document.getElementById('orcmat-visita-drop').style.display = 'none';
-  // Mostra chip da visita selecionada
+  document.getElementById('orcmat-cliente-drop').style.display = 'none';
+  // Preenche nome do cliente
+  document.getElementById('orcmat-cliente').value = v.nome || '';
+  // Mostra chip de visita vinculada
   const dataFmt = (v.data || '').split('-').reverse().join('/');
-  const label = `${v.nome || '—'} · ${dataFmt}${v.hora_ini ? ' às ' + v.hora_ini : ''}`;
-  document.getElementById('orcmat-visita-label').textContent = label;
-  const sel = document.getElementById('orcmat-visita-selecionada');
-  if (sel) sel.style.display = 'flex';
-  // Preenche nome do cliente se estiver vazio
-  const clienteEl = document.getElementById('orcmat-cliente');
-  if (clienteEl && !clienteEl.value.trim()) clienteEl.value = v.nome || '';
+  document.getElementById('orcmat-visita-label').textContent = `${v.nome || '—'} · ${dataFmt}${v.hora_ini ? ' às ' + v.hora_ini : ''}`;
+  document.getElementById('orcmat-visita-selecionada').style.display = 'flex';
 }
 
 function orcmatLimparVisita() {
   document.getElementById('orcmat-visita-id').value = '';
-  document.getElementById('orcmat-visita-busca').value = '';
-  const sel = document.getElementById('orcmat-visita-selecionada');
-  if (sel) sel.style.display = 'none';
+  document.getElementById('orcmat-visita-selecionada').style.display = 'none';
 }
 
-function orcmatVisitaSelecionada() {} // mantido por compatibilidade
+function orcmatVisitaSelecionada() {} // compatibilidade
 
 function renderOrcamentos() {
   const cont = document.getElementById('orcmat-lista-container');
@@ -5485,8 +5509,8 @@ function orcmatNovoOrcamento() {
   document.getElementById('orcmat-form-titulo').textContent = 'Novo Orçamento';
   document.getElementById('orcmat-cliente').value = '';
   document.getElementById('orcmat-visita-id').value = '';
-  document.getElementById('orcmat-visita-busca').value = '';
   document.getElementById('orcmat-visita-selecionada').style.display = 'none';
+  document.getElementById('orcmat-cliente-drop').style.display = 'none';
   document.getElementById('orcmat-obs').value = '';
   document.getElementById('orcmat-linhas').innerHTML = '';
   _orcmatAtualizarTotal();
@@ -5960,29 +5984,22 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 
     <!-- Cabeçalho do orçamento -->
     <div class="card" style="margin-bottom:12px">
-      <div class="g2" style="gap:12px">
-        <div class="campo">
-          <label>Cliente *</label>
-          <input type="text" id="orcmat-cliente" placeholder="Nome do cliente" list="orcmat-clientes-list"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
-          <datalist id="orcmat-clientes-list"></datalist>
-        </div>
-        <div class="campo" style="position:relative">
-          <label>Visita vinculada <span style="font-weight:400;color:var(--text2)">(opcional)</span></label>
-          <input type="text" id="orcmat-visita-busca" placeholder="Digite o nome do cliente para buscar…"
-            oninput="orcmatFiltrarVisitas(this.value)"
-            onblur="setTimeout(()=>{ const d=document.getElementById('orcmat-visita-drop'); if(d)d.style.display='none'; },200)"
-            autocomplete="off"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
-          <input type="hidden" id="orcmat-visita-id" value="">
-          <div id="orcmat-visita-drop" style="display:none;position:absolute;z-index:200;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px var(--shadow);max-height:220px;overflow-y:auto;margin-top:2px"></div>
-          <div id="orcmat-visita-selecionada" style="display:none;margin-top:6px;padding:6px 10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:space-between">
-            <span id="orcmat-visita-label"></span>
-            <button type="button" onclick="orcmatLimparVisita()" style="border:none;background:none;cursor:pointer;color:var(--terra);font-size:13px;padding:0 4px">✕</button>
-          </div>
+      <div class="campo" style="position:relative;margin-bottom:12px">
+        <label>Cliente *</label>
+        <input type="text" id="orcmat-cliente" placeholder="Digite ou selecione um cliente da visita…"
+          oninput="orcmatFiltrarCliente(this.value)"
+          onfocus="orcmatFiltrarCliente(this.value)"
+          onblur="setTimeout(()=>{ const d=document.getElementById('orcmat-cliente-drop'); if(d)d.style.display='none'; },200)"
+          autocomplete="off"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+        <div id="orcmat-cliente-drop" style="display:none;position:absolute;z-index:200;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px var(--shadow);max-height:260px;overflow-y:auto;margin-top:2px"></div>
+        <input type="hidden" id="orcmat-visita-id" value="">
+        <div id="orcmat-visita-selecionada" style="display:none;margin-top:6px;padding:5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text2);align-items:center;justify-content:space-between">
+          <span>🗓 Visita vinculada: <strong id="orcmat-visita-label"></strong></span>
+          <button type="button" onclick="orcmatLimparVisita()" style="border:none;background:none;cursor:pointer;color:var(--terra);font-size:13px;padding:0 4px" title="Desvincular visita">✕</button>
         </div>
       </div>
-      <div class="campo" style="margin-top:10px">
+      <div class="campo">
         <label>Observação geral</label>
         <textarea id="orcmat-obs" rows="2" placeholder="Observações sobre o orçamento…"
           style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
