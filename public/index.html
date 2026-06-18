@@ -2039,41 +2039,13 @@ function renderVisitas() {
     const isExp = expandidoVisita === v.id;
     const isInst = v.tipo === 'instalacao';
     const tipoBadge = isInst ? '<span class="badge badge-teal">🔧 Instalação</span>' : '<span class="badge badge-roxo">🔍 Visita técnica</span>';
-    const ls = getLaudoStatus(v);
-    const laudoBadge = ls.status === 'completo'
-      ? '<span class="badge badge-verde">✓ Laudo completo</span>'
-      : ls.status === 'incompleto'
-        ? '<span class="badge badge-amarelo" title="Faltando: ' + ls.faltando.join(', ') + '">⚠️ Laudo incompleto</span>'
-        : '<span class="badge badge-vermelho">📋 Aguardando laudo</span>';
-    const temLaudo = !!v.laudo;
     const tecs = (v.tecnicos||[]).map(t => t.split('|')[0]).join(', ') || '—';
-    let laudoHtml = '';
-    if (temLaudo) {
-      const l = v.laudo;
-      laudoHtml = '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px">' +
-        '<p class="sec" style="margin-bottom:8px">Laudo do técnico</p>' +
-        '<div class="g3" style="margin-bottom:6px">' +
-        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dimensões</div><div style="font-size:13px">' + l.comp + 'm × ' + l.larg + 'm' + (l.prof_min && l.prof_min !== l.prof ? ' × ' + l.prof_min + '–' + l.prof + 'm' : (l.prof ? ' × ' + l.prof + 'm' : '')) + (l.tem_prainha && l.prainha_comp ? ' + prainha ' + l.prainha_comp + '×' + l.prainha_larg + '×' + l.prainha_prof + 'm' : '') + '</div></div>' +
-        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Volume</div><div style="font-size:13px">' + l.vol + ' m³</div></div>' +
-        '<div><div style="font-size:12px;color:#888780;margin-bottom:2px">Dias p/ instalar</div><div style="font-size:13px">' + (l.dias||'—') + '</div></div>' +
-        '</div>' +
-        (l.material ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Material</div><div style="font-size:13px">' + l.material + '</div>' : '') +
-        (l.valorMat ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Valor material</div><div style="font-size:13px;font-weight:500">R$ ' + parseMoeda(l.valorMat).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' : '') +
-        (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
-        '</div>';
-    }
     let bodyHtml = '';
     if (isExp) {
-      const alertaIncompleto = ls.status === 'incompleto'
-        ? '<div style="background:var(--bronze-bg);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--bronze-txt)">⚠️ Laudo incompleto — faltando:</span> <span style="color:var(--bronze-txt)">' + ls.faltando.join(', ') + '</span></div>'
-        : '';
       bodyHtml = '<div class="item-body">' +
         '<p class="sec" style="margin-top:14px">Texto do agendamento</p>' +
         '<div class="txt-agend">' + montarTextoVisita(v) + '</div>' +
-        alertaIncompleto +
-        laudoHtml +
         '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e5e3db;flex-wrap:wrap">' +
-        '<button class="btn btn-roxo" onclick="abrirLaudo(' + v.id + ')">' + (temLaudo ? '✏️ Editar laudo' : '📋 Preencher laudo') + '</button>' +
         '<button class="btn btn-branco" onclick="abrirEditarVisita(' + v.id + ')">✏️ Editar</button>' +
         '<button class="btn btn-branco" onclick="copiarAgend(' + v.id + ', event)">📋 Copiar</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirVisita(' + v.id + ')">🗑 Excluir</button>' +
@@ -2082,7 +2054,7 @@ function renderVisitas() {
     return '<div class="item-card">' +
       '<div class="item-header" onclick="toggleVisita(' + v.id + ')">' +
       '<div style="flex:1;min-width:0">' +
-      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">' + tipoBadge + laudoBadge + '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">' + tipoBadge + '</div>' +
       '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + v.nome + '</p>' +
       '<p style="font-size:13px;color:#888780;margin:0 0 2px">' + v.end + '</p>' +
       '<p style="font-size:12px;color:#888780;margin:0">📅 ' + fmtData(v.data) + (v.horaIni ? ' · ' + v.horaIni : '') + ' · 👷 ' + tecs + (v.vendedora ? ' · 👤 ' + v.vendedora : '') + (v.lead_id ? ' · Lead: ' + v.lead_id : '') + '</p>' +
@@ -4317,6 +4289,50 @@ function setFiltroFin(f) {
   renderFinanceiro();
 }
 let finCardsExpanded = new Set(); // padrão: fechado. Só abre se o usuário clicar.
+// ── LAUDO TÉCNICO NO ORCMAT ──
+function calcVolOrcmat() {
+  const v = n => parseFloat(document.getElementById(n)?.value) || 0;
+  const c = v('ol-comp'), l = v('ol-larg'), pm = v('ol-prof'), pm2 = v('ol-prof-min') || pm;
+  let vol = c * l * ((pm + pm2) / 2) * 0.8;
+  if (document.getElementById('ol-tem-prainha')?.checked) {
+    const pc = v('ol-prainha-comp'), pl = v('ol-prainha-larg'), pp = v('ol-prainha-prof');
+    vol += pc * pl * pp * 0.8;
+  }
+  const el = document.getElementById('ol-vol');
+  if (el) el.value = vol > 0 ? vol.toFixed(2) : '';
+}
+function togglePrainhaOrcmat() {
+  const show = document.getElementById('ol-tem-prainha')?.checked;
+  const wrap = document.getElementById('ol-prainha-wrap');
+  if (wrap) wrap.style.display = show ? '' : 'none';
+  calcVolOrcmat();
+}
+function _orcmatPreencherLaudo(laudo) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  if (!laudo) {
+    ['ol-comp','ol-larg','ol-prof','ol-prof-min','ol-vol','ol-tipo','ol-prainha-comp','ol-prainha-larg','ol-prainha-prof','ol-dist','ol-tensao','ol-dias','ol-dias-outro','ol-obs'].forEach(id => set(id,''));
+    setChk('ol-tem-prainha', false);
+    const pw = document.getElementById('ol-prainha-wrap'); if (pw) pw.style.display = 'none';
+    return;
+  }
+  set('ol-comp', laudo.comp); set('ol-larg', laudo.larg);
+  set('ol-prof', laudo.prof); set('ol-prof-min', laudo.prof_min);
+  set('ol-tipo', laudo.tipo); set('ol-dist', laudo.dist);
+  set('ol-tensao', laudo.tensao); set('ol-dias', laudo.dias);
+  set('ol-dias-outro', laudo.dias_outro); set('ol-obs', laudo.obs);
+  setChk('ol-tem-prainha', laudo.tem_prainha);
+  const pw = document.getElementById('ol-prainha-wrap');
+  if (pw) pw.style.display = laudo.tem_prainha ? '' : 'none';
+  if (laudo.tem_prainha) {
+    set('ol-prainha-comp', laudo.prainha_comp);
+    set('ol-prainha-larg', laudo.prainha_larg);
+    set('ol-prainha-prof', laudo.prainha_prof);
+  }
+  const dou = document.getElementById('ol-dias-outro');
+  if (dou) dou.style.display = laudo.dias === 'outro' ? '' : 'none';
+  calcVolOrcmat();
+}
 function togSubFin(secId) {
   const el  = document.getElementById(secId);
   const ico = document.getElementById('ico-' + secId);
@@ -5603,6 +5619,7 @@ function orcmatNovoOrcamento() {
   document.getElementById('orcmat-linhas').innerHTML = '';
   _orcmatAtualizarTotal();
   _popularClientesOrcmat();
+  _orcmatPreencherLaudo(null);
   document.getElementById('orcmat-lista-view').style.display = 'none';
   document.getElementById('orcmat-form-view').style.display = '';
 }
@@ -5659,6 +5676,7 @@ function orcmatEditarOrcamento(id) {
     _orcmatAtualizarLinha(linha);
   });
   _orcmatAtualizarTotal();
+  _orcmatPreencherLaudo(o.laudo || null);
   document.getElementById('orcmat-lista-view').style.display = 'none';
   document.getElementById('orcmat-form-view').style.display = '';
 }
@@ -5852,10 +5870,30 @@ async function orcmatSalvar(status) {
     });
   });
   if (!ok) { alert('Há linhas de material sem nome. Preencha ou remova-as.'); return; }
+  // Coleta laudo técnico
+  const laudoObj = {
+    comp: document.getElementById('ol-comp')?.value || '',
+    larg: document.getElementById('ol-larg')?.value || '',
+    prof: document.getElementById('ol-prof')?.value || '',
+    prof_min: document.getElementById('ol-prof-min')?.value || '',
+    vol: document.getElementById('ol-vol')?.value || '',
+    tipo: document.getElementById('ol-tipo')?.value || '',
+    tem_prainha: document.getElementById('ol-tem-prainha')?.checked || false,
+    prainha_comp: document.getElementById('ol-prainha-comp')?.value || '',
+    prainha_larg: document.getElementById('ol-prainha-larg')?.value || '',
+    prainha_prof: document.getElementById('ol-prainha-prof')?.value || '',
+    dist: document.getElementById('ol-dist')?.value || '',
+    tensao: document.getElementById('ol-tensao')?.value || '',
+    dias: document.getElementById('ol-dias')?.value || '',
+    dias_outro: document.getElementById('ol-dias-outro')?.value || '',
+    obs: document.getElementById('ol-obs')?.value?.trim() || ''
+  };
+  const temLaudo = laudoObj.comp || laudoObj.larg || laudoObj.tipo || laudoObj.obs;
   const payload = {
     cliente,
     visita_id: parseInt(document.getElementById('orcmat-visita-id').value) || null,
     obs: document.getElementById('orcmat-obs').value.trim() || null,
+    laudo: temLaudo ? laudoObj : null,
     status, itens
   };
   try {
@@ -5919,7 +5957,24 @@ function orcmatVerOrcamento(id) {
       <tbody>${linhasHtml}</tbody>
     </table>
     </div>
-    <div style="text-align:right;padding:12px 10px 0;font-size:18px;font-weight:700;color:var(--accent)">Total: ${fmtR(o.valor_total)}</div>`;
+    <div style="text-align:right;padding:12px 10px 0;font-size:18px;font-weight:700;color:var(--accent)">Total: ${fmtR(o.valor_total)}</div>
+    ${o.laudo && (o.laudo.comp || o.laudo.tipo || o.laudo.obs) ? `
+    <div style="margin-top:16px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
+      <p style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px">🏊 Dados Técnicos da Piscina</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;font-size:13px">
+        ${o.laudo.comp ? `<div><span style="color:var(--text2);font-size:11px">Comprimento</span><div style="font-weight:600">${o.laudo.comp} m</div></div>` : ''}
+        ${o.laudo.larg ? `<div><span style="color:var(--text2);font-size:11px">Largura</span><div style="font-weight:600">${o.laudo.larg} m</div></div>` : ''}
+        ${o.laudo.prof ? `<div><span style="color:var(--text2);font-size:11px">Prof. máx.</span><div style="font-weight:600">${o.laudo.prof} m</div></div>` : ''}
+        ${o.laudo.prof_min && o.laudo.prof_min !== o.laudo.prof ? `<div><span style="color:var(--text2);font-size:11px">Prof. mín.</span><div style="font-weight:600">${o.laudo.prof_min} m</div></div>` : ''}
+        ${o.laudo.vol ? `<div><span style="color:var(--text2);font-size:11px">Volume est.</span><div style="font-weight:600">${o.laudo.vol} m³</div></div>` : ''}
+        ${o.laudo.tipo ? `<div><span style="color:var(--text2);font-size:11px">Tipo</span><div style="font-weight:600">${o.laudo.tipo}</div></div>` : ''}
+        ${o.laudo.dist ? `<div><span style="color:var(--text2);font-size:11px">Casa de máquinas</span><div style="font-weight:600">${o.laudo.dist} m</div></div>` : ''}
+        ${o.laudo.tensao ? `<div><span style="color:var(--text2);font-size:11px">Tensão</span><div style="font-weight:600">${o.laudo.tensao}</div></div>` : ''}
+        ${o.laudo.dias ? `<div><span style="color:var(--text2);font-size:11px">Dias instal.</span><div style="font-weight:600">${o.laudo.dias === 'outro' ? (o.laudo.dias_outro||'—') : o.laudo.dias + ' dia(s)'}</div></div>` : ''}
+        ${o.laudo.tem_prainha ? `<div><span style="color:var(--text2);font-size:11px">Prainha</span><div style="font-weight:600">${o.laudo.prainha_comp||''}×${o.laudo.prainha_larg||''}×${o.laudo.prainha_prof||''} m</div></div>` : ''}
+      </div>
+      ${o.laudo.obs ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;color:var(--text2)">📝 ${o.laudo.obs}</div>` : ''}
+    </div>` : ''}`;
   const btnEnviar = document.getElementById('orcmat-btn-enviar');
   if (btnEnviar) btnEnviar.style.display = o.status === 'enviado' ? 'none' : '';
   document.getElementById('modal-orcmat-view').style.display = 'flex';
@@ -6143,6 +6198,61 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           <div style="font-size:12px;color:var(--text2);margin-bottom:2px">Total do orçamento</div>
           <div style="font-size:22px;font-weight:700;color:var(--accent)" id="orcmat-total-display">R$ 0,00</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Dados Técnicos da Piscina -->
+    <div class="card" style="margin-bottom:12px">
+      <div onclick="togSubFin('ol-wrap')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:2px 0 8px">
+        <p class="sec" style="margin:0">🏊 Dados Técnicos da Piscina</p>
+        <span id="ico-ol-wrap" style="font-size:16px;color:var(--text2)">›</span>
+      </div>
+      <div id="ol-wrap" style="display:none">
+        <p class="sec" style="margin:0 0 8px;font-size:11px">DIMENSÕES — ÁREA PRINCIPAL</p>
+        <div class="g2">
+          <div class="campo"><label>Comprimento (m)</label><input type="number" id="ol-comp" step="0.1" oninput="calcVolOrcmat()"></div>
+          <div class="campo"><label>Largura (m)</label><input type="number" id="ol-larg" step="0.1" oninput="calcVolOrcmat()"></div>
+        </div>
+        <div class="g2">
+          <div class="campo"><label>Prof. máxima (m)</label><input type="number" id="ol-prof" step="0.1" oninput="calcVolOrcmat()" placeholder="Fundo"></div>
+          <div class="campo"><label>Prof. mínima (m)</label><input type="number" id="ol-prof-min" step="0.1" oninput="calcVolOrcmat()" placeholder="Igual se uniforme"></div>
+        </div>
+        <div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500">
+            <input type="checkbox" id="ol-tem-prainha" onchange="togglePrainhaOrcmat()"> Tem prainha?
+          </label>
+          <span style="font-size:11px;color:var(--text2)">Área rasa estilo entrada de praia</span>
+        </div>
+        <div id="ol-prainha-wrap" style="display:none;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <p style="font-size:12px;font-weight:600;color:var(--text2);margin:0 0 8px">Dimensões da prainha</p>
+          <div class="g3">
+            <div class="campo" style="margin-bottom:0"><label>Comprimento (m)</label><input type="number" id="ol-prainha-comp" step="0.1" oninput="calcVolOrcmat()"></div>
+            <div class="campo" style="margin-bottom:0"><label>Largura (m)</label><input type="number" id="ol-prainha-larg" step="0.1" oninput="calcVolOrcmat()"></div>
+            <div class="campo" style="margin-bottom:0"><label>Profundidade (m)</label><input type="number" id="ol-prainha-prof" step="0.1" oninput="calcVolOrcmat()"></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="campo"><label>Volume estimado (m³)</label><input type="number" id="ol-vol" readonly></div>
+          <div class="campo"><label>Tipo de piscina</label>
+            <select id="ol-tipo"><option value="">Selecione</option><option>Alvenaria</option><option>Fibra</option><option>Vinil</option><option>Aço inox</option><option>Outro</option></select>
+          </div>
+        </div>
+        <p class="sec" style="margin:4px 0 8px;font-size:11px">INFRAESTRUTURA</p>
+        <div class="g3">
+          <div class="campo"><label>Distância casa de máquinas (m)</label><input type="number" id="ol-dist" step="0.5"></div>
+          <div class="campo"><label>Tensão elétrica</label>
+            <select id="ol-tensao"><option value="">Selecione</option><option>110V</option><option>220V</option></select>
+          </div>
+          <div class="campo"><label>Dias p/ instalação</label>
+            <select id="ol-dias" onchange="document.getElementById('ol-dias-outro').style.display=this.value==='outro'?'':'none'">
+              <option value="">Selecione</option>
+              <option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option>
+              <option value="4">4 dias</option><option value="5">5 dias</option><option value="outro">Outro</option>
+            </select>
+            <input type="text" id="ol-dias-outro" placeholder="Ex: 6 dias" style="margin-top:6px;display:none">
+          </div>
+        </div>
+        <div class="campo"><label>Observações técnicas</label><textarea id="ol-obs" rows="2" placeholder="Acesso, dificuldades, condições do local…" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
       </div>
     </div>
 
