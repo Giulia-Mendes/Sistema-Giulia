@@ -820,8 +820,6 @@ select option { background: var(--surface); color: var(--text); }
     <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="ap-ticket-aprov" style="font-size:13px">—</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
-    <div class="stat"><div class="lbl">Lucro equipamento</div><div class="val" id="ap-lucro-prod" style="font-size:13px">—</div></div>
-    <div class="stat"><div class="lbl">Lucro material</div><div class="val" id="ap-lucro-mat" style="font-size:13px">—</div></div>
     <div class="stat"><div class="lbl">Margem equip.</div><div class="val" id="ap-margem-prod" style="font-size:18px;font-weight:700">—</div></div>
     <div class="stat"><div class="lbl">Margem material</div><div class="val" id="ap-margem-mat" style="font-size:18px;font-weight:700">—</div></div>
     <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="ap-margem-aprov" style="font-size:22px;font-weight:700">—</div></div>
@@ -2721,8 +2719,6 @@ function renderAprovacao() {
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:8px">' +
         '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. equip.</div><div style="font-size:13px;font-weight:500">' + _fmtRv(_pvProd_a) + '</div></div>' +
         (_matP_a>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. material</div><div style="font-size:13px;font-weight:500">' + _fmtRv(_matP_a) + '</div></div>' : '') +
-        '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Lucro equip.</div><div style="font-size:13px;font-weight:500;color:' + _clr(_mP) + '">' + _fmtRv(_lucroEq_a) + '</div></div>' +
-        (_matP_a>0 && (a.custo_mat||0)>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Lucro material</div><div style="font-size:13px;font-weight:500;color:' + _clr(_mM) + '">' + _fmtRv(_lucroMa_a) + '</div></div>' : '') +
         '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem equip.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mP) + '">' + _fp(_mP) + '</div></div>' +
         (_mM!==null ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem mat.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mM) + '">' + _fp(_mM) + '</div></div>' : '') +
         '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem comb.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mC) + '">' + _fp(_mC) + '</div></div>' +
