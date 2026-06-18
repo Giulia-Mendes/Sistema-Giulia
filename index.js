@@ -523,7 +523,7 @@ app.delete('/api/aprovacoes/:id', auth, (req, res) => {
 
 // ── INSTALAÇÕES ──
 app.get('/api/instalacoes', auth, (req, res) => {
-  const rows = db.prepare('SELECT id,cliente,equip,pedido,valor,mat,sinal,receber,mat_comprar,data,vend,obs,checks,comprovante_pag,comprovantes,lead_id,pedido_ref,tipo_servico,custos,obs_compras,visita_ref_id,criado_por_id,criado_por_nome,criado_em,datas,datas_obs,datas_ok FROM instalacoes ORDER BY criado_em DESC').all().map(i => {
+  const rows = db.prepare('SELECT id,cliente,equip,pedido,valor,mat,sinal,receber,mat_comprar,data,vend,obs,checks,comprovante_pag,comprovantes,lead_id,pedido_ref,tipo_servico,custos,obs_compras,transferencia,visita_ref_id,criado_por_id,criado_por_nome,criado_em,datas,datas_obs,datas_ok FROM instalacoes ORDER BY criado_em DESC').all().map(i => {
     let comprovantes = JSON.parse(i.comprovantes || 'null');
     if (!comprovantes) comprovantes = i.comprovante_pag ? [i.comprovante_pag] : [];
     let matComprar = [];
@@ -552,11 +552,12 @@ app.post('/api/instalacoes', auth, (req, res) => {
 app.put('/api/instalacoes/:id', auth, (req, res) => {
   const antes = db.prepare('SELECT cliente,equip,valor,checks FROM instalacoes WHERE id=?').get(req.params.id);
   const d = req.body;
-  db.prepare('UPDATE instalacoes SET cliente=?,equip=?,pedido=?,valor=?,mat=?,sinal=?,receber=?,mat_comprar=?,data=?,vend=?,obs=?,anexos=?,checks=?,lead_id=?,pedido_ref=?,datas=?,datas_obs=?,datas_ok=? WHERE id=?')
+  db.prepare('UPDATE instalacoes SET cliente=?,equip=?,pedido=?,valor=?,mat=?,sinal=?,receber=?,mat_comprar=?,data=?,vend=?,obs=?,anexos=?,checks=?,lead_id=?,pedido_ref=?,datas=?,datas_obs=?,datas_ok=?,transferencia=? WHERE id=?')
     .run(d.cliente, d.equip, d.pedido, d.valor, d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), d.data, d.vend, d.obs, JSON.stringify(d.anexos || []), JSON.stringify(d.checks || {}), d.lead_id || null, d.pedido_ref || null,
         Array.isArray(d.datas) ? JSON.stringify(d.datas) : null,
         Array.isArray(d.datas_obs) ? JSON.stringify(d.datas_obs) : null,
         Array.isArray(d.datas_ok) ? JSON.stringify(d.datas_ok) : null,
+        d.transferencia || null,
         req.params.id);
   audit(req, 'EDITAR_INSTALACAO', 'instalacoes', req.params.id, antes ? { ...antes, checks: JSON.parse(antes.checks || '{}') } : null, { cliente: d.cliente, equip: d.equip });
   res.json({ sucesso: true });
@@ -564,8 +565,8 @@ app.put('/api/instalacoes/:id', auth, (req, res) => {
 app.put('/api/instalacoes/:id/compras', auth, (req, res) => {
   const antes = db.prepare('SELECT * FROM instalacoes WHERE id=?').get(req.params.id);
   const d = req.body;
-  db.prepare('UPDATE instalacoes SET mat=?,sinal=?,receber=?,mat_comprar=?,checks=?,tipo_servico=?,data=?,custos=?,comprovante_pag=?,comprovantes=?,obs_compras=? WHERE id=?')
-    .run(d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), JSON.stringify(d.checks || {}), d.tipo_servico || 'instalacao', d.data || null, d.custos || null, d.comprovante_pag || null, JSON.stringify(d.comprovantes || []), d.obs_compras || null, req.params.id);
+  db.prepare('UPDATE instalacoes SET mat=?,sinal=?,receber=?,mat_comprar=?,checks=?,tipo_servico=?,data=?,custos=?,comprovante_pag=?,comprovantes=?,obs_compras=?,transferencia=? WHERE id=?')
+    .run(d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), JSON.stringify(d.checks || {}), d.tipo_servico || 'instalacao', d.data || null, d.custos || null, d.comprovante_pag || null, JSON.stringify(d.comprovantes || []), d.obs_compras || null, d.transferencia || null, req.params.id);
   audit(req, 'EDITAR_COMPRAS', 'instalacoes', req.params.id,
     antes ? { mat: antes.mat, sinal: antes.sinal, receber: antes.receber, matComprar: antes.mat_comprar, checks: JSON.parse(antes.checks || '{}') } : null,
     { mat: d.mat, sinal: d.sinal, receber: d.receber, matComprar: d.matComprar, checks: d.checks, tipo_servico: d.tipo_servico });
@@ -765,6 +766,7 @@ try { db.prepare('ALTER TABLE instalacoes ADD COLUMN obs_compras TEXT DEFAULT NU
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_obs TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_ok TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE instalacoes ADD COLUMN transferencia TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE orcamentos_mat ADD COLUMN visita_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──

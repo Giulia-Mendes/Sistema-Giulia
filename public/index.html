@@ -3566,7 +3566,7 @@ async function removerDataFin(id, idx) {
 }
 async function salvarCampoFin(id, campo, valor) {
   const inst = instalacoes.find(i => i.id === id);
-  const strCampos = ['tipo_servico', 'data', 'custos'];
+  const strCampos = ['tipo_servico', 'data', 'custos', 'transferencia'];
   inst[campo] = strCampos.includes(campo) ? valor : (parseFloat(valor) || 0);
   await fetch('/api/instalacoes/' + id + '/compras', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inst) });
   renderFinanceiro(); renderResumoInst();
@@ -4292,6 +4292,16 @@ function setFiltroFin(f) {
   });
   renderFinanceiro();
 }
+let finCardsCollapsed = new Set();
+function toggleFinCard(id) {
+  if (finCardsCollapsed.has(id)) finCardsCollapsed.delete(id);
+  else finCardsCollapsed.add(id);
+  const body = document.getElementById('fin-body-' + id);
+  const ico  = document.getElementById('fin-ico-' + id);
+  if (body) body.style.display = finCardsCollapsed.has(id) ? 'none' : '';
+  if (ico)  ico.textContent   = finCardsCollapsed.has(id) ? '›' : '‹';
+}
+
 function renderFinanceiro() {
   const qF = (document.getElementById('busca-fin')?.value || '').toLowerCase().trim();
   const mesFin = document.getElementById('filtro-mes-fin')?.value || '';
@@ -4438,6 +4448,12 @@ function renderFinanceiro() {
           '</div>' +
         '</div>';
       }()) +
+      '<div class="campo" style="margin-bottom:8px">' +
+        '<label style="font-size:11px;color:var(--text2)">Transferência / Frete de galpão para RJ</label>' +
+        '<textarea placeholder="Ex: Transferência SP→RJ R$350, Galpão Brás..." rows="2" ' +
+        'style="' + taStyle + '" ' +
+        'onchange="salvarCampoFin(' + i.id + ',\'transferencia\',this.value)">' + (i.transferencia||'').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
+      '</div>' +
       '<div class="ck-item">' +
         '<div class="ck-box' + (matOk ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'mat_pago\')">' + (matOk ? '✓' : '') + '</div>' +
         '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px">' +
@@ -4504,23 +4520,36 @@ function renderFinanceiro() {
       i.pedido_ref ? 'Ref: ' + i.pedido_ref : '',
       i.lead_id ? 'Lead: ' + i.lead_id : ''
     ].filter(Boolean).join(' · ');
+    const collapsed = finCardsCollapsed.has(i.id);
     return '<div class="card" style="' + (urgente ? 'border-left:3px solid var(--terra);' : '') + '">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">' +
-        '<div><p style="font-size:15px;font-weight:500;margin:0 0 2px">' + i.cliente + '</p>' +
-        '<p style="font-size:13px;color:var(--text2);margin:0">' + (i.equip || '—') + (i.pedido ? ' · Pedido: ' + i.pedido : '') + '</p>' +
-        (metaInfo ? '<p style="font-size:12px;color:var(--text2);margin:3px 0 0">' + metaInfo + '</p>' : '') +
+      // CABEÇALHO (sempre visível)
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;cursor:pointer" onclick="toggleFinCard(' + i.id + ')">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + i.cliente + '</p>' +
+            (alertaBadge ? alertaBadge : '') +
+          '</div>' +
+          '<p style="font-size:13px;color:var(--text2);margin:0">' + (i.equip || '—') + (i.pedido ? ' · Pedido: ' + i.pedido : '') + '</p>' +
+          (metaInfo ? '<p style="font-size:12px;color:var(--text2);margin:3px 0 0">' + metaInfo + '</p>' : '') +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0">' +
-          '<p style="font-size:11px;color:var(--text2);margin:0 0 1px;text-align:right">' + (isCompra ? 'Entrega' : 'Instalação') + '</p>' +
-          '<p id="data-hdr-' + i.id + '" style="font-size:16px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:12px;font-weight:500;background:var(--surface2);padding:1px 7px;border-radius:10px">+' + (i.datas.length - 1) + ' dia(s)</span>' : '') + '</p>' +
-          '<p style="font-size:13px;font-weight:500;margin:3px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
-          (alertaBadge ? '<div style="margin-top:6px">' + alertaBadge + '</div>' : '') +
+        '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">' +
+          '<div style="text-align:right">' +
+            '<p style="font-size:11px;color:var(--text2);margin:0 0 1px">' + (isCompra ? 'Entrega' : 'Instalação') + '</p>' +
+            '<p id="data-hdr-' + i.id + '" style="font-size:15px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:11px;font-weight:500;background:var(--surface2);padding:1px 6px;border-radius:10px">+' + (i.datas.length - 1) + '</span>' : '') + '</p>' +
+            '<p style="font-size:13px;font-weight:500;margin:2px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
+          '</div>' +
+          '<span id="fin-ico-' + i.id + '" style="font-size:20px;color:var(--text2);font-weight:300;line-height:1;user-select:none">' + (collapsed ? '›' : '‹') + '</span>' +
         '</div>' +
       '</div>' +
-      tipoHtml + comprasHtml + finHtml +
-      (i.obs ? '<p style="font-size:12px;color:var(--text2);margin:10px 0 0;border-top:1px solid var(--border);padding-top:8px">📝 ' + i.obs + '</p>' : '') +
-      '<div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">' +
-        '<button onclick="pedirExcluirInst(' + i.id + ')" style="font-size:12px;padding:4px 12px;border:1px solid var(--terra);border-radius:8px;background:transparent;color:var(--terra);cursor:pointer">🗑 Excluir pedido</button>' +
+      // CORPO (colapsável)
+      '<div id="fin-body-' + i.id + '" style="' + (collapsed ? 'display:none' : '') + '">' +
+        '<div style="margin-top:14px">' +
+          tipoHtml + comprasHtml + finHtml +
+          (i.obs ? '<p style="font-size:12px;color:var(--text2);margin:10px 0 0;border-top:1px solid var(--border);padding-top:8px">📝 ' + i.obs + '</p>' : '') +
+          '<div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">' +
+            '<button onclick="event.stopPropagation();pedirExcluirInst(' + i.id + ')" style="font-size:12px;padding:4px 12px;border:1px solid var(--terra);border-radius:8px;background:transparent;color:var(--terra);cursor:pointer">🗑 Excluir pedido</button>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
       '</div>';
   }).join('');
