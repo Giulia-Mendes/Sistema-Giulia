@@ -103,6 +103,14 @@ body.nav-collapsed { padding-left: 60px; }
 .nav-label { overflow: hidden; transition: opacity .2s; white-space: nowrap; }
 .nav.collapsed .nav-label { opacity: 0; width: 0; }
 .nav.collapsed .nav-links button { padding: 11px 0; justify-content: center; }
+/* Nav grupos colapsáveis */
+.nav-grupo { }
+.nav-grupo-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px 3px; cursor:pointer; user-select:none; }
+.nav-grupo-header:hover .nav-grupo-label { color:var(--text); }
+.nav-grupo-label { font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--text2); text-transform:uppercase; transition:color .15s; }
+.nav-grupo-ico { font-size:13px; color:var(--text2); line-height:1; transition:transform .2s; }
+.nav.collapsed .nav-grupo-header { display:none; }
+.nav-icon { flex-shrink:0; font-size:15px; width:22px; text-align:center; letter-spacing:0; }
 
 /* Nav bottom */
 .nav-bottom { border-top: 1px solid var(--border); padding: 10px 0; flex-shrink: 0; }
@@ -375,22 +383,63 @@ select option { background: var(--surface); color: var(--text); }
   </div>
   <!-- Links -->
   <div class="nav-links">
-    <button onclick="irPara('dashboard', this)" id="btn-dashboard"><span class="nav-icon">In</span><span class="nav-label">Dashboard</span></button>
-    <button onclick="irPara('visita', this)" id="btn-visita"><span class="nav-icon">Vi</span><span class="nav-label">Visita</span></button>
-    <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">📦</span><span class="nav-label">Orç. Materiais</span></button>
-    <button onclick="irPara('calendario', this)" id="btn-calendario"><span class="nav-icon">Ca</span><span class="nav-label">Calendário</span></button>
-    <button onclick="irPara('proposta', this)" id="btn-proposta"><span class="nav-icon">Pr</span><span class="nav-label">Proposta</span></button>
-    <button onclick="irPara('aprovacao', this)" id="btn-aprovacao"><span class="nav-icon">Ap</span><span class="nav-label">Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></span></button>
-    <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">Pd</span><span class="nav-label">Pedidos</span></button>
-    <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">In</span><span class="nav-label">Instalações</span></button>
-    <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">Co</span><span class="nav-label">Compras</span></button>
-    <button onclick="irPara('fechamentos', this)" id="btn-fechamentos" style="display:none"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
-    <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">Me</span><span class="nav-label">Metas</span></button>
-    <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
-    <button onclick="irPara('sincronizar', this)" id="btn-sincronizar" style="display:none"><span class="nav-icon">↓</span><span class="nav-label">Sincronizar</span></button>
-    <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none"><span class="nav-icon">Au</span><span class="nav-label">Auditoria</span></button>
-    <button onclick="irPara('parametros', this)" id="btn-parametros" style="display:none"><span class="nav-icon">⚙</span><span class="nav-label">Parâmetros</span></button>
-    <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none"><span class="nav-icon">Us</span><span class="nav-label">Usuários</span></button>
+
+    <!-- COMERCIAL -->
+    <div class="nav-grupo" id="navg-comercial">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('comercial')">
+        <span class="nav-grupo-label">Comercial</span>
+        <span class="nav-grupo-ico" id="navg-ico-comercial">‹</span>
+      </div>
+      <div id="navg-items-comercial">
+        <button onclick="irPara('dashboard', this)" id="btn-dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></button>
+        <button onclick="irPara('calendario', this)" id="btn-calendario"><span class="nav-icon">📅</span><span class="nav-label">Calendário</span></button>
+        <button onclick="irPara('visita', this)" id="btn-visita"><span class="nav-icon">🔍</span><span class="nav-label">Visitas</span></button>
+        <button onclick="irPara('proposta', this)" id="btn-proposta"><span class="nav-icon">📝</span><span class="nav-label">Proposta</span></button>
+        <button onclick="irPara('aprovacao', this)" id="btn-aprovacao"><span class="nav-icon">✅</span><span class="nav-label">Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></span></button>
+      </div>
+    </div>
+
+    <!-- OPERACIONAL -->
+    <div class="nav-grupo" id="navg-operacional">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('operacional')">
+        <span class="nav-grupo-label">Operacional</span>
+        <span class="nav-grupo-ico" id="navg-ico-operacional">‹</span>
+      </div>
+      <div id="navg-items-operacional">
+        <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">🧾</span><span class="nav-label">Orç. Materiais</span></button>
+        <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">🛒</span><span class="nav-label">Pedidos</span></button>
+        <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">🔧</span><span class="nav-label">Instalações</span></button>
+        <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">🚚</span><span class="nav-label">Compras</span></button>
+      </div>
+    </div>
+
+    <!-- GESTÃO -->
+    <div class="nav-grupo" id="navg-gestao">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('gestao')">
+        <span class="nav-grupo-label">Gestão</span>
+        <span class="nav-grupo-ico" id="navg-ico-gestao">‹</span>
+      </div>
+      <div id="navg-items-gestao">
+        <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">🎯</span><span class="nav-label">Metas</span></button>
+        <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">🧮</span><span class="nav-label">Calculadora</span></button>
+      </div>
+    </div>
+
+    <!-- SISTEMA (admin/gerente) -->
+    <div class="nav-grupo" id="navg-sistema" style="display:none">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('sistema')">
+        <span class="nav-grupo-label">Sistema</span>
+        <span class="nav-grupo-ico" id="navg-ico-sistema">‹</span>
+      </div>
+      <div id="navg-items-sistema">
+        <button onclick="irPara('fechamentos', this)" id="btn-fechamentos" style="display:none"><span class="nav-icon">📁</span><span class="nav-label">Fechamentos</span></button>
+        <button onclick="irPara('sincronizar', this)" id="btn-sincronizar" style="display:none"><span class="nav-icon">🔄</span><span class="nav-label">Sincronizar</span></button>
+        <button onclick="irPara('auditoria', this)" id="btn-auditoria" style="display:none"><span class="nav-icon">🔎</span><span class="nav-label">Auditoria</span></button>
+        <button onclick="irPara('parametros', this)" id="btn-parametros" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Parâmetros</span></button>
+        <button onclick="irPara('usuarios', this)" id="btn-usuarios" style="display:none"><span class="nav-icon">👥</span><span class="nav-label">Usuários</span></button>
+      </div>
+    </div>
+
   </div>
   <!-- Rodapé da sidebar -->
   <div class="nav-bottom">
@@ -1636,6 +1685,39 @@ function restaurarCollapse() {
     const btn = document.getElementById('btn-collapse');
     if (btn) btn.textContent = '›';
   }
+  restaurarNavGrupos();
+}
+
+// ── Grupos colapsáveis do menu ──
+function toggleNavGrupo(id) {
+  const items = document.getElementById('navg-items-' + id);
+  const ico   = document.getElementById('navg-ico-' + id);
+  if (!items) return;
+  const aberto = items.style.display !== 'none';
+  items.style.display = aberto ? 'none' : '';
+  if (ico) ico.textContent = aberto ? '›' : '‹';
+  const fechados = JSON.parse(localStorage.getItem('alery-nav-grupos') || '[]');
+  if (aberto) { if (!fechados.includes(id)) fechados.push(id); }
+  else { const i = fechados.indexOf(id); if (i > -1) fechados.splice(i, 1); }
+  localStorage.setItem('alery-nav-grupos', JSON.stringify(fechados));
+}
+function restaurarNavGrupos() {
+  const fechados = JSON.parse(localStorage.getItem('alery-nav-grupos') || '[]');
+  fechados.forEach(id => {
+    const items = document.getElementById('navg-items-' + id);
+    const ico   = document.getElementById('navg-ico-' + id);
+    if (items) items.style.display = 'none';
+    if (ico)   ico.textContent = '›';
+  });
+}
+function atualizarVisibilidadeGrupos() {
+  ['comercial','operacional','gestao','sistema'].forEach(id => {
+    const grupo = document.getElementById('navg-' + id);
+    if (!grupo) return;
+    const btns = grupo.querySelectorAll('button');
+    const algumVisivel = Array.from(btns).some(b => b.style.display !== 'none');
+    grupo.style.display = algumVisivel ? '' : 'none';
+  });
 }
 
 // ═══ SIDEBAR MOBILE ═══
@@ -4003,6 +4085,8 @@ function aplicarRole(role) {
   // Botão de catálogo: visível para todos
   const btnCat = document.getElementById('btn-catalogo-mat');
   if (btnCat) btnCat.style.display = '';
+  // Mostra/oculta grupos de acordo com os botões visíveis
+  atualizarVisibilidadeGrupos();
 }
 
 // ═══ VENDEDORAS DINÂMICAS ═══
