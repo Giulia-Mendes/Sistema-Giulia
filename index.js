@@ -776,6 +776,7 @@ try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_ok TEXT DEFAULT NULL'
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN transferencia TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE orcamentos_mat ADD COLUMN visita_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE orcamentos_mat ADD COLUMN laudo TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE materiais_catalogo ADD COLUMN preco_custo REAL DEFAULT 0').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──
 db.exec(`
@@ -1176,17 +1177,18 @@ app.post('/api/tiny/sincronizar-catalogo', auth, async (req, res) => {
 
   let inseridos = 0, atualizados = 0;
   filtrados.forEach(pr => {
-    const sku   = (pr.codigo || '').trim();
-    const nome  = (pr.nome || pr.descricao || '').trim();
-    const un    = (pr.unidade || 'UN').trim();
-    const preco = parseFloat(String(pr.preco_venda || '0').replace(',', '.')) || 0;
+    const sku        = (pr.codigo || '').trim();
+    const nome       = (pr.nome || pr.descricao || '').trim();
+    const un         = (pr.unidade || 'UN').trim();
+    const preco      = parseFloat(String(pr.preco_venda || pr.preco || '0').replace(',', '.')) || 0;
+    const precoCusto = parseFloat(String(pr.preco_custo || '0').replace(',', '.')) || 0;
     if (!nome) return;
     const ex = db.prepare('SELECT id FROM materiais_catalogo WHERE sku=?').get(sku);
     if (ex) {
-      db.prepare('UPDATE materiais_catalogo SET nome=?,unidade=?,preco_venda=?,ativo=1 WHERE sku=?').run(nome, un, preco, sku);
+      db.prepare('UPDATE materiais_catalogo SET nome=?,unidade=?,preco_venda=?,preco_custo=?,ativo=1 WHERE sku=?').run(nome, un, preco, precoCusto, sku);
       atualizados++;
     } else {
-      db.prepare('INSERT INTO materiais_catalogo (sku,nome,unidade,preco_venda) VALUES (?,?,?,?)').run(sku, nome, un, preco);
+      db.prepare('INSERT INTO materiais_catalogo (sku,nome,unidade,preco_venda,preco_custo) VALUES (?,?,?,?,?)').run(sku, nome, un, preco, precoCusto);
       inseridos++;
     }
   });

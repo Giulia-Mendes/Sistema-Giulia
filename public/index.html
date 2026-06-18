@@ -5787,7 +5787,7 @@ async function orcmatBuscarMaterial(q) {
     const skusLocais = new Set(locais.map(m => m.sku).filter(Boolean));
     const extras = tinyItens.filter(t => !t.sku || !skusLocais.has(t.sku));
     const todos = [
-      ...locais.map(m => ({ sku: m.sku||'', nome: m.nome, unidade: m.unidade||'UN', preco: m.preco_venda||0, estoque: null, fonte: 'catalogo' })),
+      ...locais.map(m => ({ sku: m.sku||'', nome: m.nome, unidade: m.unidade||'UN', preco: m.preco_custo||0, estoque: null, fonte: 'catalogo' })),
       ...extras.map(t => ({ sku: t.sku||'', nome: t.nome, unidade: t.unidade||'UN', preco: t.preco||0, estoque: t.estoque, fonte: 'tiny' }))
     ];
     if (!todos.length) {
@@ -6080,7 +6080,7 @@ function renderCatalogo() {
         <span style="font-size:11px;color:var(--text2);margin-left:8px">${m.unidade||'UN'}</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="color:var(--accent)">${fmtR(m.preco_venda)}</span>
+        <span style="color:var(--accent)" title="Custo: ${fmtR(m.preco_custo||0)} | Venda: ${fmtR(m.preco_venda||0)}">Custo: ${fmtR(m.preco_custo||0)}</span>
         <button onclick="catExcluirMaterial(${m.id})" style="padding:2px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">🗑</button>
       </div>
     </div>`).join('');
