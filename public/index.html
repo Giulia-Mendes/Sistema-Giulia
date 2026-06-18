@@ -466,20 +466,32 @@ select option { background: var(--surface); color: var(--text); }
 
 <!-- ═══════════ VISITA ═══════════ -->
 <div id="tela-dashboard" class="tela ativo">
-  <div class="card" style="padding:10px 16px;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--text2);font-weight:500">Período:</span>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <label style="font-size:12px;color:var(--text2)">De</label>
-        <input type="date" id="dash-de" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" onchange="renderDashboard()">
-        <label style="font-size:12px;color:var(--text2)">até</label>
-        <input type="date" id="dash-ate" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" onchange="renderDashboard()">
-      </div>
-      <button class="btn btn-branco" onclick="setDashPeriodo('hoje')" style="font-size:12px;padding:4px 10px">Hoje</button>
-      <button class="btn btn-branco" onclick="setDashPeriodo('semana')" style="font-size:12px;padding:4px 10px">Semana</button>
-      <button class="btn btn-branco" onclick="setDashPeriodo('mes')" style="font-size:12px;padding:4px 10px">Mês</button>
+  <!-- Cabeçalho -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:22px">
+    <div>
+      <p style="font-size:22px;font-weight:700;margin:0;color:var(--text)">Boa <span id="dash-saudacao">tarde</span>, <span id="dash-nome-usuario"></span>!</p>
+      <p style="font-size:13px;color:var(--text2);margin:5px 0 0">Resumo comercial</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2);font-weight:500">Vendedor:</span>
       <div id="dash-vend-chips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+  </div>
+
+  <!-- Cards de métricas (4 períodos + sparkline) -->
+  <div id="dash-metricas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:24px"></div>
+
+  <!-- Funil com filtro de período -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+    <p class="sec" style="margin:0;flex-shrink:0">Funil do período</p>
+    <button class="btn btn-branco" onclick="setDashPeriodo('hoje')" style="font-size:12px;padding:4px 10px">Hoje</button>
+    <button class="btn btn-branco" onclick="setDashPeriodo('semana')" style="font-size:12px;padding:4px 10px">Semana</button>
+    <button class="btn btn-branco" onclick="setDashPeriodo('mes')" style="font-size:12px;padding:4px 10px">Mês</button>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <label style="font-size:12px;color:var(--text2)">De</label>
+      <input type="date" id="dash-de" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" onchange="renderDashboard()">
+      <label style="font-size:12px;color:var(--text2)">até</label>
+      <input type="date" id="dash-ate" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" onchange="renderDashboard()">
     </div>
   </div>
   <div id="dash-funnel"></div>
@@ -3712,6 +3724,7 @@ async function setTipoFin(id, tipo) {
 
 // ═══ DASHBOARD ═══
 function fmt(d) { return d.toISOString().slice(0,10); }
+function diasAtras(n) { const d = new Date(); d.setDate(d.getDate() - n); return fmt(d); }
 function setDashPeriodo(p) {
   const hoje = new Date(); const ano = hoje.getFullYear(), mes = hoje.getMonth();
   let de, ate;
@@ -3729,36 +3742,124 @@ function dashRange() {
 }
 function inRange(dateStr, r) { if (!r || !dateStr) return false; const d = (dateStr||'').slice(0,10); return d >= r.de && d <= r.ate; }
 function fmtR(v) { return 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function renderDashboard() {
-  const r = dashRange();
-  // base sets filtered by date
-  const vsBase    = visitas.filter(v => inRange(v.data, r));
-  const propsBase = aprovacoes.filter(a => inRange(a.criado_em, r));
-  // Aprovadas: usa aprovado_em quando disponível (igual ao Fechamentos)
-  const aprovBase = aprovacoes.filter(a => a.status === 'aprovado' && inRange(a.aprovado_em || a.criado_em, r));
-  const instsBase = instalacoes.filter(i => inRange(i.criado_em || i.data, r));
-  const pedsBase  = pedidos.filter(p => inRange(p.data, r));
 
-  // helper: match vendedora filter (chip exclusion)
+function svgSparkline(daily, color) {
+  const w = 260, h = 48, pad = 3;
+  const max = Math.max(...daily, 1);
+  const n = daily.length;
+  const pts = daily.map((v, i) => [
+    +(pad + (i / (n-1)) * (w - pad*2)).toFixed(1),
+    +(h - pad - (v/max) * (h - pad*2)).toFixed(1)
+  ]);
+  const line = pts.map((p,i) => (i===0?'M':'L') + p[0] + ' ' + p[1]).join(' ');
+  const area = line + ' L' + pts[n-1][0] + ' ' + (h-1) + ' L' + pts[0][0] + ' ' + (h-1) + ' Z';
+  const gid = 'dsg' + (Math.random()*1e6|0);
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:44px;display:block;margin-top:10px">' +
+    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.2"/>' +
+    '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/>' +
+    '</linearGradient></defs>' +
+    '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '</svg>';
+}
+
+function renderDashboard() {
+  // Saudação
+  const hr = new Date().getHours();
+  const sEl = document.getElementById('dash-saudacao');
+  if (sEl) sEl.textContent = hr < 12 ? 'dia' : hr < 18 ? 'tarde' : 'noite';
+  const nEl = document.getElementById('dash-nome-usuario');
+  if (nEl) nEl.textContent = (usuarioLogado?.nome || '').split(' ')[0] || '';
+
+  const hoje = fmt(new Date());
+
+  // ── Vendor filter
   const matchV = (campo) => {
     if (!campo) return !dashVendExcl.has('__sem__');
     return !dashVendExcl.has(campo);
   };
+  const inP = (dateStr, de, ate) => { const d = (dateStr||'').slice(0,10); return d >= de && d <= ate; };
 
-  const vs       = vsBase.filter(v  => matchV(v.vendedora));
-  // Separar visitas técnicas de instalações agendadas no calendário
-  const vsVisit  = vs.filter(v => v.tipo !== 'instalacao');
-  const vsInst   = vs.filter(v => v.tipo === 'instalacao');
-  const props = propsBase.filter(a => matchV(a.vendedora));
-  const aprov = aprovBase.filter(a => matchV(a.vendedora));
-  const peds  = pedsBase.filter(p => matchV(p.vendedora));
-  const insts = instsBase.filter(i => matchV(i.vend));
+  // ── Dados completos filtrados por vendedor (para cards de período fixo)
+  const allVs      = visitas.filter(v => matchV(v.vendedora));
+  const allProps   = aprovacoes.filter(a => matchV(a.vendedora));
+  const allAprov   = aprovacoes.filter(a => a.status === 'aprovado' && matchV(a.vendedora));
+  const allPeds    = pedidos.filter(p => matchV(p.vendedora));
+  const allInsts   = instalacoes.filter(i => matchV(i.vend));
+
+  // ── Gerador de card de métrica
+  function metricCard(icon, titulo, color, getCount, getValor, tipo) {
+    const periodos = [
+      { label: 'HOJE',       de: hoje,          ate: hoje          },
+      { label: 'ÚLTIMOS 7 DIAS', de: diasAtras(6),  ate: hoje      },
+      { label: 'ÚLTIMOS 30 DIAS', de: diasAtras(29), ate: hoje     },
+      { label: 'ÚLTIMOS 12 MESES', de: diasAtras(364), ate: hoje   },
+    ];
+    // Sparkline: contagem diária dos últimos 30 dias
+    const daily = [];
+    for (let i = 29; i >= 0; i--) { const d = diasAtras(i); daily.push(getCount(d, d)); }
+
+    const cols = periodos.map(p => {
+      const cnt = getCount(p.de, p.ate);
+      const val = getValor ? getValor(p.de, p.ate) : 0;
+      return '<div onclick="abrirDashDetalhe(\'' + tipo + '\',-1)" style="cursor:pointer;padding:6px 4px;border-radius:8px;transition:background .15s" onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'\'">' +
+        '<div style="font-size:9px;color:var(--text2);font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px;line-height:1.3">' + p.label + '</div>' +
+        '<div style="font-size:28px;font-weight:800;color:' + color + ';line-height:1">' + cnt + '</div>' +
+        (val > 0 ? '<div style="font-size:11px;color:var(--accent);margin-top:4px;font-weight:500">' + fmtR(val) + '</div>' : '<div style="margin-top:4px;height:16px"></div>') +
+        '</div>';
+    }).join('');
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">' +
+      '<span style="font-size:20px">' + icon + '</span>' +
+      '<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">' + titulo + '</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + cols + '</div>' +
+      svgSparkline(daily, color) +
+      '</div>';
+  }
+
+  // Getters por tipo
+  const gVis  = (de, ate) => allVs.filter(v => v.tipo !== 'instalacao' && inP(v.data, de, ate)).length;
+  const gInst = (de, ate) => allVs.filter(v => v.tipo === 'instalacao' && inP(v.data, de, ate)).length;
+  const gProp = (de, ate) => allProps.filter(a => inP(a.criado_em, de, ate)).length;
+  const vProp = (de, ate) => allProps.filter(a => inP(a.criado_em, de, ate)).reduce((s,a) => s+(a.valor||0), 0);
+  const gAprov = (de, ate) => allAprov.filter(a => inP(a.aprovado_em || a.criado_em, de, ate)).length;
+  const vAprov = (de, ate) => allAprov.filter(a => inP(a.aprovado_em || a.criado_em, de, ate)).reduce((s,a) => s+(a.valor||0), 0);
+  const gPed  = (de, ate) => allPeds.filter(p => inP(p.data, de, ate)).length;
+  const vPed  = (de, ate) => allPeds.filter(p => inP(p.data, de, ate)).reduce((s,p) => s+(p.valor||0), 0);
+
+  // Renderiza cards
+  const metEl = document.getElementById('dash-metricas');
+  if (metEl) {
+    metEl.innerHTML =
+      metricCard('🔍', 'Visitas técnicas',   'var(--accent)',       gVis,  null,   'visitas') +
+      metricCard('📄', 'Propostas enviadas',  'var(--text)',         gProp, vProp,  'props')   +
+      metricCard('✅', 'Aprovadas',           'var(--mineral-txt)', gAprov,vAprov, 'aprov')   +
+      metricCard('📦', 'Pedidos',             'var(--slate-txt)',    gPed,  vPed,   'peds');
+  }
+
+  // ── Funil (filtrado pelo seletor de período)
+  const r = dashRange();
+  const vsBase    = visitas.filter(v => inRange(v.data, r));
+  const propsBase = aprovacoes.filter(a => inRange(a.criado_em, r));
+  const aprovBase = aprovacoes.filter(a => a.status === 'aprovado' && inRange(a.aprovado_em || a.criado_em, r));
+  const instsBase = instalacoes.filter(i => inRange(i.criado_em || i.data, r));
+  const pedsBase  = pedidos.filter(p => inRange(p.data, r));
+
+  const vs      = vsBase.filter(v  => matchV(v.vendedora));
+  const vsVisit = vs.filter(v => v.tipo !== 'instalacao');
+  const vsInst  = vs.filter(v => v.tipo === 'instalacao');
+  const props   = propsBase.filter(a => matchV(a.vendedora));
+  const aprov   = aprovBase.filter(a => matchV(a.vendedora));
+  const peds    = pedsBase.filter(p => matchV(p.vendedora));
+  const insts   = instsBase.filter(i => matchV(i.vend));
   const concl   = insts.filter(i => i.checks && i.checks.instalado);
   const abertas = insts.filter(i => !i.checks || !i.checks.instalado);
-  const taxa  = props.length > 0 ? Math.round(aprov.length / props.length * 100) : 0;
+  const taxa    = props.length > 0 ? Math.round(aprov.length / props.length * 100) : 0;
 
-  // cache para uso no modal de detalhe
-  const vends    = getVendedoras();
+  const vends = getVendedoras();
   const matchPedVend = (pVend, vend) => {
     if (!pVend || !vend) return false;
     const a = normStr(pVend), b = normStr(vend);
@@ -3789,17 +3890,18 @@ function renderDashboard() {
     };
   });
 
-  const card = (icon, titulo, n, valor, sub, cor, tipo) => {
-    const clk = tipo ? ' onclick="abrirDashDetalhe(\'' + tipo + '\',-1)" style="cursor:pointer"' : '';
-    return '<div' + clk + ' style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:140px;transition:box-shadow .15s" onmouseenter="this.style.boxShadow=\'0 4px 16px var(--shadow)\'" onmouseleave="this.style.boxShadow=\'\'">' +
-    '<div style="font-size:20px;margin-bottom:6px">' + icon + '</div>' +
-    '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">' + titulo + '</div>' +
-    '<div style="font-size:24px;font-weight:700;color:' + (cor||'var(--text)') + '">' + n + '</div>' +
-    (valor ? '<div style="font-size:13px;font-weight:500;color:var(--accent);margin-top:2px">' + fmtR(valor) + '</div>' : '') +
-    (sub   ? '<div style="font-size:11px;color:var(--text2);margin-top:4px">' + sub + '</div>' : '') +
-    '</div>';
+  // ── Funil cards
+  const fCard = (icon, titulo, n, valor, sub, cor, tipo) => {
+    const clk = tipo ? ' onclick="abrirDashDetalhe(\'' + tipo + '\',-1)" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;flex:1;min-width:110px;transition:box-shadow .15s"' : ' style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;flex:1;min-width:110px"';
+    return '<div' + clk + ' onmouseenter="this.style.boxShadow=\'0 4px 16px var(--shadow)\'" onmouseleave="this.style.boxShadow=\'\'">' +
+      '<div style="font-size:18px;margin-bottom:5px">' + icon + '</div>' +
+      '<div style="font-size:11px;color:var(--text2);margin-bottom:3px">' + titulo + '</div>' +
+      '<div style="font-size:22px;font-weight:700;color:' + (cor||'var(--text)') + '">' + n + '</div>' +
+      (valor ? '<div style="font-size:12px;font-weight:500;color:var(--accent);margin-top:2px">' + fmtR(valor) + '</div>' : '') +
+      (sub   ? '<div style="font-size:10px;color:var(--text2);margin-top:3px">' + sub + '</div>' : '') +
+      '</div>';
   };
-  const arrow = '<div style="display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:20px;padding:0 4px;align-self:center">›</div>';
+  const arrow = '<div style="display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:18px;padding:0 2px;align-self:center;flex-shrink:0">›</div>';
 
   const tdC = (tipo, idx, txt, align) =>
     '<td onclick="abrirDashDetalhe(\'' + tipo + '\',' + idx + ')" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:' + (align||'center') + ';cursor:pointer;color:var(--accent);font-weight:500">' + txt + '</td>';
@@ -3814,9 +3916,9 @@ function renderDashboard() {
       tdC('visitas',   i, d.visitas.length) +
       tdC('instAgend', i, d.instAgend.length) +
       tdC('props',     i, d.props.length) +
-      tdC('aprov',   i, d.aprov.length) +
+      tdC('aprov',     i, d.aprov.length) +
       '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:center;color:' + (vTaxa>=50?'var(--mineral-txt)':'var(--text2)') + '">' + (d.props.length ? vTaxa + '%' : '—') + '</td>' +
-      tdC('peds',    i, d.peds.length) +
+      tdC('peds',      i, d.peds.length) +
       '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;color:var(--accent)">' + (vValPeds > 0 ? fmtR(vValPeds) : '—') + '</td>' +
       '</tr>';
   }).join('');
@@ -3832,14 +3934,14 @@ function renderDashboard() {
     tdC('visitas',   semIdx, semD.visitas.length) +
     tdC('instAgend', semIdx, semD.instAgend.length) +
     tdC('props',     semIdx, semD.props.length) +
-    tdC('aprov',   semIdx, semD.aprov.length) +
+    tdC('aprov',     semIdx, semD.aprov.length) +
     '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:center">' + (semD.props.length ? semTaxa + '%' : '—') + '</td>' +
     tdC('peds',    semIdx, semD.peds.length) +
     '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;text-align:right">' + (semValPeds > 0 ? fmtR(semValPeds) : '—') + '</td>' +
     '</tr>' : '';
 
   const thS = 'padding:8px 12px;font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);text-align:';
-  const tabela = '<div class="card" style="overflow-x:auto">' +
+  const tabela = '<div class="card" style="overflow-x:auto;margin-top:16px">' +
     '<p class="sec" style="margin:0 0 10px">Por vendedor</p>' +
     '<table style="border-collapse:collapse;width:100%"><thead><tr>' +
     '<th style="' + thS + 'left">Vendedor</th>' +
@@ -3853,23 +3955,15 @@ function renderDashboard() {
     '</tr></thead><tbody>' + tabelaRows + rowSem + '</tbody></table></div>';
 
   document.getElementById('dash-funnel').innerHTML =
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-bottom:16px">' +
-    card('🔍','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') +
-    arrow +
-    card('🔧','Inst. agendadas', vsInst.length, 0, '', '', 'instAgend') +
-    arrow +
-    card('📄','Propostas enviadas', props.length, props.reduce((s,a)=>s+(a.valor||0),0), '', '', 'props') +
-    arrow +
-    card('✅','Aprovadas', aprov.length, aprov.reduce((s,a)=>s+(a.valor||0),0), 'Taxa: ' + taxa + '%',
-      taxa >= 50 ? 'var(--mineral-txt)' : 'var(--text)', 'aprov') +
-    arrow +
-    card('📋','Pedidos', peds.length, peds.reduce((s,p)=>s+(p.valor||0),0), '', 'var(--slate-txt)', 'peds') +
-    arrow +
-    card('🔧','Instalações abertas', abertas.length, abertas.reduce((s,i)=>s+(i.valor||0),0), '', '', 'abertas') +
-    arrow +
-    card('🏁','Concluídas', concl.length, concl.reduce((s,i)=>s+(i.valor||0),0), '', 'var(--mineral-txt)', 'concl') +
-    '</div>' +
-    tabela;
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:stretch;margin-bottom:8px">' +
+    fCard('🔍','Visitas técnicas', vsVisit.length, 0, '', '', 'visitas') + arrow +
+    fCard('🔧','Inst. agendadas', vsInst.length, 0, '', '', 'instAgend') + arrow +
+    fCard('📄','Propostas', props.length, props.reduce((s,a)=>s+(a.valor||0),0), '', '', 'props') + arrow +
+    fCard('✅','Aprovadas', aprov.length, aprov.reduce((s,a)=>s+(a.valor||0),0), 'Taxa: ' + taxa + '%', taxa >= 50 ? 'var(--mineral-txt)' : 'var(--text)', 'aprov') + arrow +
+    fCard('📋','Pedidos', peds.length, peds.reduce((s,p)=>s+(p.valor||0),0), '', 'var(--slate-txt)', 'peds') + arrow +
+    fCard('🔧','Inst. abertas', abertas.length, abertas.reduce((s,i)=>s+(i.valor||0),0), '', '', 'abertas') + arrow +
+    fCard('🏁','Concluídas', concl.length, concl.reduce((s,i)=>s+(i.valor||0),0), '', 'var(--mineral-txt)', 'concl') +
+    '</div>' + tabela;
 }
 
 let _dashCache = null;
