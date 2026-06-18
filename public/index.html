@@ -383,6 +383,7 @@ select option { background: var(--surface); color: var(--text); }
     <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">Pd</span><span class="nav-label">Pedidos</span></button>
     <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">In</span><span class="nav-label">Instalações</span></button>
     <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">Co</span><span class="nav-label">Compras</span></button>
+    <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">📦</span><span class="nav-label">Orç. Materiais</span></button>
     <button onclick="irPara('fechamentos', this)" id="btn-fechamentos" style="display:none"><span class="nav-icon">Fe</span><span class="nav-label">Fechamentos</span></button>
     <button onclick="irPara('meta', this)" id="btn-meta"><span class="nav-icon">Me</span><span class="nav-label">Metas</span></button>
     <button onclick="irPara('calculadora', this)" id="btn-calculadora"><span class="nav-icon">Ca</span><span class="nav-label">Calculadora</span></button>
@@ -3965,13 +3966,13 @@ async function pedidoParaCompras(fonte, id) {
 let rolePages = {
   admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
   gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria'],
-  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar'],
-  tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar'],
+  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat'],
+  tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'];
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat'];
 
 async function carregarPermissoes() {
   try {
@@ -3986,6 +3987,9 @@ function aplicarRole(role) {
     const btn = document.getElementById('btn-' + p);
     if (btn) btn.style.display = pages.includes(p) ? '' : 'none';
   });
+  // Botão de catálogo: só admin/gerente
+  const btnCat = document.getElementById('btn-catalogo-mat');
+  if (btnCat) btnCat.style.display = (role === 'admin' || role === 'gerente') ? '' : 'none';
 }
 
 // ═══ VENDEDORAS DINÂMICAS ═══
@@ -5199,6 +5203,7 @@ function irPara(tela, btn) {
   if (tela === 'financeiro') renderFinanceiro();
   if (tela === 'fechamentos') initFechamentos();
   if (tela === 'meta') { initMeta(); renderMeta(); carregarVendedoras().then(() => carregarMetas()).catch(() => carregarMetas()); }
+  if (tela === 'orcmat') initOrcmat();
   if (tela === 'sincronizar') initSincronizar();
   if (tela === 'auditoria') carregarAuditoria();
   if (tela === 'parametros') initParametros();
@@ -5344,10 +5349,648 @@ async function salvarParametros() {
   }
 }
 
+// ═══ ORÇAMENTOS DE MATERIAIS ═══
+let orcamentos = [];
+let catalogoMat = [];
+let _orcmatEditId = null;
+let _orcmatBuscaTarget = null; // linha que vai receber o material selecionado
+let _orcmatViewId = null;
+
+async function initOrcmat() {
+  await Promise.all([carregarOrcamentos(), carregarCatalogo()]);
+  _popularClientesOrcmat();
+  _popularInstalacoesOrcmat();
+  renderOrcamentos();
+}
+
+async function carregarOrcamentos() {
+  try {
+    const r = await fetch('/api/orcamentos-mat');
+    orcamentos = await r.json();
+  } catch(e) { orcamentos = []; }
+}
+
+async function carregarCatalogo() {
+  try {
+    const r = await fetch('/api/materiais-catalogo');
+    catalogoMat = await r.json();
+  } catch(e) { catalogoMat = []; }
+}
+
+function _popularClientesOrcmat() {
+  const dl = document.getElementById('orcmat-clientes-list');
+  if (!dl) return;
+  const nomes = new Set();
+  instalacoes.forEach(i => i.cliente && nomes.add(i.cliente));
+  aprovacoes.forEach(a => a.cliente && nomes.add(a.cliente));
+  orcamentos.forEach(o => o.cliente && nomes.add(o.cliente));
+  dl.innerHTML = [...nomes].sort().map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+}
+
+function _popularInstalacoesOrcmat() {
+  const sel = document.getElementById('orcmat-instalacao');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">— Nenhuma —</option>' +
+    instalacoes.map(i => `<option value="${i.id}">${i.cliente || '—'} · ${(i.data||i.criado_em||'').slice(0,10).split('-').reverse().join('/')} · ${i.equip||''}</option>`).join('');
+  sel.value = atual;
+}
+
+function renderOrcamentos() {
+  const cont = document.getElementById('orcmat-lista-container');
+  if (!cont) return;
+  const q = (document.getElementById('orcmat-busca')?.value || '').toLowerCase();
+  const st = document.getElementById('orcmat-filtro-status')?.value || '';
+  const lista = orcamentos.filter(o => {
+    if (q && !(o.cliente||'').toLowerCase().includes(q)) return false;
+    if (st && o.status !== st) return false;
+    return true;
+  });
+  if (!lista.length) {
+    cont.innerHTML = '<div class="card" style="text-align:center;color:var(--text2);padding:32px">Nenhum orçamento encontrado.</div>';
+    return;
+  }
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const stBadge = s => s==='pronto' ? '<span class="badge badge-verde">Pronto</span>' : s==='enviado' ? '<span class="badge badge-teal">Enviado</span>' : '<span class="badge badge-amarelo">Rascunho</span>';
+  cont.innerHTML = lista.map(o => {
+    const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
+    const nItens = o.itens?.length || 0;
+    return `<div class="card" style="margin-bottom:8px;padding:12px 16px;cursor:pointer" onclick="orcmatVerOrcamento(${o.id})">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:600">${o.cliente}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">${dataFmt} · ${nItens} item(ns) · por ${o.criado_por||'—'}</div>
+          ${o.obs ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${o.obs}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${stBadge(o.status)}
+          <div style="font-size:17px;font-weight:700;color:var(--accent)">${fmtR(o.valor_total)}</div>
+          <button onclick="event.stopPropagation();orcmatEditarOrcamento(${o.id})" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px">✏️</button>
+          <button onclick="event.stopPropagation();orcmatExcluir(${o.id})" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--terra)">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function orcmatNovoOrcamento() {
+  _orcmatEditId = null;
+  document.getElementById('orcmat-form-titulo').textContent = 'Novo Orçamento';
+  document.getElementById('orcmat-cliente').value = '';
+  document.getElementById('orcmat-instalacao').value = '';
+  document.getElementById('orcmat-obs').value = '';
+  document.getElementById('orcmat-linhas').innerHTML = '';
+  _orcmatAtualizarTotal();
+  _popularClientesOrcmat();
+  _popularInstalacoesOrcmat();
+  document.getElementById('orcmat-lista-view').style.display = 'none';
+  document.getElementById('orcmat-form-view').style.display = '';
+}
+
+function orcmatEditarOrcamento(id) {
+  const o = orcamentos.find(x => x.id === id);
+  if (!o) return;
+  _orcmatEditId = id;
+  document.getElementById('orcmat-form-titulo').textContent = 'Editar Orçamento — ' + o.cliente;
+  document.getElementById('orcmat-cliente').value = o.cliente || '';
+  document.getElementById('orcmat-obs').value = o.obs || '';
+  _popularClientesOrcmat();
+  _popularInstalacoesOrcmat();
+  document.getElementById('orcmat-instalacao').value = o.instalacao_id || '';
+  // Preenche linhas
+  document.getElementById('orcmat-linhas').innerHTML = '';
+  (o.itens || []).forEach(item => {
+    const livre = !item.sku;
+    const linha = _orcmatCriarLinha(livre);
+    if (!livre) {
+      linha.querySelector('.orcmat-nome-display').textContent = item.nome;
+      linha.querySelector('.orcmat-sku-display').textContent = item.sku || '';
+      linha.dataset.sku = item.sku || '';
+    } else {
+      linha.querySelector('input.orcmat-nome-livre').value = item.nome || '';
+    }
+    linha.querySelector('.orcmat-un').value = item.unidade || 'UN';
+    linha.querySelector('.orcmat-qtd').value = item.quantidade || 1;
+    setMoedaInput_el(linha.querySelector('.orcmat-preco'), item.preco_unit || 0);
+    linha.querySelector('.orcmat-obs-item').value = item.obs || '';
+    if (item.estoque_tiny) {
+      const el = linha.querySelector('.orcmat-estoque');
+      if (el) { el.textContent = item.estoque_tiny; el.style.color = parseFloat(item.estoque_tiny) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
+    }
+    _orcmatAtualizarLinha(linha);
+  });
+  _orcmatAtualizarTotal();
+  document.getElementById('orcmat-lista-view').style.display = 'none';
+  document.getElementById('orcmat-form-view').style.display = '';
+}
+
+function orcmatVoltarLista() {
+  document.getElementById('orcmat-form-view').style.display = 'none';
+  document.getElementById('orcmat-lista-view').style.display = '';
+}
+
+function _orcmatCriarLinha(livre) {
+  const div = document.createElement('div');
+  div.className = 'orcmat-linha';
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 120px 120px 120px 140px 36px;gap:6px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--border)';
+  div.dataset.livre = livre ? '1' : '0';
+  div.innerHTML = livre
+    ? `<div><input type="text" class="orcmat-nome-livre" placeholder="Descreva o material…" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
+        style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;box-sizing:border-box"></div>`
+    : `<div style="cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);min-height:32px;font-size:13px" onclick="orcmatAbrirBusca(this.closest('.orcmat-linha'))">
+        <span class="orcmat-nome-display" style="font-weight:500">${'<span style="color:var(--text2)">Clique para buscar…</span>'}</span>
+        <span class="orcmat-sku-display" style="font-size:11px;color:var(--text2);margin-left:6px"></span>
+       </div>`;
+  div.innerHTML += `
+    <input type="number" class="orcmat-qtd" value="1" min="0.01" step="0.01" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
+      style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;text-align:center;box-sizing:border-box">
+    <input type="text" class="orcmat-preco" inputmode="decimal" placeholder="0,00" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))" onblur="formatMoedaInput(this);_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
+      style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;text-align:right;box-sizing:border-box">
+    <div class="orcmat-total-linha" style="text-align:right;font-size:13px;font-weight:600;color:var(--accent);padding-right:4px">R$ 0,00</div>
+    <div class="orcmat-estoque" style="text-align:center;font-size:12px;color:var(--text2)">—</div>
+    <input type="text" class="orcmat-obs-item" placeholder="Obs…"
+      style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;box-sizing:border-box">
+    <input type="hidden" class="orcmat-un" value="UN">
+    <button onclick="this.closest('.orcmat-linha').remove();_orcmatAtualizarTotal()" title="Remover"
+      style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:14px">✕</button>`;
+  document.getElementById('orcmat-linhas').appendChild(div);
+  return div;
+}
+
+function orcmatAddLinha(livre) {
+  const linha = _orcmatCriarLinha(livre);
+  if (!livre) {
+    // Abre busca imediatamente
+    setTimeout(() => orcmatAbrirBusca(linha), 50);
+  } else {
+    linha.querySelector('.orcmat-nome-livre')?.focus();
+  }
+}
+
+function _orcmatAtualizarLinha(linha) {
+  const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 0;
+  const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
+  const total = qtd * preco;
+  const el = linha.querySelector('.orcmat-total-linha');
+  if (el) el.textContent = 'R$ ' + total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  _orcmatAtualizarTotal();
+}
+
+function _orcmatAtualizarTotal() {
+  let total = 0;
+  document.querySelectorAll('#orcmat-linhas .orcmat-linha').forEach(linha => {
+    const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 0;
+    const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
+    total += qtd * preco;
+  });
+  const el = document.getElementById('orcmat-total-display');
+  if (el) el.textContent = 'R$ ' + total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function setMoedaInput_el(el, v) {
+  if (!el) return;
+  const n = typeof v === 'string' ? parseMoeda(v) : (v || 0);
+  el.value = n > 0 ? n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+}
+
+// ── Busca de material (modal) ──
+let _orcmatBuscaTimer = null;
+
+function orcmatAbrirBusca(linha) {
+  _orcmatBuscaTarget = linha;
+  document.getElementById('modal-busca-mat-input').value = '';
+  document.getElementById('modal-busca-mat-resultados').innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">Digite para buscar no catálogo e no Tiny…</div>';
+  document.getElementById('modal-busca-mat').style.display = 'flex';
+  setTimeout(() => document.getElementById('modal-busca-mat-input').focus(), 100);
+}
+
+async function orcmatBuscarMaterial(q) {
+  clearTimeout(_orcmatBuscaTimer);
+  const cont = document.getElementById('modal-busca-mat-resultados');
+  if (!q || q.trim().length < 2) {
+    cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">Digite ao menos 2 caracteres…</div>';
+    return;
+  }
+  cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">🔍 Buscando…</div>';
+  _orcmatBuscaTimer = setTimeout(async () => {
+    const ql = q.toLowerCase();
+    // 1. Catálogo local
+    const locais = catalogoMat.filter(m => m.nome.toLowerCase().includes(ql) || (m.sku||'').toLowerCase().includes(ql));
+    // 2. Tiny
+    let tinyItens = [];
+    try {
+      const r = await fetch('/api/tiny/produtos/buscar?q=' + encodeURIComponent(q));
+      const d = await r.json();
+      tinyItens = d.itens || [];
+    } catch(e) {}
+    // Mescla (evita duplicatas pelo sku)
+    const skusLocais = new Set(locais.map(m => m.sku).filter(Boolean));
+    const extras = tinyItens.filter(t => !t.sku || !skusLocais.has(t.sku));
+    const todos = [
+      ...locais.map(m => ({ sku: m.sku||'', nome: m.nome, unidade: m.unidade||'UN', preco: m.preco_venda||0, estoque: null, fonte: 'catalogo' })),
+      ...extras.map(t => ({ sku: t.sku||'', nome: t.nome, unidade: t.unidade||'UN', preco: t.preco||0, estoque: t.estoque, fonte: 'tiny' }))
+    ];
+    if (!todos.length) {
+      cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">Nenhum material encontrado.</div>';
+      return;
+    }
+    const fmtR = v => v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    cont.innerHTML = todos.map((m,i) =>
+      `<div onclick="orcmatSelecionarMaterial(${i})" data-idx="${i}" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s"
+        onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div>
+            <div style="font-size:14px;font-weight:500">${m.nome}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">
+              ${m.sku ? `SKU: ${m.sku} · ` : ''}${m.unidade}
+              ${m.fonte==='tiny' ? ' · <span style="color:var(--accent)">Tiny</span>' : ' · <span style="color:var(--mineral-txt)">Catálogo</span>'}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:13px;font-weight:600;color:var(--accent)">${fmtR(m.preco)}</div>
+            ${m.estoque != null ? `<div style="font-size:11px;color:${parseFloat(m.estoque)>0?'var(--mineral-txt)':'var(--terra)'}">Est: ${m.estoque}</div>` : ''}
+          </div>
+        </div>
+      </div>`
+    ).join('');
+    // Salva resultado para selecionar por índice
+    cont.dataset.resultado = JSON.stringify(todos);
+  }, 350);
+}
+
+function orcmatSelecionarMaterial(idx) {
+  const cont = document.getElementById('modal-busca-mat-resultados');
+  const todos = JSON.parse(cont.dataset.resultado || '[]');
+  const m = todos[idx];
+  if (!m || !_orcmatBuscaTarget) return;
+  const linha = _orcmatBuscaTarget;
+  linha.querySelector('.orcmat-nome-display').innerHTML = `<span style="font-weight:500">${m.nome}</span>`;
+  linha.querySelector('.orcmat-sku-display').textContent = m.sku || '';
+  linha.dataset.sku = m.sku || '';
+  linha.querySelector('.orcmat-un').value = m.unidade || 'UN';
+  if (m.preco > 0) setMoedaInput_el(linha.querySelector('.orcmat-preco'), m.preco);
+  if (m.estoque != null) {
+    const el = linha.querySelector('.orcmat-estoque');
+    if (el) { el.textContent = m.estoque; el.style.color = parseFloat(m.estoque) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
+  }
+  _orcmatAtualizarLinha(linha);
+  fecharModal('modal-busca-mat');
+  linha.querySelector('.orcmat-qtd')?.focus();
+}
+
+// ── Salvar orçamento ──
+async function orcmatSalvar(status) {
+  const cliente = document.getElementById('orcmat-cliente').value.trim();
+  if (!cliente) { alert('Preencha o nome do cliente.'); document.getElementById('orcmat-cliente').focus(); return; }
+  const itens = [];
+  let ok = true;
+  document.querySelectorAll('#orcmat-linhas .orcmat-linha').forEach((linha, idx) => {
+    const livre = linha.dataset.livre === '1';
+    const nome = livre ? (linha.querySelector('.orcmat-nome-livre')?.value?.trim() || '') : (linha.querySelector('.orcmat-nome-display')?.textContent?.trim() || '');
+    if (!nome || nome.includes('Clique para buscar')) { ok = false; return; }
+    const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 1;
+    const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
+    itens.push({
+      sku: linha.dataset.sku || null,
+      nome,
+      unidade: linha.querySelector('.orcmat-un')?.value || 'UN',
+      quantidade: qtd,
+      preco_unit: preco,
+      preco_total: qtd * preco,
+      obs: linha.querySelector('.orcmat-obs-item')?.value?.trim() || null,
+      estoque_tiny: linha.querySelector('.orcmat-estoque')?.textContent?.replace('—','') || null
+    });
+  });
+  if (!ok) { alert('Há linhas de material sem nome. Preencha ou remova-as.'); return; }
+  const payload = {
+    cliente,
+    instalacao_id: parseInt(document.getElementById('orcmat-instalacao').value) || null,
+    obs: document.getElementById('orcmat-obs').value.trim() || null,
+    status, itens
+  };
+  try {
+    let r;
+    if (_orcmatEditId) {
+      r = await fetch('/api/orcamentos-mat/' + _orcmatEditId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    } else {
+      r = await fetch('/api/orcamentos-mat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }
+    const d = await r.json();
+    if (!d.sucesso && !d.id) { alert(d.erro || 'Erro ao salvar.'); return; }
+    await carregarOrcamentos();
+    renderOrcamentos();
+    orcmatVoltarLista();
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function orcmatExcluir(id) {
+  if (!confirm('Excluir este orçamento?')) return;
+  await fetch('/api/orcamentos-mat/' + id, { method: 'DELETE' });
+  await carregarOrcamentos();
+  renderOrcamentos();
+}
+
+// ── Visualização / Impressão ──
+function orcmatVerOrcamento(id) {
+  const o = orcamentos.find(x => x.id === id);
+  if (!o) return;
+  _orcmatViewId = id;
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
+  const stBadge = s => s==='pronto' ? '<span class="badge badge-verde">Pronto</span>' : s==='enviado' ? '<span class="badge badge-teal">Enviado ao cliente</span>' : '<span class="badge badge-amarelo">Rascunho</span>';
+  const linhasHtml = (o.itens||[]).map(it => `
+    <tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${it.nome}${it.sku ? `<div style="font-size:11px;color:var(--text2)">SKU: ${it.sku}</div>` : ''}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center">${it.unidade||'UN'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center">${it.quantidade}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtR(it.preco_unit)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmtR(it.preco_total)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;color:${it.estoque_tiny&&parseFloat(it.estoque_tiny)>0?'var(--mineral-txt)':'var(--text2)'}">${it.estoque_tiny||'—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">${it.obs||''}</td>
+    </tr>`).join('');
+  document.getElementById('orcmat-view-titulo').textContent = 'Orçamento — ' + o.cliente;
+  document.getElementById('orcmat-view-corpo').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      ${stBadge(o.status)}
+      <span style="font-size:12px;color:var(--text2)">${dataFmt} · por ${o.criado_por||'—'}</span>
+    </div>
+    ${o.obs ? `<div style="font-size:13px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--surface2);border-radius:8px">${o.obs}</div>` : ''}
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--surface2)">
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text2)">Material</th>
+        <th style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text2)">Un</th>
+        <th style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text2)">Qtd</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text2)">Preço unit.</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text2)">Total</th>
+        <th style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text2)">Estoque</th>
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text2)">Obs</th>
+      </tr></thead>
+      <tbody>${linhasHtml}</tbody>
+    </table>
+    </div>
+    <div style="text-align:right;padding:12px 10px 0;font-size:18px;font-weight:700;color:var(--accent)">Total: ${fmtR(o.valor_total)}</div>`;
+  const btnEnviar = document.getElementById('orcmat-btn-enviar');
+  if (btnEnviar) btnEnviar.style.display = o.status === 'enviado' ? 'none' : '';
+  document.getElementById('modal-orcmat-view').style.display = 'flex';
+}
+
+function orcmatEditarDaView() {
+  fecharModal('modal-orcmat-view');
+  if (_orcmatViewId) orcmatEditarOrcamento(_orcmatViewId);
+}
+
+async function orcmatMarcarEnviado() {
+  if (!_orcmatViewId) return;
+  const o = orcamentos.find(x => x.id === _orcmatViewId);
+  if (!o) return;
+  await fetch('/api/orcamentos-mat/' + _orcmatViewId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ...o, status: 'enviado' }) });
+  await carregarOrcamentos();
+  renderOrcamentos();
+  fecharModal('modal-orcmat-view');
+}
+
+function orcmatImprimir(tipo) {
+  const o = orcamentos.find(x => x.id === _orcmatViewId);
+  if (!o) return;
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
+  const cliente = o.cliente || '—';
+  const linhasHtml = (o.itens||[]).map(it => {
+    const interno = tipo === 'interno';
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:13px">${it.nome}${it.sku ? `<br><span style="font-size:11px;color:#888">SKU: ${it.sku}</span>` : ''}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.unidade||'UN'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.quantidade}</td>
+      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px">${fmtR(it.preco_unit)}</td>` : ''}
+      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px;font-weight:600">${fmtR(it.preco_total)}</td>
+      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:12px;color:#888">${it.estoque_tiny||'—'}</td>` : ''}
+      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:12px;color:#888">${it.obs||''}</td>` : ''}
+    </tr>`;
+  }).join('');
+  const thInterno = tipo==='interno' ? '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Preço unit.</th><th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Estoque</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Obs</th>' : '';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento de Materiais — ${cliente}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:30px;color:#1a1a1a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse}@media print{@page{margin:20mm}button{display:none!important}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+    <div><h1>Orçamento de Materiais</h1><div style="font-size:14px;color:#666;margin-top:4px">Cliente: <strong>${cliente}</strong></div></div>
+    <div style="text-align:right;font-size:13px;color:#666">Data: ${dataFmt}${o.criado_por?`<br>Técnico: ${o.criado_por}`:''}</div>
+  </div>
+  ${o.obs ? `<div style="font-size:13px;color:#666;margin-bottom:16px;padding:10px 14px;background:#f5f4f0;border-radius:6px">${o.obs}</div>` : ''}
+  <table><thead><tr style="background:#f5f4f0">
+    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Material</th>
+    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Un</th>
+    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Qtd</th>
+    ${thInterno}
+    <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Total</th>
+  </tr></thead><tbody>${linhasHtml}</tbody></table>
+  <div style="text-align:right;padding:14px 10px 0;font-size:20px;font-weight:700">Total: ${fmtR(o.valor_total)}</div>
+  <script>window.print();<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+// ── Catálogo (modal admin) ──
+async function abrirCatalogo() {
+  await carregarCatalogo();
+  renderCatalogo();
+  document.getElementById('modal-catalogo-mat').style.display = 'flex';
+}
+
+function renderCatalogo() {
+  const cont = document.getElementById('cat-lista');
+  if (!cont) return;
+  const fmtR = v => v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  if (!catalogoMat.length) { cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Nenhum material cadastrado.</div>'; return; }
+  cont.innerHTML = catalogoMat.map(m => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px">
+      <div>
+        <span style="font-weight:500">${m.nome}</span>
+        ${m.sku ? `<span style="font-size:11px;color:var(--text2);margin-left:8px">SKU: ${m.sku}</span>` : ''}
+        <span style="font-size:11px;color:var(--text2);margin-left:8px">${m.unidade||'UN'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="color:var(--accent)">${fmtR(m.preco_venda)}</span>
+        <button onclick="catExcluirMaterial(${m.id})" style="padding:2px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:12px">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+async function catAdicionarMaterial() {
+  const sku = document.getElementById('cat-novo-sku').value.trim();
+  const nome = document.getElementById('cat-novo-nome').value.trim();
+  const un = document.getElementById('cat-novo-un').value.trim() || 'UN';
+  const preco = parseMoeda(document.getElementById('cat-novo-preco').value) || 0;
+  if (!nome) { alert('Nome obrigatório.'); return; }
+  const r = await fetch('/api/materiais-catalogo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sku, nome, unidade: un, preco_venda: preco }) });
+  const d = await r.json();
+  if (!d.sucesso) { alert(d.erro || 'Erro.'); return; }
+  document.getElementById('cat-novo-sku').value = '';
+  document.getElementById('cat-novo-nome').value = '';
+  document.getElementById('cat-novo-un').value = '';
+  document.getElementById('cat-novo-preco').value = '';
+  await carregarCatalogo();
+  renderCatalogo();
+}
+
+async function catExcluirMaterial(id) {
+  if (!confirm('Remover este material do catálogo?')) return;
+  await fetch('/api/materiais-catalogo/' + id, { method: 'DELETE' });
+  await carregarCatalogo();
+  renderCatalogo();
+}
+
 // ═══ INICIAR ═══
 window.addEventListener('DOMContentLoaded', verificarSessao);
 
 </script>
+
+<!-- ═══════════ ORÇAMENTOS DE MATERIAIS ═══════════ -->
+<div id="tela-orcmat" class="tela">
+
+  <!-- LISTA DE ORÇAMENTOS -->
+  <div id="orcmat-lista-view">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <h2 style="font-size:18px;font-weight:700;margin:0">📦 Orçamentos de Materiais</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-branco" onclick="abrirCatalogo()" id="btn-catalogo-mat" style="font-size:13px;display:none">📋 Catálogo</button>
+        <button class="btn" onclick="orcmatNovoOrcamento()">+ Novo Orçamento</button>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="orcmat-busca" placeholder="🔍 Buscar por cliente…" oninput="renderOrcamentos()"
+        style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+      <select id="orcmat-filtro-status" onchange="renderOrcamentos()"
+        style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+        <option value="">Todos os status</option>
+        <option value="rascunho">Rascunho</option>
+        <option value="pronto">Pronto</option>
+        <option value="enviado">Enviado ao cliente</option>
+      </select>
+    </div>
+
+    <!-- Cards de orçamentos -->
+    <div id="orcmat-lista-container"></div>
+  </div>
+
+  <!-- FORMULÁRIO DE ORÇAMENTO -->
+  <div id="orcmat-form-view" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="btn btn-branco" onclick="orcmatVoltarLista()" style="font-size:13px;padding:6px 12px">← Voltar</button>
+      <h2 style="font-size:17px;font-weight:700;margin:0" id="orcmat-form-titulo">Novo Orçamento</h2>
+    </div>
+
+    <!-- Cabeçalho do orçamento -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="g2" style="gap:12px">
+        <div class="campo">
+          <label>Cliente *</label>
+          <input type="text" id="orcmat-cliente" placeholder="Nome do cliente" list="orcmat-clientes-list"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <datalist id="orcmat-clientes-list"></datalist>
+        </div>
+        <div class="campo">
+          <label>Instalação vinculada <span style="font-weight:400;color:var(--text2)">(opcional)</span></label>
+          <select id="orcmat-instalacao" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+            <option value="">— Nenhuma —</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo" style="margin-top:10px">
+        <label>Observação geral</label>
+        <textarea id="orcmat-obs" rows="2" placeholder="Observações sobre o orçamento…"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+    </div>
+
+    <!-- Linhas de materiais -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <p class="sec" style="margin:0">Materiais</p>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-branco" onclick="orcmatAddLinha(false)" style="font-size:12px;padding:5px 12px">+ Material do catálogo</button>
+          <button class="btn btn-branco" onclick="orcmatAddLinha(true)" style="font-size:12px;padding:5px 12px;border-color:var(--text2)">+ Material livre</button>
+        </div>
+      </div>
+
+      <!-- Cabeçalho da tabela (desktop) -->
+      <div style="display:grid;grid-template-columns:2fr 80px 120px 120px 120px 140px 36px;gap:6px;padding:0 6px 6px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px" class="orcmat-grid-header">
+        <span>Material</span><span style="text-align:center">Qtd</span><span style="text-align:right">Preço unit.</span><span style="text-align:right">Total</span><span style="text-align:center">Estoque</span><span>Obs</span><span></span>
+      </div>
+
+      <div id="orcmat-linhas" style="margin-top:6px"></div>
+
+      <div style="display:flex;justify-content:flex-end;padding:10px 6px 0;border-top:1px solid var(--border);margin-top:8px">
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:2px">Total do orçamento</div>
+          <div style="font-size:22px;font-weight:700;color:var(--accent)" id="orcmat-total-display">R$ 0,00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-branco" onclick="orcmatVoltarLista()">Cancelar</button>
+      <button class="btn btn-branco" onclick="orcmatSalvar('rascunho')" style="font-size:13px">💾 Salvar rascunho</button>
+      <button class="btn" onclick="orcmatSalvar('pronto')" style="font-size:13px">✅ Salvar como pronto</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL VISUALIZAÇÃO / IMPRESSÃO DO ORÇAMENTO -->
+<div class="modal-bg" id="modal-orcmat-view" style="display:none" onclick="if(event.target===this)fecharModal('modal-orcmat-view')">
+  <div class="modal" style="max-width:680px;width:95%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0;font-size:16px" id="orcmat-view-titulo">Orçamento de Materiais</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-branco" onclick="orcmatImprimir('interno')" style="font-size:12px">🖨 Interno</button>
+        <button class="btn" onclick="orcmatImprimir('cliente')" style="font-size:12px">📄 Versão cliente</button>
+        <button class="btn btn-branco" onclick="fecharModal('modal-orcmat-view')" style="padding:6px 10px">✕</button>
+      </div>
+    </div>
+    <div id="orcmat-view-corpo" style="max-height:65vh;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-branco" onclick="orcmatEditarDaView()" style="font-size:13px">✏️ Editar</button>
+      <button class="btn btn-branco" id="orcmat-btn-enviar" onclick="orcmatMarcarEnviado()" style="font-size:13px;border-color:var(--mineral);color:var(--mineral-txt)">📤 Marcar como enviado</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CATALOGO DE MATERIAIS (admin) -->
+<div class="modal-bg" id="modal-catalogo-mat" style="display:none" onclick="if(event.target===this)fecharModal('modal-catalogo-mat')">
+  <div class="modal" style="max-width:600px;width:95%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0;font-size:16px">📋 Catálogo de Materiais</h3>
+      <button class="btn btn-branco" onclick="fecharModal('modal-catalogo-mat')" style="padding:6px 10px">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="cat-novo-sku" placeholder="SKU" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+      <input type="text" id="cat-novo-nome" placeholder="Nome do material *" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+      <input type="text" id="cat-novo-un" placeholder="UN" style="width:60px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+      <input type="text" inputmode="decimal" id="cat-novo-preco" placeholder="Preço" style="width:90px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px" onblur="formatMoedaInput(this)">
+      <button class="btn" onclick="catAdicionarMaterial()" style="font-size:13px;white-space:nowrap">+ Adicionar</button>
+    </div>
+    <div id="cat-lista" style="max-height:50vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL BUSCA DE MATERIAL (autocomplete) -->
+<div class="modal-bg" id="modal-busca-mat" style="display:none" onclick="if(event.target===this)fecharModal('modal-busca-mat')">
+  <div class="modal" style="max-width:520px;width:95%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0;font-size:15px">🔍 Buscar material</h3>
+      <button class="btn btn-branco" onclick="fecharModal('modal-busca-mat')" style="padding:6px 10px">✕</button>
+    </div>
+    <input type="text" id="modal-busca-mat-input" placeholder="Digite o nome ou SKU (mín. 2 letras)…"
+      oninput="orcmatBuscarMaterial(this.value)"
+      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box;margin-bottom:10px">
+    <div id="modal-busca-mat-resultados" style="min-height:60px;max-height:50vh;overflow-y:auto"></div>
+  </div>
+</div>
 
 <!-- MODAL MOTIVO REJEIÇÃO -->
 <div class="modal-bg" id="modal-rejeicao" style="display:none" onclick="if(event.target===this)fecharModalRejeicao()">

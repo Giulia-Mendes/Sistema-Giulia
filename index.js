@@ -765,6 +765,43 @@ try { db.prepare('ALTER TABLE instalacoes ADD COLUMN obs_compras TEXT DEFAULT NU
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_obs TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE instalacoes ADD COLUMN datas_ok TEXT DEFAULT NULL').run(); } catch(e) {}
+
+// ── ORÇAMENTOS DE MATERIAIS ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS materiais_catalogo (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku TEXT,
+    nome TEXT NOT NULL,
+    unidade TEXT DEFAULT 'UN',
+    preco_venda REAL DEFAULT 0,
+    ativo INTEGER DEFAULT 1,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+  CREATE TABLE IF NOT EXISTS orcamentos_mat (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente TEXT NOT NULL,
+    instalacao_id INTEGER DEFAULT NULL,
+    status TEXT DEFAULT 'rascunho',
+    obs TEXT DEFAULT NULL,
+    valor_total REAL DEFAULT 0,
+    criado_por TEXT DEFAULT NULL,
+    criado_em TEXT DEFAULT (datetime('now','localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+  CREATE TABLE IF NOT EXISTS orcamentos_mat_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orcamento_id INTEGER NOT NULL,
+    sku TEXT DEFAULT NULL,
+    nome TEXT NOT NULL,
+    unidade TEXT DEFAULT 'UN',
+    quantidade REAL DEFAULT 1,
+    preco_unit REAL DEFAULT 0,
+    preco_total REAL DEFAULT 0,
+    obs TEXT DEFAULT NULL,
+    estoque_tiny TEXT DEFAULT NULL,
+    ordem INTEGER DEFAULT 0
+  );
+`);
 // Normaliza vendedora em tiny_pedidos para nome canônico (corrige registros com nome em minúsculo do tag Tiny)
 try {
   const normS2 = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -1047,6 +1084,98 @@ app.get('/api/tiny/pedidos', auth, (req, res) => {
   res.json(rows.map(r => ({ ...r, marcadores: JSON.parse(r.marcadores || '[]') })));
 });
 
+
+// ── CATÁLOGO DE MATERIAIS ──
+app.get('/api/materiais-catalogo', auth, (req, res) => {
+  res.json(db.prepare('SELECT * FROM materiais_catalogo WHERE ativo=1 ORDER BY nome COLLATE NOCASE').all());
+});
+app.post('/api/materiais-catalogo', auth, (req, res) => {
+  const { sku, nome, unidade, preco_venda } = req.body;
+  if (!nome || !nome.trim()) return res.status(400).json({ erro: 'Nome obrigatório.' });
+  const r = db.prepare('INSERT INTO materiais_catalogo (sku,nome,unidade,preco_venda) VALUES (?,?,?,?)').run(sku||null, nome.trim(), unidade||'UN', preco_venda||0);
+  res.json({ sucesso: true, id: r.lastInsertRowid });
+});
+app.put('/api/materiais-catalogo/:id', auth, (req, res) => {
+  const { sku, nome, unidade, preco_venda, ativo } = req.body;
+  if (!nome || !nome.trim()) return res.status(400).json({ erro: 'Nome obrigatório.' });
+  db.prepare('UPDATE materiais_catalogo SET sku=?,nome=?,unidade=?,preco_venda=?,ativo=? WHERE id=?').run(sku||null, nome.trim(), unidade||'UN', preco_venda||0, ativo===false?0:1, req.params.id);
+  res.json({ sucesso: true });
+});
+app.delete('/api/materiais-catalogo/:id', auth, adminOnly, (req, res) => {
+  db.prepare('UPDATE materiais_catalogo SET ativo=0 WHERE id=?').run(req.params.id);
+  res.json({ sucesso: true });
+});
+
+// Tiny: buscar produtos por nome ou SKU (proxy — evita CORS e mantém token seguro)
+app.get('/api/tiny/produtos/buscar', auth, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q || q.length < 2) return res.json({ itens: [] });
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.json({ itens: [] });
+  try {
+    const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: q, pagina: '1' }).toString();
+    const resp = await fetch('https://api.tiny.com.br/api2/produtos.pesquisa.php', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body
+    });
+    const data = await resp.json();
+    const produtos = Array.isArray(data?.retorno?.produtos) ? data.retorno.produtos : [];
+    const itens = produtos.slice(0, 15).map(p => {
+      const pr = p.produto || p;
+      return {
+        id: pr.id,
+        sku: pr.codigo || pr.sku || '',
+        nome: pr.nome || pr.descricao || '',
+        unidade: pr.unidade || 'UN',
+        preco: parseFloat(String(pr.preco_venda || pr.preco || '0').replace(',', '.')) || 0,
+        estoque: pr.saldo_fisico_total != null ? String(pr.saldo_fisico_total) : null
+      };
+    });
+    res.json({ itens });
+  } catch(e) {
+    res.json({ itens: [] });
+  }
+});
+
+// ── ORÇAMENTOS DE MATERIAIS ──
+app.get('/api/orcamentos-mat', auth, (req, res) => {
+  const orcamentos = db.prepare('SELECT * FROM orcamentos_mat ORDER BY criado_em DESC').all();
+  res.json(orcamentos.map(o => ({
+    ...o,
+    itens: db.prepare('SELECT * FROM orcamentos_mat_itens WHERE orcamento_id=? ORDER BY ordem').all(o.id)
+  })));
+});
+
+app.post('/api/orcamentos-mat', auth, (req, res) => {
+  const { cliente, instalacao_id, obs, itens } = req.body;
+  if (!cliente || !cliente.trim()) return res.status(400).json({ erro: 'Cliente obrigatório.' });
+  const criado_por = req.session.usuario?.nome || null;
+  const valor_total = (itens || []).reduce((s, i) => s + (i.preco_total || 0), 0);
+  const r = db.prepare('INSERT INTO orcamentos_mat (cliente,instalacao_id,obs,valor_total,criado_por) VALUES (?,?,?,?,?)').run(cliente.trim(), instalacao_id || null, obs || null, valor_total, criado_por);
+  const id = r.lastInsertRowid;
+  const ins = db.prepare('INSERT INTO orcamentos_mat_itens (orcamento_id,sku,nome,unidade,quantidade,preco_unit,preco_total,obs,estoque_tiny,ordem) VALUES (?,?,?,?,?,?,?,?,?,?)');
+  (itens || []).forEach((item, idx) => ins.run(id, item.sku || null, item.nome, item.unidade || 'UN', item.quantidade || 1, item.preco_unit || 0, item.preco_total || 0, item.obs || null, item.estoque_tiny || null, idx));
+  audit(req, 'CRIAR_ORCAMENTO_MAT', 'orcamentos_mat', id, null, { cliente: cliente.trim() });
+  res.json({ sucesso: true, id });
+});
+
+app.put('/api/orcamentos-mat/:id', auth, (req, res) => {
+  const { cliente, instalacao_id, obs, status, itens } = req.body;
+  if (!cliente || !cliente.trim()) return res.status(400).json({ erro: 'Cliente obrigatório.' });
+  const valor_total = (itens || []).reduce((s, i) => s + (i.preco_total || 0), 0);
+  db.prepare("UPDATE orcamentos_mat SET cliente=?,instalacao_id=?,obs=?,status=?,valor_total=?,atualizado_em=datetime('now','localtime') WHERE id=?").run(cliente.trim(), instalacao_id || null, obs || null, status || 'rascunho', valor_total, req.params.id);
+  db.prepare('DELETE FROM orcamentos_mat_itens WHERE orcamento_id=?').run(req.params.id);
+  const ins = db.prepare('INSERT INTO orcamentos_mat_itens (orcamento_id,sku,nome,unidade,quantidade,preco_unit,preco_total,obs,estoque_tiny,ordem) VALUES (?,?,?,?,?,?,?,?,?,?)');
+  (itens || []).forEach((item, idx) => ins.run(req.params.id, item.sku || null, item.nome, item.unidade || 'UN', item.quantidade || 1, item.preco_unit || 0, item.preco_total || 0, item.obs || null, item.estoque_tiny || null, idx));
+  audit(req, 'ATUALIZAR_ORCAMENTO_MAT', 'orcamentos_mat', req.params.id, null, { cliente: cliente.trim(), status });
+  res.json({ sucesso: true });
+});
+
+app.delete('/api/orcamentos-mat/:id', auth, adminOnly, (req, res) => {
+  db.prepare('DELETE FROM orcamentos_mat_itens WHERE orcamento_id=?').run(req.params.id);
+  db.prepare('DELETE FROM orcamentos_mat WHERE id=?').run(req.params.id);
+  audit(req, 'REMOVER_ORCAMENTO_MAT', 'orcamentos_mat', req.params.id, null, null);
+  res.json({ sucesso: true });
+});
 
 // ── TRATADOR DE ERROS GLOBAL ──
 // Captura "request aborted" (cliente fechou a aba no meio de um upload/save)
