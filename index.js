@@ -533,10 +533,17 @@ app.get('/api/instalacoes', auth, (req, res) => {
       else if (mc && typeof mc === 'string' && mc.trim()) matComprar = [{ nome: mc, ok: false }];
       else if (i.mat_comprar && i.mat_comprar.trim()) matComprar = [{ nome: i.mat_comprar, ok: false }];
     } catch(e) { if (i.mat_comprar && i.mat_comprar.trim()) matComprar = [{ nome: i.mat_comprar, ok: false }]; }
+    let transfItens = [];
+    try {
+      const t = JSON.parse(i.transferencia || 'null');
+      if (Array.isArray(t)) transfItens = t;
+      else if (typeof t === 'string' && t.trim()) transfItens = [{ nome: t, ok: false, qtd: 1 }];
+      else if (i.transferencia && i.transferencia.trim()) transfItens = [{ nome: i.transferencia, ok: false, qtd: 1 }];
+    } catch(e) { if (i.transferencia && i.transferencia.trim()) transfItens = [{ nome: i.transferencia, ok: false, qtd: 1 }]; }
     const datas   = JSON.parse(i.datas    || 'null') || [];
     const datasObs = JSON.parse(i.datas_obs || 'null') || [];
     const datasOk  = JSON.parse(i.datas_ok  || 'null') || [];
-    return { ...i, matComprar, anexos: [], _tem_anexos: false, checks: JSON.parse(i.checks || '{}'), comprovantes, datas, datas_obs: datasObs, datas_ok: datasOk };
+    return { ...i, matComprar, transfItens, anexos: [], _tem_anexos: false, checks: JSON.parse(i.checks || '{}'), comprovantes, datas, datas_obs: datasObs, datas_ok: datasOk };
   });
   const comAnexos = new Set(db.prepare("SELECT id FROM instalacoes WHERE anexos IS NOT NULL AND anexos != '[]' AND anexos != ''").all().map(r => r.id));
   rows.forEach(r => { r._tem_anexos = comAnexos.has(r.id); });
@@ -566,7 +573,7 @@ app.put('/api/instalacoes/:id/compras', auth, (req, res) => {
   const antes = db.prepare('SELECT * FROM instalacoes WHERE id=?').get(req.params.id);
   const d = req.body;
   db.prepare('UPDATE instalacoes SET mat=?,sinal=?,receber=?,mat_comprar=?,checks=?,tipo_servico=?,data=?,custos=?,comprovante_pag=?,comprovantes=?,obs_compras=?,transferencia=? WHERE id=?')
-    .run(d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), JSON.stringify(d.checks || {}), d.tipo_servico || 'instalacao', d.data || null, d.custos || null, d.comprovante_pag || null, JSON.stringify(d.comprovantes || []), d.obs_compras || null, d.transferencia || null, req.params.id);
+    .run(d.mat, d.sinal, d.receber, Array.isArray(d.matComprar) ? JSON.stringify(d.matComprar) : (d.matComprar || null), JSON.stringify(d.checks || {}), d.tipo_servico || 'instalacao', d.data || null, d.custos || null, d.comprovante_pag || null, JSON.stringify(d.comprovantes || []), d.obs_compras || null, Array.isArray(d.transfItens) ? JSON.stringify(d.transfItens) : null, req.params.id);
   audit(req, 'EDITAR_COMPRAS', 'instalacoes', req.params.id,
     antes ? { mat: antes.mat, sinal: antes.sinal, receber: antes.receber, matComprar: antes.mat_comprar, checks: JSON.parse(antes.checks || '{}') } : null,
     { mat: d.mat, sinal: d.sinal, receber: d.receber, matComprar: d.matComprar, checks: d.checks, tipo_servico: d.tipo_servico });

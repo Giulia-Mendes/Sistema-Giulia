@@ -3456,6 +3456,30 @@ async function setEquipQtd(id, idx, val) {
   if (inst.matComprar && inst.matComprar[idx]) inst.matComprar[idx].qtd = parseInt(val) || 1;
   await saveEquipList(id);
 }
+// ── TRANSFERÊNCIA (lista de itens) ──
+async function addTransf(id) {
+  const inp = document.getElementById('transf-inp-' + id);
+  const nome = (inp?.value || '').trim();
+  if (!nome) return;
+  const inst = instalacoes.find(i => i.id === id);
+  if (!Array.isArray(inst.transfItens)) inst.transfItens = [];
+  const qtdInp = document.getElementById('transf-qtd-' + id);
+  const qtd = parseInt(qtdInp?.value || '1') || 1;
+  if (qtdInp) qtdInp.value = '1';
+  inst.transfItens.push({ nome, ok: false, qtd });
+  inp.value = '';
+  await saveEquipList(id);
+}
+async function toggleTransf(id, idx) {
+  const inst = instalacoes.find(i => i.id === id);
+  if (inst.transfItens && inst.transfItens[idx] !== undefined) inst.transfItens[idx].ok = !inst.transfItens[idx].ok;
+  await saveEquipList(id);
+}
+async function rmTransf(id, idx) {
+  const inst = instalacoes.find(i => i.id === id);
+  inst.transfItens = (inst.transfItens || []).filter((_, i) => i !== idx);
+  await saveEquipList(id);
+}
 // Coleta datas+obs do card diretamente do DOM
 function _coletarDatasFinDOM(id) {
   const cont = document.getElementById('datas-fin-' + id);
@@ -3566,7 +3590,7 @@ async function removerDataFin(id, idx) {
 }
 async function salvarCampoFin(id, campo, valor) {
   const inst = instalacoes.find(i => i.id === id);
-  const strCampos = ['tipo_servico', 'data', 'custos', 'transferencia'];
+  const strCampos = ['tipo_servico', 'data', 'custos'];
   inst[campo] = strCampos.includes(campo) ? valor : (parseFloat(valor) || 0);
   await fetch('/api/instalacoes/' + id + '/compras', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inst) });
   renderFinanceiro(); renderResumoInst();
@@ -4449,12 +4473,28 @@ function renderFinanceiro() {
           '</div>' +
         '</div>';
       }()) +
-      '<div class="campo" style="margin-bottom:8px">' +
-        '<label style="font-size:11px;color:var(--text2)">Transferência / Frete de galpão para RJ</label>' +
-        '<textarea placeholder="Ex: Transferência SP→RJ R$350, Galpão Brás..." rows="2" ' +
-        'style="' + taStyle + '" ' +
-        'onchange="salvarCampoFin(' + i.id + ',\'transferencia\',this.value)">' + (i.transferencia||'').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
-      '</div>' +
+      (function() {
+        const trItems = i.transfItens || [];
+        const trHtml = trItems.map((t, idx) =>
+          '<div class="ck-item" style="margin-bottom:4px">' +
+            '<div class="ck-box' + (t.ok ? ' feito' : '') + '" onclick="toggleTransf(' + i.id + ',' + idx + ')" style="cursor:pointer">' + (t.ok ? '✓' : '') + '</div>' +
+            '<span style="flex:1;font-size:13px' + (t.ok ? ';text-decoration:line-through;color:var(--text2)' : '') + '">' + (t.qtd > 1 ? t.qtd + '× ' : '') + t.nome + '</span>' +
+            '<button onclick="rmTransf(' + i.id + ',' + idx + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:15px;padding:0 4px;line-height:1">×</button>' +
+          '</div>'
+        ).join('');
+        return '<div class="campo" style="margin-bottom:8px">' +
+          '<label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block">Transferência / Frete de Sapucaia para RJ</label>' +
+          (trHtml ? '<div style="margin-bottom:6px">' + trHtml + '</div>' : '') +
+          '<div style="display:flex;gap:6px">' +
+            '<input id="transf-inp-' + i.id + '" type="text" placeholder="Ex: Rack, Motor, Bomba..." ' +
+              'style="flex:1;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" ' +
+              'onkeydown="if(event.key===\'Enter\'){event.preventDefault();addTransf(' + i.id + ')}">' +
+            '<input id="transf-qtd-' + i.id + '" type="number" min="1" value="1" placeholder="Qtd" ' +
+              'style="width:52px;font-size:13px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:center">' +
+            '<button class="btn btn-roxo" style="font-size:12px;padding:5px 10px;white-space:nowrap" onclick="addTransf(' + i.id + ')">+ Add</button>' +
+          '</div>' +
+        '</div>';
+      }()) +
       '<div class="ck-item">' +
         '<div class="ck-box' + (matOk ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'mat_pago\')">' + (matOk ? '✓' : '') + '</div>' +
         '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px">' +
