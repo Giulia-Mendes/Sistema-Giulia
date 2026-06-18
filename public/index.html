@@ -4512,13 +4512,32 @@ function togglePrainhaOrcmat() {
   if (wrap) wrap.style.display = show ? '' : 'none';
   calcVolOrcmat();
 }
+let fotosTmpOrcmat = [];
+function renderFotosOrcmat() {
+  const g = document.getElementById('ol-foto-grid');
+  if (!g) return;
+  let h = fotosTmpOrcmat.map((f, i) =>
+    '<div class="foto-item">' +
+    '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'ol_foto_' + i + '\')">' +
+    '<button class="foto-rm" onclick="event.stopPropagation();rmFotoOrcmat(' + i + ')">×</button>' +
+    '</div>').join('');
+  h += '<label class="foto-add">📷<span style="font-size:11px">Foto</span><input type="file" accept="image/*" multiple style="display:none" onchange="addFotosOrcmat(this)"></label>';
+  g.innerHTML = h;
+}
+function addFotosOrcmat(inp) {
+  Array.from(inp.files).forEach(f => { const r = new FileReader(); r.onload = e => { fotosTmpOrcmat.push(e.target.result); renderFotosOrcmat(); }; r.readAsDataURL(f); });
+  inp.value = '';
+}
+function rmFotoOrcmat(i) { fotosTmpOrcmat.splice(i, 1); renderFotosOrcmat(); }
+
 function _orcmatPreencherLaudo(laudo) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
   const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
   if (!laudo) {
-    ['ol-comp','ol-larg','ol-prof','ol-prof-min','ol-vol','ol-tipo','ol-prainha-comp','ol-prainha-larg','ol-prainha-prof','ol-dist','ol-tensao','ol-dias','ol-dias-outro','ol-obs'].forEach(id => set(id,''));
+    ['ol-comp','ol-larg','ol-prof','ol-prof-min','ol-vol','ol-tipo','ol-prainha-comp','ol-prainha-larg','ol-prainha-prof','ol-dist','ol-tensao','ol-dias','ol-dias-outro','ol-obs','ol-material','ol-valor-mat'].forEach(id => set(id,''));
     setChk('ol-tem-prainha', false);
     const pw = document.getElementById('ol-prainha-wrap'); if (pw) pw.style.display = 'none';
+    fotosTmpOrcmat = []; renderFotosOrcmat();
     return;
   }
   set('ol-comp', laudo.comp); set('ol-larg', laudo.larg);
@@ -4526,6 +4545,7 @@ function _orcmatPreencherLaudo(laudo) {
   set('ol-tipo', laudo.tipo); set('ol-dist', laudo.dist);
   set('ol-tensao', laudo.tensao); set('ol-dias', laudo.dias);
   set('ol-dias-outro', laudo.dias_outro); set('ol-obs', laudo.obs);
+  set('ol-material', laudo.material); set('ol-valor-mat', laudo.valorMat);
   setChk('ol-tem-prainha', laudo.tem_prainha);
   const pw = document.getElementById('ol-prainha-wrap');
   if (pw) pw.style.display = laudo.tem_prainha ? '' : 'none';
@@ -4536,6 +4556,8 @@ function _orcmatPreencherLaudo(laudo) {
   }
   const dou = document.getElementById('ol-dias-outro');
   if (dou) dou.style.display = laudo.dias === 'outro' ? '' : 'none';
+  fotosTmpOrcmat = Array.isArray(laudo.fotos) ? [...laudo.fotos] : [];
+  renderFotosOrcmat();
   calcVolOrcmat();
 }
 function togSubFin(secId) {
@@ -6091,9 +6113,12 @@ async function orcmatSalvar(status) {
     tensao: document.getElementById('ol-tensao')?.value || '',
     dias: document.getElementById('ol-dias')?.value || '',
     dias_outro: document.getElementById('ol-dias-outro')?.value || '',
-    obs: document.getElementById('ol-obs')?.value?.trim() || ''
+    obs: document.getElementById('ol-obs')?.value?.trim() || '',
+    material: document.getElementById('ol-material')?.value?.trim() || '',
+    valorMat: document.getElementById('ol-valor-mat')?.value?.trim() || '',
+    fotos: [...fotosTmpOrcmat]
   };
-  const temLaudo = laudoObj.comp || laudoObj.larg || laudoObj.tipo || laudoObj.obs;
+  const temLaudo = laudoObj.comp || laudoObj.larg || laudoObj.tipo || laudoObj.obs || laudoObj.material;
   const payload = {
     cliente,
     visita_id: parseInt(document.getElementById('orcmat-visita-id').value) || null,
@@ -6179,6 +6204,9 @@ function orcmatVerOrcamento(id) {
         ${o.laudo.tem_prainha ? `<div><span style="color:var(--text2);font-size:11px">Prainha</span><div style="font-weight:600">${o.laudo.prainha_comp||''}×${o.laudo.prainha_larg||''}×${o.laudo.prainha_prof||''} m</div></div>` : ''}
       </div>
       ${o.laudo.obs ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;color:var(--text2)">📝 ${o.laudo.obs}</div>` : ''}
+      ${o.laudo.material ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">Material necessário</span><div style="font-size:13px;margin-top:3px">${o.laudo.material}</div></div>` : ''}
+      ${o.laudo.valorMat ? `<div style="margin-top:8px"><span style="font-size:11px;color:var(--text2)">Valor estimado do material</span><div style="font-size:13px;font-weight:600;color:var(--accent);margin-top:2px">${fmtR(parseMoeda(o.laudo.valorMat))}</div></div>` : ''}
+      ${o.laudo.fotos && o.laudo.fotos.length ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">${o.laudo.fotos.length} foto(s)</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${o.laudo.fotos.map((f,i) => `<img src="${f}" onclick="abrirLightbox('${f}','ol_foto_${i}')" style="width:60px;height:60px;border-radius:6px;object-fit:cover;cursor:pointer">`).join('')}</div></div>` : ''}
     </div>` : ''}`;
   const btnEnviar = document.getElementById('orcmat-btn-enviar');
   if (btnEnviar) btnEnviar.style.display = o.status === 'enviado' ? 'none' : '';
@@ -6458,6 +6486,10 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           </div>
         </div>
         <div class="campo"><label>Observações técnicas</label><textarea id="ol-obs" rows="2" placeholder="Acesso, dificuldades, condições do local…" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
+        <div class="campo"><label>Material necessário</label><textarea id="ol-material" rows="2" placeholder="Ex: tubo 3/4 (20m), cabo 6mm…" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
+        <div class="campo"><label>Valor estimado do material (R$)</label><input type="text" inputmode="decimal" id="ol-valor-mat" placeholder="0,00" onblur="formatMoedaInput(this)" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;box-sizing:border-box"></div>
+        <p class="sec" style="margin:8px 0 6px;font-size:11px">FOTOS DO LOCAL</p>
+        <div class="foto-grid" id="ol-foto-grid"></div>
       </div>
     </div>
 
