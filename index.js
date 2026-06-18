@@ -302,6 +302,10 @@ function adminOnly(req, res, next) {
   if (!req.session.u || req.session.u.role !== 'admin') return res.status(403).json({ erro: 'Acesso negado' });
   next();
 }
+function adminOrTecnico(req, res, next) {
+  if (!req.session.u || !['admin','gerente','tecnico'].includes(req.session.u.role)) return res.status(403).json({ erro: 'Acesso negado' });
+  next();
+}
 function audit(req, acao, tabela, regId, antes, depois) {
   const u = req.session.u;
   db.prepare('INSERT INTO auditoria (usuario_id,usuario_nome,acao,tabela,registro_id,dados_antes,dados_depois) VALUES (?,?,?,?,?,?,?)')
@@ -1233,7 +1237,7 @@ app.put('/api/orcamentos-mat/:id', auth, (req, res) => {
   res.json({ sucesso: true });
 });
 
-app.delete('/api/orcamentos-mat/:id', auth, adminOnly, (req, res) => {
+app.delete('/api/orcamentos-mat/:id', auth, adminOrTecnico, (req, res) => {
   db.prepare('DELETE FROM orcamentos_mat_itens WHERE orcamento_id=?').run(req.params.id);
   db.prepare('DELETE FROM orcamentos_mat WHERE id=?').run(req.params.id);
   audit(req, 'REMOVER_ORCAMENTO_MAT', 'orcamentos_mat', req.params.id, null, null);
