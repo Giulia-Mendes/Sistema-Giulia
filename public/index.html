@@ -392,10 +392,21 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <div id="navg-items-comercial">
         <button onclick="irPara('dashboard', this)" id="btn-dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></button>
-        <button onclick="irPara('calendario', this)" id="btn-calendario"><span class="nav-icon">📅</span><span class="nav-label">Calendário</span></button>
-        <button onclick="irPara('visita', this)" id="btn-visita"><span class="nav-icon">🔍</span><span class="nav-label">Visitas</span></button>
         <button onclick="irPara('proposta', this)" id="btn-proposta"><span class="nav-icon">📝</span><span class="nav-label">Proposta</span></button>
         <button onclick="irPara('aprovacao', this)" id="btn-aprovacao"><span class="nav-icon">✅</span><span class="nav-label">Aprovação <span class="badge badge-amarelo" id="badge-aprovacao">0</span></span></button>
+      </div>
+    </div>
+
+    <!-- TÉCNICO -->
+    <div class="nav-grupo" id="navg-tecnico">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('tecnico')">
+        <span class="nav-grupo-label">Técnico</span>
+        <span class="nav-grupo-ico" id="navg-ico-tecnico">‹</span>
+      </div>
+      <div id="navg-items-tecnico">
+        <button onclick="irPara('calendario', this)" id="btn-calendario"><span class="nav-icon">📅</span><span class="nav-label">Calendário</span></button>
+        <button onclick="irPara('visita', this)" id="btn-visita"><span class="nav-icon">🔍</span><span class="nav-label">Visitas</span></button>
+        <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">🧾</span><span class="nav-label">Orç. Materiais</span></button>
       </div>
     </div>
 
@@ -406,7 +417,6 @@ select option { background: var(--surface); color: var(--text); }
         <span class="nav-grupo-ico" id="navg-ico-operacional">‹</span>
       </div>
       <div id="navg-items-operacional">
-        <button onclick="irPara('orcmat', this)" id="btn-orcmat"><span class="nav-icon">🧾</span><span class="nav-label">Orç. Materiais</span></button>
         <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">🛒</span><span class="nav-label">Pedidos</span></button>
         <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">🔧</span><span class="nav-label">Instalações</span></button>
         <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">🚚</span><span class="nav-label">Compras</span></button>
@@ -1711,7 +1721,7 @@ function restaurarNavGrupos() {
   });
 }
 function atualizarVisibilidadeGrupos() {
-  ['comercial','operacional','gestao','sistema'].forEach(id => {
+  ['comercial','tecnico','operacional','gestao','sistema'].forEach(id => {
     const grupo = document.getElementById('navg-' + id);
     if (!grupo) return;
     const btns = grupo.querySelectorAll('button');
