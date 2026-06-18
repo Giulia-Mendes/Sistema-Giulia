@@ -2555,12 +2555,11 @@ function calcMargem() {
     document.getElementById('res-custo').textContent = cp > 0 ? '—' : '—';
     document.getElementById('res-custo').style.color = '';
   }
-  // Margem material — subtrai taxa e imposto para mostrar só a margem real (igual ao produto)
+  // Margem material — igual ao produto: subtrai só a taxa (imposto fica no número, como no produto 30+8=38%)
   if (matProp > 0 && cm > 0) {
-    const taxaMatR    = matProp * (pag.taxa / 100);
-    const impostoMatR = matProp * ((_params.imposto_mat ?? 8) / 100);
-    const matPropEf   = pag.desc > 0 ? matProp * (1 - pag.desc / 100) : matProp;
-    const mMat = (matPropEf - cm - taxaMatR - impostoMatR) / matPropEf;
+    const taxaMatR  = matProp * (pag.taxa / 100);
+    const matPropEf = pag.desc > 0 ? matProp * (1 - pag.desc / 100) : matProp;
+    const mMat = (matPropEf - cm - taxaMatR) / matPropEf;
     document.getElementById('res-margem').textContent = (mMat * 100).toFixed(1).replace('.',',') + '%';
     document.getElementById('res-margem').style.color = mMat >= MARGEM_MIN ? 'var(--mineral-txt)' : mMat >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
   } else {
@@ -2572,14 +2571,13 @@ function calcMargem() {
   if (pagKey === 'bol_parc') { const sn = pvTotal*.3, pa = pvTotal*.7/3; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + 3x R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (30/60/90)'; }
   else if (pagKey === 'bol_desc') { const pvTotalEf = pvTotal*(1-pag.desc/100); const sn = pvTotal*.3, re = pvTotalEf*.7; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + R$ ' + re.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' na conclusão (4% desc.)'; }
   else ip.style.display = 'none';
-  // Margem combinada (produto + material)
+  // Margem combinada (produto + material) — imposto já embutido em ambos os preços
   const bar = document.getElementById('margem-bar');
   const badge = document.getElementById('margem-badge');
   if (pvTotal > 0) {
-    const pvTotalEf   = pag.desc > 0 ? pvTotal * (1 - pag.desc / 100) : pvTotal;
-    const taxaTotalR  = pvTotal * (pag.taxa / 100);
-    const impostoMatR = matProp * ((_params.imposto_mat ?? 8) / 100);
-    const mComb = (pvTotalEf - cp - cm - taxaTotalR - impostoMatR) / pvTotalEf;
+    const pvTotalEf  = pag.desc > 0 ? pvTotal * (1 - pag.desc / 100) : pvTotal;
+    const taxaTotalR = pvTotal * (pag.taxa / 100);
+    const mComb = (pvTotalEf - cp - cm - taxaTotalR) / pvTotalEf;
     const pctComb = (mComb * 100).toFixed(1).replace('.',',') + '%';
     bar.style.width = Math.min(Math.max(mComb * 100 * 2, 0), 100) + '%';
     if (mComb >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Margem combinada boa (' + pctComb + ')'; }
@@ -5055,18 +5053,16 @@ function _calcMargensRecord(a) {
   const cm         = a.custo_mat  || 0;
   const matProp    = a.mat_prop   || 0;
   const taxa       = _taxaFromPagLabel(a.pag || '');
-  const impostoMat = _params.imposto_mat ?? 8;
-  // Margem produto: exclui material, desconta taxa sobre receita de produto
+  // Margem produto — exclui material, desconta só taxa (imposto fica no número, como produto 30+8=38%)
   const pvProd = valor - matProp;
   const taxaR  = pvProd * (taxa / 100);
   const mProd  = pvProd > 0 ? (pvProd - cp - taxaR) / pvProd : null;
-  // Margem material: desconta taxa e imposto sobre receita de material
-  const taxaMatR    = matProp * (taxa / 100);
-  const impostoMatR = matProp * (impostoMat / 100);
-  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR - impostoMatR) / matProp : null;
-  // Margem combinada: total
+  // Margem material — desconta só taxa (imposto embutido no preço, igual ao produto)
+  const taxaMatR = matProp * (taxa / 100);
+  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR) / matProp : null;
+  // Margem combinada — imposto já embutido em ambos os preços
   const taxaTotalR = valor * (taxa / 100);
-  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR - impostoMatR) / valor : null;
+  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR) / valor : null;
   return { mProd, mMat, mComb };
 }
 function abrirEditFech(id) {
@@ -5133,19 +5129,17 @@ function calcPreviewFech() {
   const cp      = parseMoeda(document.getElementById('efech-custo-prod')?.value) || 0;
   const cm      = parseMoeda(document.getElementById('efech-custo-mat')?.value) || 0;
   const matProp = parseMoeda(document.getElementById('efech-mat-prop')?.value) || 0;
-  const impostoMat = _params.imposto_mat ?? 8;
-  // Margem produto
+  // Margem produto — desconta só taxa (imposto fica no número exibido, igual a 30+8=38%)
   const pvProd  = valor - matProp;
   const taxaR   = pvProd * (taxa / 100);
   const ctProd  = cp + taxaR;
-  const mProd   = pvProd > 0 && cp >= 0 ? (pvProd - ctProd) / pvProd : null;
-  // Margem material
-  const taxaMatR    = matProp * (taxa / 100);
-  const impostoMatR = matProp * (impostoMat / 100);
-  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR - impostoMatR) / matProp : null;
-  // Margem combinada
+  const mProd   = pvProd > 0 ? (pvProd - ctProd) / pvProd : null;
+  // Margem material — desconta só taxa (imposto embutido no preço, igual ao produto)
+  const taxaMatR = matProp * (taxa / 100);
+  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR) / matProp : null;
+  // Margem combinada — imposto já embutido em ambos os preços
   const taxaTotalR = valor * (taxa / 100);
-  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR - impostoMatR) / valor : null;
+  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR) / valor : null;
   const lucro  = valor - cp - cm - taxaTotalR;
   const fmtR = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
