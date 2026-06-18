@@ -1081,11 +1081,19 @@ select option { background: var(--surface); color: var(--text); }
     <!-- MATERIAL -->
     <div style="background:var(--surface2);border-radius:10px;padding:16px 18px;margin-bottom:24px">
       <p style="font-size:13px;font-weight:700;color:var(--text2);margin:0 0 14px;text-transform:uppercase;letter-spacing:.5px">🔩 Material</p>
-      <div class="campo" style="max-width:240px">
-        <label>Imposto (%)</label>
-        <input type="number" id="param-imposto-mat" min="0" max="99" step="0.1" placeholder="Ex: 8"
-          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
-        <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Acréscimo sobre o custo do material (além da taxa do cartão)</span>
+      <div class="g2" style="gap:12px">
+        <div class="campo">
+          <label>Margem desejada (%)</label>
+          <input type="number" id="param-margem-mat" min="0" max="99" step="0.1" placeholder="Ex: 20"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Lucro mínimo sobre o preço repassado ao cliente</span>
+        </div>
+        <div class="campo">
+          <label>Imposto (%)</label>
+          <input type="number" id="param-imposto-mat" min="0" max="99" step="0.1" placeholder="Ex: 8"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px;box-sizing:border-box">
+          <span style="font-size:11px;color:var(--text2);margin-top:3px;display:block">Acréscimo sobre o custo do material (além da taxa do cartão)</span>
+        </div>
       </div>
       <div id="param-preview-mat" style="margin-top:12px;padding:10px 12px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.7"></div>
     </div>
@@ -1406,7 +1414,7 @@ select option { background: var(--surface); color: var(--text); }
 // ═══ DADOS ═══
 let MARGEM_MIN = 0.38; // atualizado dinamicamente pelos parâmetros
 // Parâmetros globais de proposta (carregados da API)
-let _params = { margem_prod: 38, imposto_prod: 0, imposto_mat: 8 };
+let _params = { margem_prod: 38, imposto_prod: 0, margem_mat: 0, imposto_mat: 8 };
 let propModoEdit = false;
 let visitas = [];
 let aprovacoes = [];
@@ -2512,15 +2520,17 @@ function renderPropAnexos() {
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Material: acréscimo direto de (taxa do cartão + imposto_mat) sobre o custo
+    // Material: acréscimo de (taxa do cartão + margem_mat + imposto_mat) sobre o custo
     const pag = getPag();
     const taxa = pag ? pag.taxa : 0;
+    const margemMat  = _params.margem_mat  ?? 0;
     const impostoMat = _params.imposto_mat ?? 8;
-    const preco = cm * (1 + (taxa + impostoMat) / 100);
+    const preco = cm * (1 + (taxa + margemMat + impostoMat) / 100);
     document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     // Atualiza label dinâmico
     const lbl = document.getElementById('label-custo-mat');
-    if (lbl) lbl.textContent = '(taxa + ' + impostoMat + '%)';
+    const extras = [margemMat > 0 ? 'margem ' + margemMat + '%' : '', impostoMat > 0 ? 'imposto ' + impostoMat + '%' : ''].filter(Boolean).join(' + ');
+    if (lbl) lbl.textContent = extras ? '(taxa + ' + extras + ')' : '(taxa)';
   } else {
     document.getElementById('p-mat-prop').value = '';
   }
@@ -5613,51 +5623,58 @@ async function carregarParametros() {
   try {
     const r = await fetch('/api/parametros');
     const data = await r.json();
-    _params = { margem_prod: 38, imposto_prod: 0, imposto_mat: 8, ...data };
+    _params = { margem_prod: 38, imposto_prod: 0, margem_mat: 0, imposto_mat: 8, ...data };
     // Atualiza campo oculto de compatibilidade (usado por calcPrecoFromCusto via _params)
     const el = document.getElementById('p-margem-desejada');
     if (el) el.value = _params.margem_prod;
     MARGEM_MIN = (_params.margem_prod || 38) / 100;
     // Atualiza label do custo mat
     const lbl = document.getElementById('label-custo-mat');
-    if (lbl) lbl.textContent = '(taxa + ' + (_params.imposto_mat ?? 8) + '%)';
+    const _mm = _params.margem_mat ?? 0, _im = _params.imposto_mat ?? 8;
+    const _extras = [_mm > 0 ? 'margem ' + _mm + '%' : '', _im > 0 ? 'imposto ' + _im + '%' : ''].filter(Boolean).join(' + ');
+    if (lbl) lbl.textContent = _extras ? '(taxa + ' + _extras + ')' : '(taxa)';
   } catch(e) {}
 }
 function initParametros() {
   document.getElementById('param-margem-prod').value  = _params.margem_prod ?? 38;
   document.getElementById('param-imposto-prod').value = _params.imposto_prod ?? 0;
+  document.getElementById('param-margem-mat').value   = _params.margem_mat  ?? 0;
   document.getElementById('param-imposto-mat').value  = _params.imposto_mat  ?? 8;
   atualizarPreviewParams();
   document.getElementById('param-margem-prod').oninput  = atualizarPreviewParams;
   document.getElementById('param-imposto-prod').oninput = atualizarPreviewParams;
+  document.getElementById('param-margem-mat').oninput   = atualizarPreviewParams;
   document.getElementById('param-imposto-mat').oninput  = atualizarPreviewParams;
 }
 function atualizarPreviewParams() {
   const m  = parseFloat(document.getElementById('param-margem-prod').value) || 0;
   const ip = parseFloat(document.getElementById('param-imposto-prod').value) || 0;
+  const mm = parseFloat(document.getElementById('param-margem-mat').value)  || 0;
   const im = parseFloat(document.getElementById('param-imposto-mat').value)  || 0;
   const taxa = 8.49; // Cartão 10x como exemplo
+  const fmtR2 = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
   // Produto: preço = custo / (1 - taxa% - margem% - imposto%)
   const descProd = (taxa + m + ip) / 100;
   const ex_custo_prod = 1000;
   const ex_preco_prod = descProd < 1 ? (ex_custo_prod / (1 - descProd)).toFixed(2) : '—';
-  const fmtR = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById('param-preview-prod').innerHTML =
     '<strong>Exemplo</strong> (Cartão 10x · custo R$ 1.000,00):<br>' +
     '↳ Taxa cartão: <strong>' + taxa + '%</strong> + Margem: <strong>' + m + '%</strong> + Imposto: <strong>' + ip + '%</strong> = desconto total <strong>' + (taxa+m+ip).toFixed(2) + '%</strong><br>' +
-    '↳ Preço de venda calculado: <strong>' + (ex_preco_prod !== '—' ? fmtR(ex_preco_prod) : '—') + '</strong>';
-  // Material: preço = custo × (1 + taxa% + imposto%)
+    '↳ Preço de venda calculado: <strong>' + (ex_preco_prod !== '—' ? fmtR2(ex_preco_prod) : '—') + '</strong>';
+  // Material: preço = custo × (1 + taxa% + margem% + imposto%)
   const ex_custo_mat = 500;
-  const ex_preco_mat = ex_custo_mat * (1 + (taxa + im) / 100);
+  const acrescMat = taxa + mm + im;
+  const ex_preco_mat = ex_custo_mat * (1 + acrescMat / 100);
   document.getElementById('param-preview-mat').innerHTML =
     '<strong>Exemplo</strong> (Cartão 10x · custo R$ 500,00):<br>' +
-    '↳ Taxa cartão: <strong>' + taxa + '%</strong> + Imposto: <strong>' + im + '%</strong> = acréscimo total <strong>' + (taxa+im).toFixed(2) + '%</strong><br>' +
-    '↳ Preço repassado ao cliente: <strong>' + fmtR(ex_preco_mat) + '</strong>';
+    '↳ Taxa cartão: <strong>' + taxa + '%</strong> + Margem: <strong>' + mm + '%</strong> + Imposto: <strong>' + im + '%</strong> = acréscimo total <strong>' + acrescMat.toFixed(2) + '%</strong><br>' +
+    '↳ Preço repassado ao cliente: <strong>' + fmtR2(ex_preco_mat) + '</strong>';
 }
 async function salvarParametros() {
   const data = {
     margem_prod:  parseFloat(document.getElementById('param-margem-prod').value)  || 0,
     imposto_prod: parseFloat(document.getElementById('param-imposto-prod').value) || 0,
+    margem_mat:   parseFloat(document.getElementById('param-margem-mat').value)   || 0,
     imposto_mat:  parseFloat(document.getElementById('param-imposto-mat').value)  || 0,
   };
   const msg = document.getElementById('param-msg');
@@ -5670,7 +5687,8 @@ async function salvarParametros() {
     const el = document.getElementById('p-margem-desejada');
     if (el) el.value = data.margem_prod;
     const lbl = document.getElementById('label-custo-mat');
-    if (lbl) lbl.textContent = '(taxa + ' + data.imposto_mat + '%)';
+    const _e2 = [data.margem_mat > 0 ? 'margem ' + data.margem_mat + '%' : '', data.imposto_mat > 0 ? 'imposto ' + data.imposto_mat + '%' : ''].filter(Boolean).join(' + ');
+    if (lbl) lbl.textContent = _e2 ? '(taxa + ' + _e2 + ')' : '(taxa)';
     msg.style.cssText = 'display:inline;color:var(--mineral-txt);font-weight:600';
     msg.textContent = '✓ Parâmetros salvos!';
     setTimeout(() => { msg.style.display = 'none'; }, 3000);
