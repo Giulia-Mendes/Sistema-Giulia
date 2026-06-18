@@ -1206,11 +1206,11 @@ app.get('/api/orcamentos-mat', auth, (req, res) => {
 });
 
 app.post('/api/orcamentos-mat', auth, (req, res) => {
-  const { cliente, visita_id, obs, itens, laudo } = req.body;
+  const { cliente, visita_id, obs, status, itens, laudo } = req.body;
   if (!cliente || !cliente.trim()) return res.status(400).json({ erro: 'Cliente obrigatório.' });
   const criado_por = req.session.usuario?.nome || null;
   const valor_total = (itens || []).reduce((s, i) => s + (i.preco_total || 0), 0);
-  const r = db.prepare('INSERT INTO orcamentos_mat (cliente,visita_id,obs,valor_total,criado_por,laudo) VALUES (?,?,?,?,?,?)').run(cliente.trim(), visita_id || null, obs || null, valor_total, criado_por, laudo ? JSON.stringify(laudo) : null);
+  const r = db.prepare('INSERT INTO orcamentos_mat (cliente,visita_id,obs,status,valor_total,criado_por,laudo) VALUES (?,?,?,?,?,?,?)').run(cliente.trim(), visita_id || null, obs || null, status || 'rascunho', valor_total, criado_por, laudo ? JSON.stringify(laudo) : null);
   const id = r.lastInsertRowid;
   const ins = db.prepare('INSERT INTO orcamentos_mat_itens (orcamento_id,sku,nome,unidade,quantidade,preco_unit,preco_total,obs,estoque_tiny,ordem) VALUES (?,?,?,?,?,?,?,?,?,?)');
   (itens || []).forEach((item, idx) => ins.run(id, item.sku || null, item.nome, item.unidade || 'UN', item.quantidade || 1, item.preco_unit || 0, item.preco_total || 0, item.obs || null, item.estoque_tiny || null, idx));
