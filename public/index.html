@@ -2643,13 +2643,10 @@ function renderAprovacao() {
   document.getElementById('ap-ok').textContent = aprov.length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   // Aprovadas: valor total, margem combinada ponderada, ticket médio
-  // Margem combinada exclui material (igual à lógica da proposta)
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
-  // Margem combinada: média ponderada do a.margem de cada proposta (já inclui taxa do cartão)
-  // Peso = receita de produto (valor - mat_prop) de cada aprovação
-  const totalValorProd = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
-  const totalLucro     = aprov.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)) * (a.margem||0), 0);
-  const margemCombinada = totalValorProd > 0 ? totalLucro / totalValorProd : null;
+  // Margem combinada: média ponderada por valor total (produto + material)
+  const totalLucroComb = aprov.reduce((s,a) => { const { mComb } = _calcMargensRecord(a); return s + (a.valor||0) * (mComb||0); }, 0);
+  const margemCombinada = totalValorAprov > 0 ? totalLucroComb / totalValorAprov : null;
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
   const elValorAprov = document.getElementById('ap-valor-aprov');
   const elMargem = document.getElementById('ap-margem-aprov');
@@ -2678,8 +2675,11 @@ function renderAprovacao() {
   if (!aprovFiltradas.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">' + (qA ? 'Nenhum resultado.' : 'Nenhuma proposta.') + '</p>'; return; }
   lista.innerHTML = aprovFiltradas.map(a => {
     const isExp = expandidoAprov === a.id;
-    const pct = (a.margem * 100).toFixed(1).replace('.',',') + '%';
-    const mcls = a.margem >= MARGEM_MIN ? 'badge-verde' : a.margem >= 0.28 ? 'badge-amarelo' : 'badge-vermelho';
+    const { mProd: _mP, mMat: _mM, mComb: _mC } = _calcMargensRecord(a);
+    const _fp = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
+    const _clr = m => m === null ? 'var(--text2)' : m >= MARGEM_MIN ? 'var(--mineral-txt)' : m >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
+    const _bcls = m => m === null ? 'badge-amarelo' : m >= MARGEM_MIN ? 'badge-verde' : m >= 0.28 ? 'badge-amarelo' : 'badge-vermelho';
+    const pct = _fp(_mC); const mcls = _bcls(_mC);
     const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : a.status === 'objecao' ? 'badge-teal' : 'badge-vermelho';
     const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : a.status === 'objecao' ? 'Objeção temp.' : 'Rejeitada';
     let bodyHtml = '';
@@ -2716,8 +2716,13 @@ function renderAprovacao() {
       '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="badge ' + scls + '">' + slabel + '</span><span style="font-size:12px;color:#888780">' + a.vendedora + ' · ' + a.pag + '</span></div>' +
       '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + a.cliente + '</p>' +
       '<p style="font-size:13px;color:#888780;margin:0">' + a.equip + '</p></div>' +
-      '<div style="text-align:right;flex-shrink:0"><p style="font-size:16px;font-weight:500;margin:0 0 3px">R$ ' + a.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
-      '<span class="badge ' + mcls + '">Margem ' + pct + '</span></div>' +
+      '<div style="text-align:right;flex-shrink:0">' +
+      '<p style="font-size:16px;font-weight:500;margin:0 0 4px">R$ ' + a.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
+      '<span class="badge ' + mcls + '">Comb ' + pct + '</span>' +
+      '<p style="font-size:11px;color:var(--text2);margin:4px 0 0;line-height:1.6">' +
+        'Prod <strong style="color:' + _clr(_mP) + '">' + _fp(_mP) + '</strong>' +
+        (_mM !== null ? ' · Mat <strong style="color:' + _clr(_mM) + '">' + _fp(_mM) + '</strong>' : '') +
+      '</p></div>' +
       '</div>' + bodyHtml + '</div>';
   }).join('');
 }
@@ -4977,10 +4982,10 @@ function renderFechamentos() {
   const totalMat   = lista.reduce((s,a) => s + (a.custo_mat || 0), 0); // custo material
   const totalCustoReal = lista.reduce((s,a) => s + (a.custo || 0), 0); // custo total (equip+mat+taxa)
   const lucro      = totalFat - totalCustoReal;
-  // Margem combinada: média ponderada por receita de produto (igual ao card)
-  const _totalVProd = lista.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)), 0);
-  const _totalLucro = lista.reduce((s,a) => s + ((a.valor||0) - (a.mat_prop||0)) * (a.margem||0), 0);
-  const margem = _totalVProd > 0 ? _totalLucro / _totalVProd : null;
+  // Margem combinada: média ponderada por valor total (produto + material)
+  const _totalValFech = lista.reduce((s,a) => s + (a.valor||0), 0);
+  const _totalLucro   = lista.reduce((s,a) => { const { mComb } = _calcMargensRecord(a); return s + (a.valor||0) * (mComb||0); }, 0);
+  const margem = _totalValFech > 0 ? _totalLucro / _totalValFech : null;
   const ticket     = lista.length > 0 ? totalFat / lista.length : 0;
   const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -5008,10 +5013,11 @@ function renderFechamentos() {
     const custoEquip = a.custo_prod || 0;
     const custoMat   = a.custo_mat  || 0;
     const matProp    = a.mat_prop   || 0;
-    // Usa a.margem salva (já considera taxa do cartão + custo prod)
-    const margemA = a.margem != null ? a.margem * 100 : null;
-    const margemPct = margemA !== null ? margemA.toFixed(1).replace('.',',') : null;
-    const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
+    // Calcula as três margens a partir dos campos armazenados
+    const { mProd: _fmP, mMat: _fmM, mComb: _fmC } = _calcMargensRecord(a);
+    const _ffp = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
+    const _fclr = m => m === null ? 'var(--text2)' : m >= 0.35 ? 'var(--mineral-txt)' : m >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
+    const margemCor = _fclr(_fmC);
     const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
     return '<div class="card" style="margin-bottom:8px;padding:14px 16px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
@@ -5027,7 +5033,8 @@ function renderFechamentos() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
           '<p style="font-size:17px;font-weight:700;margin:0 0 4px">' + fmtR(a.valor) + '</p>' +
-          (margemPct !== null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + margemPct + '% margem</p>' : '') +
+          (_fmC !== null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + _ffp(_fmC) + ' combinada</p>' : '') +
+          (_fmC !== null ? '<p style="font-size:11px;color:var(--text2);margin:3px 0 0;line-height:1.6">Prod <strong style="color:' + _fclr(_fmP) + '">' + _ffp(_fmP) + '</strong>' + (_fmM !== null ? ' · Mat <strong style="color:' + _fclr(_fmM) + '">' + _ffp(_fmM) + '</strong>' : '') + '</p>' : '') +
           '<button onclick="abrirEditFech(' + a.id + ')" style="margin-top:4px;font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2)">✏️ Editar</button>' +
         '</div>' +
       '</div>' +
@@ -5040,6 +5047,27 @@ function _taxaFromPagLabel(label) {
   // Busca a taxa pelo label salvo na aprovação (ex: "Cartão 10x" → 8.49)
   const found = Object.values(TAXAS).find(t => t.label === label);
   return found ? found.taxa : 0;
+}
+// Calcula as três margens (produto, material, combinada) a partir dos campos salvos de uma aprovação
+function _calcMargensRecord(a) {
+  const valor      = a.valor      || 0;
+  const cp         = a.custo_prod || 0;
+  const cm         = a.custo_mat  || 0;
+  const matProp    = a.mat_prop   || 0;
+  const taxa       = _taxaFromPagLabel(a.pag || '');
+  const impostoMat = _params.imposto_mat ?? 8;
+  // Margem produto: exclui material, desconta taxa sobre receita de produto
+  const pvProd = valor - matProp;
+  const taxaR  = pvProd * (taxa / 100);
+  const mProd  = pvProd > 0 ? (pvProd - cp - taxaR) / pvProd : null;
+  // Margem material: desconta taxa e imposto sobre receita de material
+  const taxaMatR    = matProp * (taxa / 100);
+  const impostoMatR = matProp * (impostoMat / 100);
+  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR - impostoMatR) / matProp : null;
+  // Margem combinada: total
+  const taxaTotalR = valor * (taxa / 100);
+  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR - impostoMatR) / valor : null;
+  return { mProd, mMat, mComb };
 }
 function abrirEditFech(id) {
   const a = aprovacoes.find(x => x.id === id);
@@ -5105,18 +5133,30 @@ function calcPreviewFech() {
   const cp      = parseMoeda(document.getElementById('efech-custo-prod')?.value) || 0;
   const cm      = parseMoeda(document.getElementById('efech-custo-mat')?.value) || 0;
   const matProp = parseMoeda(document.getElementById('efech-mat-prop')?.value) || 0;
-  const pvProd  = valor - matProp;                      // receita só de produto
-  const taxaR   = pvProd * (taxa / 100);                // taxa sobre receita produto
-  const ctProd  = cp + taxaR;                           // custo produto + taxa
-  const margem  = pvProd > 0 && cp > 0 ? ((pvProd - ctProd) / pvProd * 100) : null;
-  const lucro   = valor - cp - cm - (valor * taxa / 100);
+  const impostoMat = _params.imposto_mat ?? 8;
+  // Margem produto
+  const pvProd  = valor - matProp;
+  const taxaR   = pvProd * (taxa / 100);
+  const ctProd  = cp + taxaR;
+  const mProd   = pvProd > 0 && cp >= 0 ? (pvProd - ctProd) / pvProd : null;
+  // Margem material
+  const taxaMatR    = matProp * (taxa / 100);
+  const impostoMatR = matProp * (impostoMat / 100);
+  const mMat = matProp > 0 && cm > 0 ? (matProp - cm - taxaMatR - impostoMatR) / matProp : null;
+  // Margem combinada
+  const taxaTotalR = valor * (taxa / 100);
+  const mComb = valor > 0 ? (valor - cp - cm - taxaTotalR - impostoMatR) / valor : null;
+  const lucro  = valor - cp - cm - taxaTotalR;
   const fmtR = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtPct = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
+  const clr = m => m === null ? 'var(--text2)' : m >= 0.35 ? 'var(--mineral-txt)' : m >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
   const el = document.getElementById('efech-preview');
   if (!el) return;
-  const cor = margem >= 35 ? 'var(--mineral-txt)' : margem >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
   el.innerHTML =
-    '<span style="color:var(--text2)">Margem produto: </span><strong style="color:' + cor + '">' + (margem !== null ? margem.toFixed(1).replace('.',',') + '%' : '—') + '</strong><br>' +
-    '<span style="color:var(--text2)">Taxa cartão sobre venda: </span><strong>' + fmtR(valor * taxa / 100) + '</strong><br>' +
+    '<span style="color:var(--text2)">Margem produto: </span><strong style="color:' + clr(mProd) + '">' + fmtPct(mProd) + '</strong><br>' +
+    (mMat !== null ? '<span style="color:var(--text2)">Margem material: </span><strong style="color:' + clr(mMat) + '">' + fmtPct(mMat) + '</strong><br>' : '') +
+    (mComb !== null ? '<span style="color:var(--text2)">Margem combinada: </span><strong style="color:' + clr(mComb) + '">' + fmtPct(mComb) + '</strong><br>' : '') +
+    '<span style="color:var(--text2)">Taxa cartão sobre venda: </span><strong>' + fmtR(taxaTotalR) + '</strong><br>' +
     '<span style="color:var(--text2)">Lucro estimado: </span><strong>' + fmtR(lucro) + '</strong>';
 }
 function fecharEditFech() {
