@@ -2449,13 +2449,13 @@ function calcMargem() {
   else if (pagKey === 'bol_desc') { const sn = pv*.3, re = pvEf*.7; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + R$ ' + re.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' na conclusão (4% desc.)'; }
   else ip.style.display = 'none';
   if (pv > 0) {
-    const m = (pvEf - ct) / pvEf; const pct = Math.round(m * 100);
-    document.getElementById('res-margem').textContent = pct + '%';
+    const m = (pvEf - ct) / pvEf; const pct = m * 100; const pctFmt = pct.toFixed(1).replace('.',',') + '%';
+    document.getElementById('res-margem').textContent = pctFmt;
     const bar = document.getElementById('margem-bar'); bar.style.width = Math.min(pct*2, 100) + '%';
     const badge = document.getElementById('margem-badge');
-    if (m >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt)'; badge.textContent = 'Margem boa (' + pct + '%)'; }
-    else if (m >= 0.28) { bar.style.background = 'var(--accent)'; badge.style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt)'; badge.textContent = 'Margem baixa (' + pct + '%) — verifique'; }
-    else { bar.style.background = 'var(--terra)'; badge.style.cssText = 'background:var(--terra-bg);color:var(--terra-txt)'; badge.textContent = 'Margem insuficiente (' + pct + '%) — revisar'; }
+    if (m >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt)'; badge.textContent = 'Margem boa (' + pctFmt + ')'; }
+    else if (m >= 0.28) { bar.style.background = 'var(--accent)'; badge.style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt)'; badge.textContent = 'Margem baixa (' + pctFmt + ') — verifique'; }
+    else { bar.style.background = 'var(--terra)'; badge.style.cssText = 'background:var(--terra-bg);color:var(--terra-txt)'; badge.textContent = 'Margem insuficiente (' + pctFmt + ') — revisar'; }
   } else {
     document.getElementById('res-margem').textContent = '—'; document.getElementById('margem-bar').style.width = '0%';
     document.getElementById('margem-badge').style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt)'; document.getElementById('margem-badge').textContent = 'Preencha os valores';
@@ -2549,7 +2549,7 @@ function renderAprovacao() {
   if (!aprovFiltradas.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">' + (qA ? 'Nenhum resultado.' : 'Nenhuma proposta.') + '</p>'; return; }
   lista.innerHTML = aprovFiltradas.map(a => {
     const isExp = expandidoAprov === a.id;
-    const pct = Math.round(a.margem * 100);
+    const pct = (a.margem * 100).toFixed(1).replace('.',',') + '%';
     const mcls = a.margem >= MARGEM_MIN ? 'badge-verde' : a.margem >= 0.28 ? 'badge-amarelo' : 'badge-vermelho';
     const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : a.status === 'objecao' ? 'badge-teal' : 'badge-vermelho';
     const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : a.status === 'objecao' ? 'Objeção temp.' : 'Rejeitada';
@@ -2588,7 +2588,7 @@ function renderAprovacao() {
       '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + a.cliente + '</p>' +
       '<p style="font-size:13px;color:#888780;margin:0">' + a.equip + '</p></div>' +
       '<div style="text-align:right;flex-shrink:0"><p style="font-size:16px;font-weight:500;margin:0 0 3px">R$ ' + a.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
-      '<span class="badge ' + mcls + '">Margem ' + pct + '%</span></div>' +
+      '<span class="badge ' + mcls + '">Margem ' + pct + '</span></div>' +
       '</div>' + bodyHtml + '</div>';
   }).join('');
 }
@@ -2750,10 +2750,10 @@ function calcMargemAprov() {
   const info = document.getElementById('ea-margem-info');
   if (pv > 0) {
     const m = (pv - ct) / pv;
-    const pct = Math.round(m * 100);
+    const pct = (m * 100).toFixed(1).replace('.',',') + '%';
     const cor = m >= MARGEM_MIN ? 'var(--mineral-txt)' : m >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
     info.style.color = cor;
-    info.textContent = 'Margem: ' + pct + '%' + (m >= MARGEM_MIN ? ' ✓ Boa' : m >= 0.28 ? ' ⚠️ Baixa' : ' ✕ Insuficiente');
+    info.textContent = 'Margem: ' + pct + (m >= MARGEM_MIN ? ' ✓ Boa' : m >= 0.28 ? ' ⚠️ Baixa' : ' ✕ Insuficiente');
   } else {
     info.style.color = '#888780';
     info.textContent = 'Preencha os valores para calcular a margem.';
@@ -4641,7 +4641,7 @@ function renderFechamentos() {
     const matProp    = a.mat_prop   || 0;
     // Usa a.margem salva (já considera taxa do cartão + custo prod)
     const margemA = a.margem != null ? a.margem * 100 : null;
-    const margemPct = margemA !== null ? margemA.toFixed(0) : null;
+    const margemPct = margemA !== null ? margemA.toFixed(1).replace('.',',') : null;
     const margemCor = margemA >= 35 ? 'var(--mineral-txt)' : margemA >= 25 ? 'var(--bronze-txt)' : 'var(--terra)';
     const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
     return '<div class="card" style="margin-bottom:8px;padding:14px 16px">' +
