@@ -5489,7 +5489,15 @@ function orcmatEditarOrcamento(id) {
     }
     linha.querySelector('.orcmat-un').value = item.unidade || 'UN';
     linha.querySelector('.orcmat-qtd').value = item.quantidade || 1;
-    setMoedaInput_el(linha.querySelector('.orcmat-preco'), item.preco_unit || 0);
+    const precoElEdit = linha.querySelector('.orcmat-preco');
+    setMoedaInput_el(precoElEdit, item.preco_unit || 0);
+    // Se tem SKU (veio do catálogo/Tiny), trava o preço
+    if (!livre && item.sku) {
+      precoElEdit.readOnly = true;
+      precoElEdit.style.background = 'var(--surface2)';
+      precoElEdit.style.color = 'var(--text2)';
+      precoElEdit.title = 'Preço definido pelo catálogo';
+    }
     linha.querySelector('.orcmat-obs-item').value = item.obs || '';
     if (item.estoque_tiny) {
       const el = linha.querySelector('.orcmat-estoque');
@@ -5646,7 +5654,15 @@ function orcmatSelecionarMaterial(idx) {
   linha.querySelector('.orcmat-sku-display').textContent = m.sku || '';
   linha.dataset.sku = m.sku || '';
   linha.querySelector('.orcmat-un').value = m.unidade || 'UN';
-  if (m.preco > 0) setMoedaInput_el(linha.querySelector('.orcmat-preco'), m.preco);
+  // Preço fixo do catálogo/Tiny — campo somente leitura
+  const precoEl = linha.querySelector('.orcmat-preco');
+  if (precoEl) {
+    setMoedaInput_el(precoEl, m.preco || 0);
+    precoEl.readOnly = true;
+    precoEl.style.background = 'var(--surface2)';
+    precoEl.style.color = 'var(--text2)';
+    precoEl.title = 'Preço definido pelo catálogo';
+  }
   if (m.estoque != null) {
     const el = linha.querySelector('.orcmat-estoque');
     if (el) { el.textContent = m.estoque; el.style.color = parseFloat(m.estoque) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
