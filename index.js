@@ -1048,4 +1048,25 @@ app.get('/api/tiny/pedidos', auth, (req, res) => {
 });
 
 
+// ── TRATADOR DE ERROS GLOBAL ──
+// Captura "request aborted" (cliente fechou a aba no meio de um upload/save)
+// sem deixar o servidor derrubar.
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'request.aborted' || err.message === 'request aborted' || err.status === 400)) {
+    console.warn('[warn] Requisição abortada pelo cliente:', req.method, req.url);
+    if (!res.headersSent) res.status(400).end();
+    return;
+  }
+  console.error('[erro]', err);
+  if (!res.headersSent) res.status(500).json({ erro: 'Erro interno do servidor.' });
+});
+
+// Evita que erros não capturados derrubem o processo
+process.on('uncaughtException', err => {
+  console.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 app.listen(PORT, () => console.log('Capellato rodando na porta', PORT));
