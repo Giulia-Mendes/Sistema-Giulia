@@ -3987,9 +3987,9 @@ function aplicarRole(role) {
     const btn = document.getElementById('btn-' + p);
     if (btn) btn.style.display = pages.includes(p) ? '' : 'none';
   });
-  // Botão de catálogo: só admin/gerente
+  // Botão de catálogo: visível para todos
   const btnCat = document.getElementById('btn-catalogo-mat');
-  if (btnCat) btnCat.style.display = (role === 'admin' || role === 'gerente') ? '' : 'none';
+  if (btnCat) btnCat.style.display = '';
 }
 
 // ═══ VENDEDORAS DINÂMICAS ═══
@@ -5634,7 +5634,7 @@ function orcmatSelecionarMaterial(idx) {
     if (el) { el.textContent = m.estoque; el.style.color = parseFloat(m.estoque) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
   }
   _orcmatAtualizarLinha(linha);
-  fecharModal('modal-busca-mat');
+  document.getElementById('modal-busca-mat').style.display = 'none';
   linha.querySelector('.orcmat-qtd')?.focus();
 }
 
@@ -5736,7 +5736,7 @@ function orcmatVerOrcamento(id) {
 }
 
 function orcmatEditarDaView() {
-  fecharModal('modal-orcmat-view');
+  document.getElementById('modal-orcmat-view').style.display = 'none';
   if (_orcmatViewId) orcmatEditarOrcamento(_orcmatViewId);
 }
 
@@ -5747,7 +5747,7 @@ async function orcmatMarcarEnviado() {
   await fetch('/api/orcamentos-mat/' + _orcmatViewId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ...o, status: 'enviado' }) });
   await carregarOrcamentos();
   renderOrcamentos();
-  fecharModal('modal-orcmat-view');
+  document.getElementById('modal-orcmat-view').style.display = 'none';
 }
 
 function orcmatImprimir(tipo) {
@@ -5854,7 +5854,7 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
       <h2 style="font-size:18px;font-weight:700;margin:0">📦 Orçamentos de Materiais</h2>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-branco" onclick="abrirCatalogo()" id="btn-catalogo-mat" style="font-size:13px;display:none">📋 Catálogo</button>
+        <button class="btn btn-branco" onclick="abrirCatalogo()" id="btn-catalogo-mat" style="font-size:13px">📋 Catálogo</button>
         <button class="btn" onclick="orcmatNovoOrcamento()">+ Novo Orçamento</button>
       </div>
     </div>
@@ -5942,14 +5942,14 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 </div>
 
 <!-- MODAL VISUALIZAÇÃO / IMPRESSÃO DO ORÇAMENTO -->
-<div class="modal-bg" id="modal-orcmat-view" style="display:none" onclick="if(event.target===this)fecharModal('modal-orcmat-view')">
+<div class="modal-bg" id="modal-orcmat-view" style="display:none" onclick="if(event.target===this)document.getElementById('modal-orcmat-view').style.display='none'">
   <div class="modal" style="max-width:680px;width:95%">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h3 style="margin:0;font-size:16px" id="orcmat-view-titulo">Orçamento de Materiais</h3>
       <div style="display:flex;gap:8px">
         <button class="btn btn-branco" onclick="orcmatImprimir('interno')" style="font-size:12px">🖨 Interno</button>
         <button class="btn" onclick="orcmatImprimir('cliente')" style="font-size:12px">📄 Versão cliente</button>
-        <button class="btn btn-branco" onclick="fecharModal('modal-orcmat-view')" style="padding:6px 10px">✕</button>
+        <button class="btn btn-branco" onclick="document.getElementById('modal-orcmat-view').style.display='none'" style="padding:6px 10px">✕</button>
       </div>
     </div>
     <div id="orcmat-view-corpo" style="max-height:65vh;overflow-y:auto"></div>
@@ -5961,11 +5961,11 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 </div>
 
 <!-- MODAL CATALOGO DE MATERIAIS (admin) -->
-<div class="modal-bg" id="modal-catalogo-mat" style="display:none" onclick="if(event.target===this)fecharModal('modal-catalogo-mat')">
+<div class="modal-bg" id="modal-catalogo-mat" style="display:none" onclick="if(event.target===this)document.getElementById('modal-catalogo-mat').style.display='none'">
   <div class="modal" style="max-width:600px;width:95%">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h3 style="margin:0;font-size:16px">📋 Catálogo de Materiais</h3>
-      <button class="btn btn-branco" onclick="fecharModal('modal-catalogo-mat')" style="padding:6px 10px">✕</button>
+      <button class="btn btn-branco" onclick="document.getElementById('modal-catalogo-mat').style.display='none'" style="padding:6px 10px">✕</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <input type="text" id="cat-novo-sku" placeholder="SKU" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
@@ -5979,11 +5979,11 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 </div>
 
 <!-- MODAL BUSCA DE MATERIAL (autocomplete) -->
-<div class="modal-bg" id="modal-busca-mat" style="display:none" onclick="if(event.target===this)fecharModal('modal-busca-mat')">
+<div class="modal-bg" id="modal-busca-mat" style="display:none" onclick="if(event.target===this)document.getElementById('modal-busca-mat').style.display='none'">
   <div class="modal" style="max-width:520px;width:95%">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <h3 style="margin:0;font-size:15px">🔍 Buscar material</h3>
-      <button class="btn btn-branco" onclick="fecharModal('modal-busca-mat')" style="padding:6px 10px">✕</button>
+      <button class="btn btn-branco" onclick="document.getElementById('modal-busca-mat').style.display='none'" style="padding:6px 10px">✕</button>
     </div>
     <input type="text" id="modal-busca-mat-input" placeholder="Digite o nome ou SKU (mín. 2 letras)…"
       oninput="orcmatBuscarMaterial(this.value)"
