@@ -1656,7 +1656,7 @@ function irPara(tela, btn) {
   if (tela === 'instalacao') { renderResumoInst(); renderInstalacoes(); }
   if (tela === 'visita') renderVisitas();
   if (tela === 'calendario') renderCalendario();
-  if (tela === 'financeiro') renderFinanceiro();
+  if (tela === 'financeiro') { finCardsExpanded = new Set(); renderFinanceiro(); }
   // fecha sidebar no mobile ao navegar
   if (window.innerWidth < 768) {
     document.getElementById('nav-principal').classList.remove('aberta');
@@ -4292,14 +4292,15 @@ function setFiltroFin(f) {
   });
   renderFinanceiro();
 }
-let finCardsCollapsed = new Set();
+let finCardsExpanded = new Set(); // padrão: fechado. Só abre se o usuário clicar.
 function toggleFinCard(id) {
-  if (finCardsCollapsed.has(id)) finCardsCollapsed.delete(id);
-  else finCardsCollapsed.add(id);
+  if (finCardsExpanded.has(id)) finCardsExpanded.delete(id);
+  else finCardsExpanded.add(id);
   const body = document.getElementById('fin-body-' + id);
   const ico  = document.getElementById('fin-ico-' + id);
-  if (body) body.style.display = finCardsCollapsed.has(id) ? 'none' : '';
-  if (ico)  ico.textContent   = finCardsCollapsed.has(id) ? '›' : '‹';
+  const aberto = finCardsExpanded.has(id);
+  if (body) body.style.display = aberto ? '' : 'none';
+  if (ico)  ico.textContent   = aberto ? '‹' : '›';
 }
 
 function renderFinanceiro() {
@@ -4520,7 +4521,7 @@ function renderFinanceiro() {
       i.pedido_ref ? 'Ref: ' + i.pedido_ref : '',
       i.lead_id ? 'Lead: ' + i.lead_id : ''
     ].filter(Boolean).join(' · ');
-    const collapsed = finCardsCollapsed.has(i.id);
+    const aberto = finCardsExpanded.has(i.id);
     return '<div class="card" style="' + (urgente ? 'border-left:3px solid var(--terra);' : '') + '">' +
       // CABEÇALHO (sempre visível)
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;cursor:pointer" onclick="toggleFinCard(' + i.id + ')">' +
@@ -4538,11 +4539,11 @@ function renderFinanceiro() {
             '<p id="data-hdr-' + i.id + '" style="font-size:15px;font-weight:600;margin:0;color:' + (urgente || emAtraso ? 'var(--terra)' : 'var(--text)') + '">📅 ' + (fmtData(i.data) || '—') + (i.datas && i.datas.length > 1 ? ' <span style="font-size:11px;font-weight:500;background:var(--surface2);padding:1px 6px;border-radius:10px">+' + (i.datas.length - 1) + '</span>' : '') + '</p>' +
             '<p style="font-size:13px;font-weight:500;margin:2px 0 0;color:var(--accent)">R$ ' + (Number(i.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>' +
           '</div>' +
-          '<span id="fin-ico-' + i.id + '" style="font-size:20px;color:var(--text2);font-weight:300;line-height:1;user-select:none">' + (collapsed ? '›' : '‹') + '</span>' +
+          '<span id="fin-ico-' + i.id + '" style="font-size:20px;color:var(--text2);font-weight:300;line-height:1;user-select:none">' + (aberto ? '‹' : '›') + '</span>' +
         '</div>' +
       '</div>' +
       // CORPO (colapsável)
-      '<div id="fin-body-' + i.id + '" style="' + (collapsed ? 'display:none' : '') + '">' +
+      '<div id="fin-body-' + i.id + '" style="' + (aberto ? '' : 'display:none') + '">' +
         '<div style="margin-top:14px">' +
           tipoHtml + comprasHtml + finHtml +
           (i.obs ? '<p style="font-size:12px;color:var(--text2);margin:10px 0 0;border-top:1px solid var(--border);padding-top:8px">📝 ' + i.obs + '</p>' : '') +
@@ -5229,7 +5230,7 @@ function irPara(tela, btn) {
   if (tela === 'instalacao') { renderResumoInst(); renderInstalacoes(); }
   if (tela === 'visita') renderVisitas();
   if (tela === 'calendario') renderCalendario();
-  if (tela === 'financeiro') renderFinanceiro();
+  if (tela === 'financeiro') { finCardsExpanded = new Set(); renderFinanceiro(); }
   if (tela === 'fechamentos') initFechamentos();
   if (tela === 'meta') { initMeta(); renderMeta(); carregarVendedoras().then(() => carregarMetas()).catch(() => carregarMetas()); }
   if (tela === 'orcmat') initOrcmat();
@@ -5694,14 +5695,17 @@ async function orcmatBuscarMaterial(q) {
   cont.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">🔍 Buscando…</div>';
   _orcmatBuscaTimer = setTimeout(async () => {
     const ql = q.toLowerCase();
-    // 1. Catálogo local
-    const locais = catalogoMat.filter(m => m.nome.toLowerCase().includes(ql) || (m.sku||'').toLowerCase().includes(ql));
-    // 2. Tiny
+    // 1. Catálogo local — apenas SKU M-
+    const locais = catalogoMat.filter(m =>
+      (m.sku || '').toUpperCase().startsWith('M-') &&
+      (m.nome.toLowerCase().includes(ql) || (m.sku||'').toLowerCase().includes(ql))
+    );
+    // 2. Tiny — apenas SKU M-
     let tinyItens = [];
     try {
       const r = await fetch('/api/tiny/produtos/buscar?q=' + encodeURIComponent(q));
       const d = await r.json();
-      tinyItens = d.itens || [];
+      tinyItens = (d.itens || []).filter(t => (t.sku || '').toUpperCase().startsWith('M-'));
     } catch(e) {}
     // Mescla (evita duplicatas pelo sku)
     const skusLocais = new Set(locais.map(m => m.sku).filter(Boolean));
@@ -5926,6 +5930,30 @@ async function abrirCatalogo() {
   document.getElementById('modal-catalogo-mat').style.display = 'flex';
 }
 
+async function sincronizarCatalogoTiny() {
+  const btn = document.getElementById('btn-sync-tiny');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Sincronizando…';
+  try {
+    const r = await fetch('/api/tiny/sincronizar-catalogo', { method: 'POST' });
+    const d = await r.json();
+    if (d.sucesso) {
+      btn.textContent = `✅ ${d.total} produtos (${d.inseridos} novos, ${d.atualizados} atualizados)`;
+      await carregarCatalogo();
+      renderCatalogo();
+    } else {
+      btn.textContent = '❌ ' + (d.erro || 'Erro ao sincronizar');
+    }
+  } catch(e) {
+    btn.textContent = '❌ Falha na conexão';
+  }
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '🔄 Sincronizar com Tiny';
+  }, 5000);
+}
+
 function renderCatalogo() {
   const cont = document.getElementById('cat-lista');
   if (!cont) return;
@@ -6094,8 +6122,12 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
   <div class="modal" style="max-width:600px;width:95%">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h3 style="margin:0;font-size:16px">📋 Catálogo de Materiais</h3>
-      <button class="btn btn-branco" onclick="document.getElementById('modal-catalogo-mat').style.display='none'" style="padding:6px 10px">✕</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btn-sync-tiny" class="btn btn-branco" onclick="sincronizarCatalogoTiny()" style="font-size:12px;padding:6px 10px">🔄 Sincronizar com Tiny</button>
+        <button class="btn btn-branco" onclick="document.getElementById('modal-catalogo-mat').style.display='none'" style="padding:6px 10px">✕</button>
+      </div>
     </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Importa do Tiny apenas produtos com SKU iniciando em <b>M-</b></div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <input type="text" id="cat-novo-sku" placeholder="SKU" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
       <input type="text" id="cat-novo-nome" placeholder="Nome do material *" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">

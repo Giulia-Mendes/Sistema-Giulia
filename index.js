@@ -1139,6 +1139,54 @@ app.get('/api/tiny/produtos/buscar', auth, async (req, res) => {
   }
 });
 
+// Sincronizar catálogo com produtos Tiny (SKU M-)
+app.post('/api/tiny/sincronizar-catalogo', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+
+  const todos = [];
+  let pagina = 1;
+  while (pagina <= 30) {
+    try {
+      const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: 'M-', pagina: String(pagina) }).toString();
+      const resp = await fetch('https://api.tiny.com.br/api2/produtos.pesquisa.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body
+      });
+      const data = await resp.json();
+      const produtos = Array.isArray(data?.retorno?.produtos) ? data.retorno.produtos : [];
+      if (!produtos.length) break;
+      todos.push(...produtos);
+      if (produtos.length < 25) break; // página incompleta = última
+      pagina++;
+    } catch(e) { break; }
+  }
+
+  // Apenas SKU que começa com M- (case insensitive)
+  const filtrados = todos
+    .map(p => p.produto || p)
+    .filter(pr => (pr.codigo || '').toUpperCase().startsWith('M-'));
+
+  let inseridos = 0, atualizados = 0;
+  filtrados.forEach(pr => {
+    const sku   = (pr.codigo || '').trim();
+    const nome  = (pr.nome || pr.descricao || '').trim();
+    const un    = (pr.unidade || 'UN').trim();
+    const preco = parseFloat(String(pr.preco_venda || '0').replace(',', '.')) || 0;
+    if (!nome) return;
+    const ex = db.prepare('SELECT id FROM materiais_catalogo WHERE sku=?').get(sku);
+    if (ex) {
+      db.prepare('UPDATE materiais_catalogo SET nome=?,unidade=?,preco_venda=?,ativo=1 WHERE sku=?').run(nome, un, preco, sku);
+      atualizados++;
+    } else {
+      db.prepare('INSERT INTO materiais_catalogo (sku,nome,unidade,preco_venda) VALUES (?,?,?,?)').run(sku, nome, un, preco);
+      inseridos++;
+    }
+  });
+
+  console.log(`[SYNC CATÁLOGO] Total Tiny: ${todos.length} | Filtrados M-: ${filtrados.length} | Inseridos: ${inseridos} | Atualizados: ${atualizados}`);
+  res.json({ sucesso: true, total: filtrados.length, inseridos, atualizados });
+});
+
 // ── ORÇAMENTOS DE MATERIAIS ──
 app.get('/api/orcamentos-mat', auth, (req, res) => {
   const orcamentos = db.prepare('SELECT * FROM orcamentos_mat ORDER BY criado_em DESC').all();
