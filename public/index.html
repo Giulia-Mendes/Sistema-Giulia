@@ -768,13 +768,13 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div class="stat3" style="margin-top:12px">
       <div class="stat"><div class="lbl">Taxa</div><div class="val" id="res-taxa">—</div></div>
-      <div class="stat"><div class="lbl">Custo produto</div><div class="val" id="res-custo">—</div></div>
-      <div class="stat"><div class="lbl">Margem</div><div class="val" id="res-margem">—</div>
-        <div class="margem-wrap"><div class="margem-bar" id="margem-bar" style="width:0%"></div></div>
-      </div>
+      <div class="stat"><div class="lbl">Margem produto</div><div class="val" id="res-custo">—</div></div>
+      <div class="stat"><div class="lbl">Margem material</div><div class="val" id="res-margem">—</div></div>
     </div>
     <div style="margin-top:10px">
-      <span class="badge" id="margem-badge" style="background:var(--bronze-bg);color:var(--bronze-txt)">Preencha os valores</span>
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Margem combinada</div>
+      <div class="margem-wrap"><div class="margem-bar" id="margem-bar" style="width:0%"></div></div>
+      <span class="badge" id="margem-badge" style="background:var(--bronze-bg);color:var(--bronze-txt);margin-top:6px;display:inline-block">Preencha os valores</span>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <label style="font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -2520,17 +2520,16 @@ function renderPropAnexos() {
 function autoFillMatProp() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   if (cm > 0) {
-    // Material: acréscimo de (taxa do cartão + margem_mat + imposto_mat) sobre o custo
+    // Material: divisão igual ao produto — custo / (1 - taxa - margem - imposto)
     const pag = getPag();
     const taxa = pag ? pag.taxa : 0;
     const margemMat  = _params.margem_mat  ?? 0;
     const impostoMat = _params.imposto_mat ?? 8;
-    const preco = cm * (1 + (taxa + margemMat + impostoMat) / 100);
+    const denom = 1 - (taxa + margemMat + impostoMat) / 100;
+    const preco = denom > 0.01 ? cm / denom : cm;
     document.getElementById('p-mat-prop').value = preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    // Atualiza label dinâmico
     const lbl = document.getElementById('label-custo-mat');
-    const extras = [margemMat > 0 ? 'margem ' + margemMat + '%' : '', impostoMat > 0 ? 'imposto ' + impostoMat + '%' : ''].filter(Boolean).join(' + ');
-    if (lbl) lbl.textContent = extras ? '(taxa + ' + extras + ')' : '(taxa)';
+    if (lbl) lbl.textContent = '';
   } else {
     document.getElementById('p-mat-prop').value = '';
   }
@@ -2541,28 +2540,51 @@ function calcMargem() {
   const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
   const pvTotal = parseMoeda(document.getElementById('p-venda').value) || 0;
   const matProp = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
-  const pv = pvTotal - matProp; // receita somente de produto (exclui material)
+  const pvProd = pvTotal - matProp; // receita somente de produto (exclui material)
   const pag = getPag(); const pagKey = getPagKey();
   document.getElementById('res-taxa').textContent = pag.taxa > 0 ? pag.taxa.toFixed(2) + '%' : pag.desc > 0 ? '-' + pag.desc + '% desc.' : 'Sem taxa';
-  const taxaR = pv * (pag.taxa / 100);
-  const pvEf = pag.desc > 0 ? pv * (1 - pag.desc / 100) : pv;
-  const ct = cp + taxaR; // custo somente de produto
-  document.getElementById('res-custo').textContent = 'R$ ' + ct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const ip = document.getElementById('info-pag');
-  if (pagKey === 'bol_parc') { const sn = pv*.3, pa = pv*.7/3; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + 3x R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (30/60/90)'; }
-  else if (pagKey === 'bol_desc') { const sn = pv*.3, re = pvEf*.7; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + R$ ' + re.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' na conclusão (4% desc.)'; }
-  else ip.style.display = 'none';
-  if (pv > 0) {
-    const m = (pvEf - ct) / pvEf; const pct = m * 100; const pctFmt = pct.toFixed(1).replace('.',',') + '%';
-    document.getElementById('res-margem').textContent = pctFmt;
-    const bar = document.getElementById('margem-bar'); bar.style.width = Math.min(pct*2, 100) + '%';
-    const badge = document.getElementById('margem-badge');
-    if (m >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt)'; badge.textContent = 'Margem boa (' + pctFmt + ')'; }
-    else if (m >= 0.28) { bar.style.background = 'var(--accent)'; badge.style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt)'; badge.textContent = 'Margem baixa (' + pctFmt + ') — verifique'; }
-    else { bar.style.background = 'var(--terra)'; badge.style.cssText = 'background:var(--terra-bg);color:var(--terra-txt)'; badge.textContent = 'Margem insuficiente (' + pctFmt + ') — revisar'; }
+  // Margem produto
+  const taxaR = pvProd * (pag.taxa / 100);
+  const pvProdEf = pag.desc > 0 ? pvProd * (1 - pag.desc / 100) : pvProd;
+  const ctProd = cp + taxaR;
+  if (pvProd > 0) {
+    const mProd = (pvProdEf - ctProd) / pvProdEf;
+    document.getElementById('res-custo').textContent = (mProd * 100).toFixed(1).replace('.',',') + '%';
+    document.getElementById('res-custo').style.color = mProd >= MARGEM_MIN ? 'var(--mineral-txt)' : mProd >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
   } else {
-    document.getElementById('res-margem').textContent = '—'; document.getElementById('margem-bar').style.width = '0%';
-    document.getElementById('margem-badge').style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt)'; document.getElementById('margem-badge').textContent = 'Preencha os valores';
+    document.getElementById('res-custo').textContent = cp > 0 ? '—' : '—';
+    document.getElementById('res-custo').style.color = '';
+  }
+  // Margem material
+  if (matProp > 0 && cm > 0) {
+    const mMat = (matProp - cm) / matProp;
+    document.getElementById('res-margem').textContent = (mMat * 100).toFixed(1).replace('.',',') + '%';
+    document.getElementById('res-margem').style.color = mMat >= MARGEM_MIN ? 'var(--mineral-txt)' : mMat >= 0.28 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
+  } else {
+    document.getElementById('res-margem').textContent = matProp > 0 ? '—' : '—';
+    document.getElementById('res-margem').style.color = '';
+  }
+  // Info pagamento (boleto)
+  const ip = document.getElementById('info-pag');
+  if (pagKey === 'bol_parc') { const sn = pvTotal*.3, pa = pvTotal*.7/3; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + 3x R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (30/60/90)'; }
+  else if (pagKey === 'bol_desc') { const pvTotalEf = pvTotal*(1-pag.desc/100); const sn = pvTotal*.3, re = pvTotalEf*.7; ip.style.display = ''; ip.innerHTML = 'Sinal R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' + R$ ' + re.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' na conclusão (4% desc.)'; }
+  else ip.style.display = 'none';
+  // Margem combinada (produto + material)
+  const bar = document.getElementById('margem-bar');
+  const badge = document.getElementById('margem-badge');
+  if (pvTotal > 0) {
+    const pvTotalEf = pag.desc > 0 ? pvTotal * (1 - pag.desc / 100) : pvTotal;
+    const taxaTotalR = pvTotal * (pag.taxa / 100);
+    const custoComb = cp + cm + taxaTotalR;
+    const mComb = (pvTotalEf - cp - cm - taxaTotalR) / pvTotalEf;
+    const pctComb = (mComb * 100).toFixed(1).replace('.',',') + '%';
+    bar.style.width = Math.min(Math.max(mComb * 100 * 2, 0), 100) + '%';
+    if (mComb >= MARGEM_MIN) { bar.style.background = 'var(--mineral)'; badge.style.cssText = 'background:var(--mineral-bg);color:var(--mineral-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Margem combinada boa (' + pctComb + ')'; }
+    else if (mComb >= 0.28) { bar.style.background = 'var(--accent)'; badge.style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Margem combinada baixa (' + pctComb + ') — verifique'; }
+    else { bar.style.background = 'var(--terra)'; badge.style.cssText = 'background:var(--terra-bg);color:var(--terra-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Margem combinada insuficiente (' + pctComb + ') — revisar'; }
+  } else {
+    bar.style.width = '0%';
+    badge.style.cssText = 'background:var(--bronze-bg);color:var(--bronze-txt);margin-top:6px;display:inline-block'; badge.textContent = 'Preencha os valores';
   }
   if (!propModoEdit) gerarProposta();
 }
@@ -4544,7 +4566,7 @@ function _orcmatPreencherLaudo(laudo) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
   const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
   if (!laudo) {
-    ['ol-comp','ol-larg','ol-prof','ol-prof-min','ol-vol','ol-tipo','ol-prainha-comp','ol-prainha-larg','ol-prainha-prof','ol-dist','ol-tensao','ol-dias','ol-dias-outro','ol-obs','ol-material','ol-valor-mat'].forEach(id => set(id,''));
+    ['ol-comp','ol-larg','ol-prof','ol-prof-min','ol-vol','ol-tipo','ol-prainha-comp','ol-prainha-larg','ol-prainha-prof','ol-dist','ol-tensao','ol-dias','ol-dias-outro','ol-obs'].forEach(id => set(id,''));
     setChk('ol-tem-prainha', false);
     const pw = document.getElementById('ol-prainha-wrap'); if (pw) pw.style.display = 'none';
     fotosTmpOrcmat = []; renderFotosOrcmat();
@@ -4555,7 +4577,6 @@ function _orcmatPreencherLaudo(laudo) {
   set('ol-tipo', laudo.tipo); set('ol-dist', laudo.dist);
   set('ol-tensao', laudo.tensao); set('ol-dias', laudo.dias);
   set('ol-dias-outro', laudo.dias_outro); set('ol-obs', laudo.obs);
-  set('ol-material', laudo.material); set('ol-valor-mat', laudo.valorMat);
   setChk('ol-tem-prainha', laudo.tem_prainha);
   const pw = document.getElementById('ol-prainha-wrap');
   if (pw) pw.style.display = laudo.tem_prainha ? '' : 'none';
@@ -6132,11 +6153,9 @@ async function orcmatSalvar(status) {
     dias: document.getElementById('ol-dias')?.value || '',
     dias_outro: document.getElementById('ol-dias-outro')?.value || '',
     obs: document.getElementById('ol-obs')?.value?.trim() || '',
-    material: document.getElementById('ol-material')?.value?.trim() || '',
-    valorMat: document.getElementById('ol-valor-mat')?.value?.trim() || '',
     fotos: [...fotosTmpOrcmat]
   };
-  const temLaudo = laudoObj.comp || laudoObj.larg || laudoObj.tipo || laudoObj.obs || laudoObj.material;
+  const temLaudo = laudoObj.comp || laudoObj.larg || laudoObj.tipo || laudoObj.obs;
   const payload = {
     cliente,
     visita_id: parseInt(document.getElementById('orcmat-visita-id').value) || null,
@@ -6504,8 +6523,6 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           </div>
         </div>
         <div class="campo"><label>Observações técnicas</label><textarea id="ol-obs" rows="2" placeholder="Acesso, dificuldades, condições do local…" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
-        <div class="campo"><label>Material necessário</label><textarea id="ol-material" rows="2" placeholder="Ex: tubo 3/4 (20m), cabo 6mm…" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
-        <div class="campo"><label>Valor estimado do material (R$)</label><input type="text" inputmode="decimal" id="ol-valor-mat" placeholder="0,00" onblur="formatMoedaInput(this)" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;box-sizing:border-box"></div>
         <p class="sec" style="margin:8px 0 6px;font-size:11px">FOTOS DO LOCAL</p>
         <div class="foto-grid" id="ol-foto-grid"></div>
       </div>
