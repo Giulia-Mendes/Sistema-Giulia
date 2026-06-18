@@ -5641,7 +5641,7 @@ function orcmatEditarOrcamento(id) {
       linha.querySelector('input.orcmat-nome-livre').value = item.nome || '';
     }
     linha.querySelector('.orcmat-un').value = item.unidade || 'UN';
-    linha.querySelector('.orcmat-qtd').value = item.quantidade || 1;
+    linha.querySelector('.orcmat-qtd').value = String(item.quantidade || 1).replace('.', ',');
     const precoElEdit = linha.querySelector('.orcmat-preco');
     setMoedaInput_el(precoElEdit, item.preco_unit || 0);
     // Se tem SKU (veio do catálogo/Tiny), trava o preço
@@ -5681,7 +5681,7 @@ function _orcmatCriarLinha(livre) {
         <span class="orcmat-sku-display" style="font-size:11px;color:var(--text2);margin-left:6px"></span>
        </div>`;
   div.innerHTML += `
-    <input type="number" class="orcmat-qtd" value="1" min="0.01" step="0.01" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
+    <input type="text" inputmode="decimal" class="orcmat-qtd" value="1" placeholder="0,00" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;text-align:center;box-sizing:border-box">
     <input type="text" class="orcmat-preco" inputmode="decimal" placeholder="0,00" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))" onblur="formatMoedaInput(this);_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;text-align:right;box-sizing:border-box">
@@ -5707,7 +5707,7 @@ function orcmatAddLinha(livre) {
 }
 
 function _orcmatAtualizarLinha(linha) {
-  const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 0;
+  const qtd = parseMoeda(linha.querySelector('.orcmat-qtd')?.value) || 0;
   const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
   const total = qtd * preco;
   const el = linha.querySelector('.orcmat-total-linha');
@@ -5718,7 +5718,7 @@ function _orcmatAtualizarLinha(linha) {
 function _orcmatAtualizarTotal() {
   let total = 0;
   document.querySelectorAll('#orcmat-linhas .orcmat-linha').forEach(linha => {
-    const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 0;
+    const qtd = parseMoeda(linha.querySelector('.orcmat-qtd')?.value) || 0;
     const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
     total += qtd * preco;
   });
@@ -5838,7 +5838,7 @@ async function orcmatSalvar(status) {
     const livre = linha.dataset.livre === '1';
     const nome = livre ? (linha.querySelector('.orcmat-nome-livre')?.value?.trim() || '') : (linha.querySelector('.orcmat-nome-display')?.textContent?.trim() || '');
     if (!nome || nome.includes('Clique para buscar')) { ok = false; return; }
-    const qtd = parseFloat(linha.querySelector('.orcmat-qtd')?.value) || 1;
+    const qtd = parseMoeda(linha.querySelector('.orcmat-qtd')?.value) || 1;
     const preco = parseMoeda(linha.querySelector('.orcmat-preco')?.value) || 0;
     itens.push({
       sku: linha.dataset.sku || null,
