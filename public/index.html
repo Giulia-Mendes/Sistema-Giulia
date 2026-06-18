@@ -813,10 +813,18 @@ select option { background: var(--surface); color: var(--text); }
     <div class="stat"><div class="lbl">Aprovadas</div><div class="val" id="ap-ok">0</div></div>
     <div class="stat"><div class="lbl">Valor pendente</div><div class="val" id="ap-valor">—</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="stat"><div class="lbl">Valor aprovado</div><div class="val" id="ap-valor-aprov" style="font-size:14px">—</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px">
+    <div class="stat"><div class="lbl">Fat. equipamento</div><div class="val" id="ap-fat-prod" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Fat. material</div><div class="val" id="ap-fat-mat" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Faturamento total</div><div class="val" id="ap-valor-aprov" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="ap-ticket-aprov" style="font-size:13px">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+    <div class="stat"><div class="lbl">Lucro equipamento</div><div class="val" id="ap-lucro-prod" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Lucro material</div><div class="val" id="ap-lucro-mat" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Margem equip.</div><div class="val" id="ap-margem-prod" style="font-size:18px;font-weight:700">—</div></div>
+    <div class="stat"><div class="lbl">Margem material</div><div class="val" id="ap-margem-mat" style="font-size:18px;font-weight:700">—</div></div>
     <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="ap-margem-aprov" style="font-size:22px;font-weight:700">—</div></div>
-    <div class="stat"><div class="lbl">Ticket médio aprovado</div><div class="val" id="ap-ticket-aprov" style="font-size:14px">—</div></div>
   </div>
   <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
     <input type="text" id="busca-aprov" placeholder="🔍 Buscar por cliente, vendedora, lead Kommo..." oninput="renderAprovacao()" style="width:100%;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
@@ -1017,16 +1025,20 @@ select option { background: var(--surface); color: var(--text); }
 <!-- TELA FECHAMENTOS -->
 <div id="tela-fechamentos" class="tela">
   <!-- Stats -->
-  <div class="stat4" style="margin-bottom:10px" id="fech-stats">
-    <div class="stat"><div class="lbl">Faturamento</div><div class="val" id="fech-fat" style="font-size:15px">—</div></div>
-    <div class="stat"><div class="lbl">Custo produto</div><div class="val" id="fech-custo" style="font-size:15px">—</div></div>
-    <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="fech-margem" style="font-size:22px;font-weight:700">—</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px" id="fech-stats">
+    <div class="stat"><div class="lbl">Fat. equipamento</div><div class="val" id="fech-fat-prod" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Fat. material</div><div class="val" id="fech-fat-mat" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Faturamento total</div><div class="val" id="fech-fat" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="fech-ticket" style="font-size:13px">—</div></div>
     <div class="stat"><div class="lbl">Fechamentos</div><div class="val" id="fech-count">—</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="fech-ticket" style="font-size:15px">—</div></div>
-    <div class="stat"><div class="lbl">Custo material</div><div class="val" id="fech-mat" style="font-size:15px">—</div></div>
-    <div class="stat"><div class="lbl">Lucro estimado</div><div class="val" id="fech-lucro" style="font-size:15px">—</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+    <div class="stat"><div class="lbl">Lucro equipamento</div><div class="val" id="fech-lucro-prod" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Lucro material</div><div class="val" id="fech-lucro-mat" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Lucro total</div><div class="val" id="fech-lucro" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="lbl">Margem equip.</div><div class="val" id="fech-margem-prod" style="font-size:18px;font-weight:700">—</div></div>
+    <div class="stat"><div class="lbl">Margem material</div><div class="val" id="fech-margem-mat" style="font-size:18px;font-weight:700">—</div></div>
+    <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="fech-margem" style="font-size:22px;font-weight:700">—</div></div>
   </div>
   <!-- Filtros -->
   <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
@@ -2640,24 +2652,42 @@ function renderAprovacao() {
   document.getElementById('ap-objec').textContent = aprovacoes.filter(a => a.status === 'objecao').length;
   document.getElementById('ap-ok').textContent = aprov.length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Aprovadas: valor total, margem combinada ponderada, ticket médio
+  // Aprovadas — faturamentos, lucros e margens detalhados
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
-  // Margem combinada: média ponderada por valor total (produto + material)
-  const totalLucroComb = aprov.reduce((s,a) => { const { mComb } = _calcMargensRecord(a); return s + (a.valor||0) * (mComb||0); }, 0);
-  const margemCombinada = totalValorAprov > 0 ? totalLucroComb / totalValorAprov : null;
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
-  const elValorAprov = document.getElementById('ap-valor-aprov');
-  const elMargem = document.getElementById('ap-margem-aprov');
-  const elTicket = document.getElementById('ap-ticket-aprov');
-  if (elValorAprov) elValorAprov.textContent = aprov.length ? 'R$ ' + totalValorAprov.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-  if (elMargem) {
-    if (margemCombinada !== null && aprov.length) {
-      const pct = (margemCombinada * 100).toFixed(1).replace('.',',') + '%';
-      elMargem.textContent = pct;
-      elMargem.style.color = margemCombinada >= 0.35 ? 'var(--mineral-txt)' : margemCombinada >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra)';
-    } else { elMargem.textContent = '—'; elMargem.style.color = ''; }
-  }
-  if (elTicket) elTicket.textContent = aprov.length ? 'R$ ' + ticketMedio.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const _fmtR = v => v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const _fmtC = (el, m) => { if (!el) return; if (m !== null) { el.textContent = (m*100).toFixed(1).replace('.',',')+'%'; el.style.color = m>=0.35?'var(--mineral-txt)':m>=0.25?'var(--bronze-txt)':'var(--terra-txt)'; } else { el.textContent='—'; el.style.color=''; } };
+  // Somas
+  let _apFatProd=0, _apFatMat=0, _apLucroProd=0, _apLucroMat=0, _wProd=0, _wMat=0, _wComb=0;
+  aprov.forEach(a => {
+    const taxa = _taxaFromPagLabel(a.pag||'');
+    const pvProd = (a.valor||0) - (a.mat_prop||0);
+    const matP   = a.mat_prop||0;
+    const taxaR  = pvProd*(taxa/100);
+    const taxaMR = matP*(taxa/100);
+    _apFatProd   += pvProd;
+    _apFatMat    += matP;
+    _apLucroProd += pvProd - (a.custo_prod||0) - taxaR;
+    _apLucroMat  += matP  - (a.custo_mat||0)  - taxaMR;
+    const { mProd, mMat, mComb } = _calcMargensRecord(a);
+    _wProd += (a.valor||0) * (mProd||0);
+    _wMat  += (a.valor||0) * (mMat||0);
+    _wComb += (a.valor||0) * (mComb||0);
+  });
+  const _mProdAprov = totalValorAprov > 0 ? _wProd / totalValorAprov : null;
+  const _mMatAprov  = totalValorAprov > 0 ? _wMat  / totalValorAprov : null;
+  const _mCombAprov = totalValorAprov > 0 ? _wComb / totalValorAprov : null;
+  // Preenche os stats
+  const _s = id => document.getElementById(id);
+  if (_s('ap-fat-prod'))   _s('ap-fat-prod').textContent   = aprov.length ? _fmtR(_apFatProd)   : '—';
+  if (_s('ap-fat-mat'))    _s('ap-fat-mat').textContent    = aprov.length ? _fmtR(_apFatMat)    : '—';
+  if (_s('ap-valor-aprov'))_s('ap-valor-aprov').textContent= aprov.length ? _fmtR(totalValorAprov): '—';
+  if (_s('ap-ticket-aprov'))_s('ap-ticket-aprov').textContent= aprov.length ? _fmtR(ticketMedio) : '—';
+  if (_s('ap-lucro-prod')) _s('ap-lucro-prod').textContent = aprov.length ? _fmtR(_apLucroProd) : '—';
+  if (_s('ap-lucro-mat'))  _s('ap-lucro-mat').textContent  = aprov.length ? _fmtR(_apLucroMat)  : '—';
+  _fmtC(_s('ap-margem-prod'),  aprov.length ? _mProdAprov  : null);
+  _fmtC(_s('ap-margem-mat'),   aprov.length ? _mMatAprov   : null);
+  _fmtC(_s('ap-margem-aprov'), aprov.length ? _mCombAprov  : null);
   // Atualiza estado dos botões de filtro
   ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
     const btn = document.getElementById('filtro-aprov-' + k);
@@ -2680,10 +2710,28 @@ function renderAprovacao() {
     const pct = _fp(_mC); const mcls = _bcls(_mC);
     const scls = a.status === 'pendente' ? 'badge-amarelo' : a.status === 'aprovado' ? 'badge-verde' : a.status === 'objecao' ? 'badge-teal' : 'badge-vermelho';
     const slabel = a.status === 'pendente' ? 'Aguardando' : a.status === 'aprovado' ? 'Aprovada' : a.status === 'objecao' ? 'Objeção temp.' : 'Rejeitada';
+    // Cálculos para o breakdown financeiro do card
+    const _taxa_a = _taxaFromPagLabel(a.pag||'');
+    const _pvProd_a = (a.valor||0) - (a.mat_prop||0);
+    const _matP_a   = a.mat_prop||0;
+    const _lucroEq_a = _pvProd_a - (a.custo_prod||0) - _pvProd_a*(_taxa_a/100);
+    const _lucroMa_a = _matP_a  - (a.custo_mat||0)  - _matP_a*(_taxa_a/100);
+    const _fmtRv = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const _finPanel =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:8px">' +
+        '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. equip.</div><div style="font-size:13px;font-weight:500">' + _fmtRv(_pvProd_a) + '</div></div>' +
+        (_matP_a>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. material</div><div style="font-size:13px;font-weight:500">' + _fmtRv(_matP_a) + '</div></div>' : '') +
+        '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Lucro equip.</div><div style="font-size:13px;font-weight:500;color:' + _clr(_mP) + '">' + _fmtRv(_lucroEq_a) + '</div></div>' +
+        (_matP_a>0 && (a.custo_mat||0)>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Lucro material</div><div style="font-size:13px;font-weight:500;color:' + _clr(_mM) + '">' + _fmtRv(_lucroMa_a) + '</div></div>' : '') +
+        '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem equip.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mP) + '">' + _fp(_mP) + '</div></div>' +
+        (_mM!==null ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem mat.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mM) + '">' + _fp(_mM) + '</div></div>' : '') +
+        '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem comb.</div><div style="font-size:15px;font-weight:700;color:' + _clr(_mC) + '">' + _fp(_mC) + '</div></div>' +
+      '</div>';
     let bodyHtml = '';
     if (isExp) {
       bodyHtml = '<div class="item-body">' +
-        (a.custos ? '<div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px"><span style="font-weight:600;color:var(--text2)">🔒 Custos considerados</span><div style="margin-top:4px;white-space:pre-wrap;color:var(--text);line-height:1.6">' + a.custos.replace(/</g,'&lt;') + '</div></div>' : '') +
+        _finPanel +
+        (a.custos ? '<div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px"><span style="font-weight:600;color:var(--text2)">🔒 Custos considerados</span><div style="margin-top:4px;white-space:pre-wrap;color:var(--text);line-height:1.6">' + a.custos.replace(/</g,'&lt;') + '</div></div>' : '') +
         (a.status === 'rejeitado' && a.motivo_recusa ? '<div style="background:var(--terra-bg);border:1px solid var(--terra);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--terra)">Motivo da recusa:</span> <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span></div>' : '') +
         (a.status === 'objecao' ? '<div style="background:var(--slate-bg);border:1px solid var(--slate);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--slate-txt)">⏸ Objeção temporária' + (a.motivo_recusa ? ':' : '') + '</span>' + (a.motivo_recusa ? ' <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span>' : '') + '</div>' : '') +
         (a.temperatura_alvo ? '<div style="background:var(--surface2);border-radius:8px;padding:8px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--text2)">🌡️ Temp. alvo:</span> <span>' + a.temperatura_alvo + '°C</span></div>' : '') +
@@ -4974,31 +5022,41 @@ function renderFechamentos() {
   if (de)   lista = lista.filter(a => ((a.aprovado_em || a.criado_em) || '') >= de);
   if (ate)  lista = lista.filter(a => ((a.aprovado_em || a.criado_em) || '').slice(0,10) <= ate);
 
-  // Stats
-  const totalFat   = lista.reduce((s,a) => s + (a.valor     || 0), 0);
-  const totalCusto = lista.reduce((s,a) => s + (a.custo_prod|| 0), 0); // custo equipamento
-  const totalMat   = lista.reduce((s,a) => s + (a.custo_mat || 0), 0); // custo material
-  const totalCustoReal = lista.reduce((s,a) => s + (a.custo || 0), 0); // custo total (equip+mat+taxa)
-  const lucro      = totalFat - totalCustoReal;
-  // Margem combinada: média ponderada por valor total (produto + material)
-  const _totalValFech = lista.reduce((s,a) => s + (a.valor||0), 0);
-  const _totalLucro   = lista.reduce((s,a) => { const { mComb } = _calcMargensRecord(a); return s + (a.valor||0) * (mComb||0); }, 0);
-  const margem = _totalValFech > 0 ? _totalLucro / _totalValFech : null;
-  const ticket     = lista.length > 0 ? totalFat / lista.length : 0;
+  // Stats — faturamentos, lucros e margens detalhados
   const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  document.getElementById('fech-fat').textContent    = lista.length ? fmt(totalFat)   : '—';
-  document.getElementById('fech-custo').textContent  = lista.length ? fmt(totalCusto) : '—';
-  document.getElementById('fech-mat').textContent    = lista.length ? fmt(totalMat)   : '—';
-  document.getElementById('fech-lucro').textContent  = lista.length ? fmt(lucro)      : '—';
-  document.getElementById('fech-ticket').textContent = lista.length ? fmt(ticket)     : '—';
-  document.getElementById('fech-count').textContent  = lista.length || '—';
-  const elM = document.getElementById('fech-margem');
-  if (margem !== null && lista.length) {
-    const pct = (margem * 100).toFixed(1).replace('.',',') + '%';
-    elM.textContent = pct;
-    elM.style.color = margem >= 0.35 ? 'var(--mineral-txt)' : margem >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra)';
-  } else { elM.textContent = '—'; elM.style.color = ''; }
+  const _fmtCF = (id, m) => { const el = document.getElementById(id); if (!el) return; if (m!==null && lista.length) { el.textContent=(m*100).toFixed(1).replace('.',',')+"%"; el.style.color=m>=0.35?'var(--mineral-txt)':m>=0.25?'var(--bronze-txt)':'var(--terra-txt)'; } else { el.textContent='—'; el.style.color=''; } };
+  const _setF = (id, v) => { const el=document.getElementById(id); if (el) el.textContent = lista.length ? fmt(v) : '—'; };
+  const totalFat = lista.reduce((s,a) => s + (a.valor||0), 0);
+  const ticket   = lista.length > 0 ? totalFat / lista.length : 0;
+  // Somas por tipo
+  let _fFatProd=0, _fFatMat=0, _fLucroProd=0, _fLucroMat=0, _fwP=0, _fwM=0, _fwC=0;
+  lista.forEach(a => {
+    const taxa = _taxaFromPagLabel(a.pag||'');
+    const pvP = (a.valor||0) - (a.mat_prop||0);
+    const matP = a.mat_prop||0;
+    _fFatProd   += pvP;
+    _fFatMat    += matP;
+    _fLucroProd += pvP  - (a.custo_prod||0) - pvP*(taxa/100);
+    _fLucroMat  += matP - (a.custo_mat||0)  - matP*(taxa/100);
+    const { mProd, mMat, mComb } = _calcMargensRecord(a);
+    _fwP += (a.valor||0)*(mProd||0);
+    _fwM += (a.valor||0)*(mMat||0);
+    _fwC += (a.valor||0)*(mComb||0);
+  });
+  const _fMargP = totalFat>0 ? _fwP/totalFat : null;
+  const _fMargM = totalFat>0 ? _fwM/totalFat : null;
+  const _fMargC = totalFat>0 ? _fwC/totalFat : null;
+  _setF('fech-fat-prod',  _fFatProd);
+  _setF('fech-fat-mat',   _fFatMat);
+  _setF('fech-fat',       totalFat);
+  _setF('fech-ticket',    ticket);
+  document.getElementById('fech-count').textContent = lista.length || '—';
+  _setF('fech-lucro-prod', _fLucroProd);
+  _setF('fech-lucro-mat',  _fLucroMat);
+  _setF('fech-lucro',      _fLucroProd + _fLucroMat);
+  _fmtCF('fech-margem-prod', _fMargP);
+  _fmtCF('fech-margem-mat',  _fMargM);
+  _fmtCF('fech-margem',      _fMargC);
   document.getElementById('fech-contagem').textContent = lista.length + ' fechamento' + (lista.length !== 1 ? 's' : '');
 
   // Lista
@@ -5007,32 +5065,38 @@ function renderFechamentos() {
   const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   el.innerHTML = lista.map(a => {
     const data = a.criado_em ? a.criado_em.slice(0,10).split('-').reverse().join('/') : '—';
-    const custoTotal = a.custo || 0;
     const custoEquip = a.custo_prod || 0;
     const custoMat   = a.custo_mat  || 0;
     const matProp    = a.mat_prop   || 0;
-    // Calcula as três margens a partir dos campos armazenados
+    const taxa_f     = _taxaFromPagLabel(a.pag||'');
+    const pvProd_f   = (a.valor||0) - matProp;
+    const lucroEq_f  = pvProd_f - custoEquip - pvProd_f*(taxa_f/100);
+    const lucroMat_f = matProp  - custoMat   - matProp*(taxa_f/100);
+    const lucroTot_f = lucroEq_f + lucroMat_f;
+    // Margens
     const { mProd: _fmP, mMat: _fmM, mComb: _fmC } = _calcMargensRecord(a);
-    const _ffp = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
+    const _ffp  = m => m !== null ? (m * 100).toFixed(1).replace('.',',') + '%' : '—';
     const _fclr = m => m === null ? 'var(--text2)' : m >= 0.35 ? 'var(--mineral-txt)' : m >= 0.25 ? 'var(--bronze-txt)' : 'var(--terra-txt)';
     const margemCor = _fclr(_fmC);
-    const lucroCard = a.valor > 0 ? a.valor - custoTotal : 0;
     return '<div class="card" style="margin-bottom:8px;padding:14px 16px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
         '<div style="flex:1;min-width:0">' +
           '<p style="font-size:15px;font-weight:600;margin:0 0 2px">' + (a.cliente || '—') + '</p>' +
           '<p style="font-size:13px;color:var(--text2);margin:0 0 2px">' + (a.equip || '—') + '</p>' +
           '<p style="font-size:12px;color:var(--text2);margin:0">' + (a.vendedora || '—') + ' · ' + (a.pag || '—') + ' · ' + data + '</p>' +
-          '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">' +
-            (custoEquip > 0 ? '<span style="font-size:12px;color:var(--text2)">🔧 Custo equip.: <strong>' + fmtR(custoEquip) + '</strong></span>' : '') +
-            (custoMat   > 0 ? '<span style="font-size:12px;color:var(--text2)">📦 Material: <strong>' + fmtR(custoMat) + '</strong></span>' : '') +
-            (lucroCard  > 0 ? '<span style="font-size:12px;color:var(--mineral-txt)">💰 Lucro: <strong>' + fmtR(lucroCard) + '</strong></span>' : '') +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">' +
+            '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase">Fat. equip.</div><div style="font-size:12px;font-weight:500">' + fmtR(pvProd_f) + '</div></div>' +
+            (matProp>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase">Fat. material</div><div style="font-size:12px;font-weight:500">' + fmtR(matProp) + '</div></div>' : '') +
+            (custoEquip>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase">Lucro equip.</div><div style="font-size:12px;font-weight:500;color:' + _fclr(_fmP) + '">' + fmtR(lucroEq_f) + '</div></div>' : '') +
+            (matProp>0 && custoMat>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase">Lucro material</div><div style="font-size:12px;font-weight:500;color:' + _fclr(_fmM) + '">' + fmtR(lucroMat_f) + '</div></div>' : '') +
+            (custoEquip>0||custoMat>0 ? '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase">Lucro total</div><div style="font-size:12px;font-weight:600;color:' + _fclr(_fmC) + '">' + fmtR(lucroTot_f) + '</div></div>' : '') +
           '</div>' +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
-          '<p style="font-size:17px;font-weight:700;margin:0 0 4px">' + fmtR(a.valor) + '</p>' +
-          (_fmC !== null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + _ffp(_fmC) + ' combinada</p>' : '') +
-          (_fmC !== null ? '<p style="font-size:11px;color:var(--text2);margin:3px 0 0;line-height:1.6">Prod <strong style="color:' + _fclr(_fmP) + '">' + _ffp(_fmP) + '</strong>' + (_fmM !== null ? ' · Mat <strong style="color:' + _fclr(_fmM) + '">' + _ffp(_fmM) + '</strong>' : '') + '</p>' : '') +
+        '<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+          '<p style="font-size:17px;font-weight:700;margin:0">' + fmtR(a.valor) + '</p>' +
+          (_fmC!==null ? '<p style="font-size:14px;font-weight:700;margin:0;color:' + margemCor + '">' + _ffp(_fmC) + ' combinada</p>' : '') +
+          (_fmP!==null ? '<p style="font-size:11px;color:var(--text2);margin:0">Equip <strong style="color:' + _fclr(_fmP) + '">' + _ffp(_fmP) + '</strong></p>' : '') +
+          (_fmM!==null ? '<p style="font-size:11px;color:var(--text2);margin:0">Mat <strong style="color:' + _fclr(_fmM) + '">' + _ffp(_fmM) + '</strong></p>' : '') +
           '<button onclick="abrirEditFech(' + a.id + ')" style="margin-top:4px;font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2)">✏️ Editar</button>' +
         '</div>' +
       '</div>' +
