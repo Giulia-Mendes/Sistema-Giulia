@@ -6038,7 +6038,11 @@ function orcmatEditarOrcamento(id) {
     linha.querySelector('.orcmat-obs-item').value = item.obs || '';
     if (item.estoque_tiny) {
       const el = linha.querySelector('.orcmat-estoque');
-      if (el) { el.textContent = item.estoque_tiny; el.style.color = parseFloat(item.estoque_tiny) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
+      if (el) {
+        el.textContent = `${item.estoque_tiny} ${item.unidade || 'UN'}`;
+        el.style.color = parseFloat(item.estoque_tiny) > 0 ? 'var(--mineral-txt)' : 'var(--terra)';
+        el.style.fontWeight = '600';
+      }
     }
     _orcmatAtualizarLinha(linha);
   });
@@ -6071,7 +6075,7 @@ function _orcmatCriarLinha(livre) {
     <input type="text" class="orcmat-preco" inputmode="decimal" placeholder="0,00" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))" onblur="formatMoedaInput(this);_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;text-align:right;box-sizing:border-box">
     <div class="orcmat-total-linha" style="text-align:right;font-size:13px;font-weight:600;color:var(--accent);padding-right:4px">R$ 0,00</div>
-    <div class="orcmat-estoque" style="text-align:center;font-size:12px;color:var(--text2)">—</div>
+    <div class="orcmat-estoque" title="Estoque disponível (somente leitura)" style="text-align:center;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;cursor:default;user-select:none">—</div>
     <input type="text" class="orcmat-obs-item" placeholder="Obs…"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;box-sizing:border-box">
     <input type="hidden" class="orcmat-un" value="UN">
@@ -6175,7 +6179,9 @@ async function orcmatBuscarMaterial(q) {
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:13px;font-weight:600;color:var(--accent)">${fmtR(m.preco)}</div>
-            ${m.estoque != null ? `<div style="font-size:11px;color:${parseFloat(m.estoque)>0?'var(--mineral-txt)':'var(--terra)'}">Est: ${m.estoque}</div>` : ''}
+            ${m.estoque != null
+              ? `<div style="font-size:11px;font-weight:600;color:${parseFloat(m.estoque)>0?'var(--mineral-txt)':'var(--terra)'};margin-top:3px">🔒 Estoque: ${m.estoque} ${m.unidade||'UN'}</div>`
+              : `<div style="font-size:11px;color:var(--text2);margin-top:3px">Estoque: —</div>`}
           </div>
         </div>
       </div>`
@@ -6206,7 +6212,11 @@ function orcmatSelecionarMaterial(idx) {
   }
   if (m.estoque != null) {
     const el = linha.querySelector('.orcmat-estoque');
-    if (el) { el.textContent = m.estoque; el.style.color = parseFloat(m.estoque) > 0 ? 'var(--mineral-txt)' : 'var(--terra)'; }
+    if (el) {
+      el.textContent = `${m.estoque} ${m.unidade || 'UN'}`;
+      el.style.color = parseFloat(m.estoque) > 0 ? 'var(--mineral-txt)' : 'var(--terra)';
+      el.style.fontWeight = '600';
+    }
   }
   _orcmatAtualizarLinha(linha);
   document.getElementById('modal-busca-mat').style.display = 'none';
@@ -6233,7 +6243,7 @@ async function orcmatSalvar(status) {
       preco_unit: preco,
       preco_total: qtd * preco,
       obs: linha.querySelector('.orcmat-obs-item')?.value?.trim() || null,
-      estoque_tiny: linha.querySelector('.orcmat-estoque')?.textContent?.replace('—','') || null
+      estoque_tiny: (() => { const t = (linha.querySelector('.orcmat-estoque')?.textContent||'').trim(); const n = parseFloat(t); return (!isNaN(n) && t !== '—') ? String(n) : null; })()
     });
   });
   if (!ok) { alert('Há linhas de material sem nome. Preencha ou remova-as.'); return; }
@@ -6559,7 +6569,7 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 
       <!-- Cabeçalho da tabela (desktop) -->
       <div style="display:grid;grid-template-columns:2fr 80px 120px 120px 120px 140px 36px;gap:6px;padding:0 6px 6px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px" class="orcmat-grid-header">
-        <span>Material</span><span style="text-align:center">Qtd</span><span style="text-align:right">Preço unit.</span><span style="text-align:right">Total</span><span style="text-align:center">Estoque</span><span>Obs</span><span></span>
+        <span>Material</span><span style="text-align:center">Qtd</span><span style="text-align:right">Preço unit.</span><span style="text-align:right">Total</span><span style="text-align:center">🔒 Estoque</span><span>Obs</span><span></span>
       </div>
 
       <div id="orcmat-linhas" style="margin-top:6px"></div>
