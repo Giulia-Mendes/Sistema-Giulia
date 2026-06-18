@@ -5746,11 +5746,6 @@ async function carregarParametros() {
     const el = document.getElementById('p-margem-desejada');
     if (el) el.value = _params.margem_prod;
     MARGEM_MIN = (_params.margem_prod || 38) / 100;
-    // Atualiza label do custo mat
-    const lbl = document.getElementById('label-custo-mat');
-    const _mm = _params.margem_mat ?? 0, _im = _params.imposto_mat ?? 8;
-    const _extras = [_mm > 0 ? 'margem ' + _mm + '%' : '', _im > 0 ? 'imposto ' + _im + '%' : ''].filter(Boolean).join(' + ');
-    if (lbl) lbl.textContent = _extras ? '(taxa + ' + _extras + ')' : '(taxa)';
   } catch(e) {}
 }
 function initParametros() {
@@ -5804,9 +5799,6 @@ async function salvarParametros() {
     MARGEM_MIN = (data.margem_prod || 38) / 100;
     const el = document.getElementById('p-margem-desejada');
     if (el) el.value = data.margem_prod;
-    const lbl = document.getElementById('label-custo-mat');
-    const _e2 = [data.margem_mat > 0 ? 'margem ' + data.margem_mat + '%' : '', data.imposto_mat > 0 ? 'imposto ' + data.imposto_mat + '%' : ''].filter(Boolean).join(' + ');
-    if (lbl) lbl.textContent = _e2 ? '(taxa + ' + _e2 + ')' : '(taxa)';
     msg.style.cssText = 'display:inline;color:var(--mineral-txt);font-weight:600';
     msg.textContent = '✓ Parâmetros salvos!';
     setTimeout(() => { msg.style.display = 'none'; }, 3000);
