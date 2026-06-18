@@ -4317,6 +4317,14 @@ function setFiltroFin(f) {
   renderFinanceiro();
 }
 let finCardsExpanded = new Set(); // padrão: fechado. Só abre se o usuário clicar.
+function togSubFin(secId) {
+  const el  = document.getElementById(secId);
+  const ico = document.getElementById('ico-' + secId);
+  if (!el) return;
+  const abrindo = el.style.display === 'none';
+  el.style.display = abrindo ? '' : 'none';
+  if (ico) ico.textContent = abrindo ? '‹' : '›';
+}
 function toggleFinCard(id) {
   if (finCardsExpanded.has(id)) finCardsExpanded.delete(id);
   else finCardsExpanded.add(id);
@@ -4441,61 +4449,69 @@ function renderFinanceiro() {
 
     // Seção Compras
     const taStyle = 'width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);margin-top:4px;resize:vertical;font-family:inherit;line-height:1.5';
-    const comprasHtml =
-      '<p class="sec" style="margin:0 0 10px">Compras</p>' +
-      '<div class="campo" style="margin-bottom:8px">' +
-        '<label style="font-size:11px;color:var(--text2)">Custos considerados</label>' +
-        '<textarea placeholder="Ex: Equipamento R$1.200, Mão de obra R$300..." rows="3" ' +
-        'style="' + taStyle + '" ' +
-        'onchange="salvarCampoFin(' + i.id + ',\'custos\',this.value)">' + (i.custos||'').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
+    const secHdr = (label, secId) =>
+      '<div onclick="togSubFin(\'' + secId + '\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px;user-select:none">' +
+        '<p class="sec" style="margin:0;font-size:11px">' + label + '</p>' +
+        '<span id="ico-' + secId + '" style="font-size:16px;color:var(--text2);line-height:1">›</span>' +
       '</div>' +
-      (function() {
-        const eqList = Array.isArray(i.matComprar) ? i.matComprar : [];
-        const qInpStyle = 'width:48px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);text-align:center';
-        const eqItems = eqList.map((e, idx) =>
-          '<div class="ck-item" style="margin:0 0 4px">' +
-            '<div class="ck-box' + (e.ok ? ' feito' : '') + '" onclick="toggleEquip(' + i.id + ',' + idx + ')">' + (e.ok ? '✓' : '') + '</div>' +
-            '<span class="ck-label' + (e.ok ? ' feito' : '') + '" style="flex:1;font-size:13px">' + (e.nome||'').replace(/</g,'&lt;') + '</span>' +
-            '<input type="number" min="1" value="' + (e.qtd||1) + '" style="' + qInpStyle + '" onchange="setEquipQtd(' + i.id + ',' + idx + ',this.value)">' +
-            '<button onclick="rmEquip(' + i.id + ',' + idx + ')" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:0 2px;line-height:1;flex-shrink:0">×</button>' +
-          '</div>'
-        ).join('');
-        return '<div class="campo" style="margin-bottom:8px">' +
-          '<label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block">Equipamento a comprar</label>' +
+      '<div id="' + secId + '" style="display:none">';
+
+    const eqList = Array.isArray(i.matComprar) ? i.matComprar : [];
+    const qInpStyle = 'width:48px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);text-align:center';
+    const eqItems = eqList.map((e, idx) =>
+      '<div class="ck-item" style="margin:0 0 4px">' +
+        '<div class="ck-box' + (e.ok ? ' feito' : '') + '" onclick="toggleEquip(' + i.id + ',' + idx + ')">' + (e.ok ? '✓' : '') + '</div>' +
+        '<span class="ck-label' + (e.ok ? ' feito' : '') + '" style="flex:1;font-size:13px">' + (e.nome||'').replace(/</g,'&lt;') + '</span>' +
+        '<input type="number" min="1" value="' + (e.qtd||1) + '" style="' + qInpStyle + '" onchange="setEquipQtd(' + i.id + ',' + idx + ',this.value)">' +
+        '<button onclick="rmEquip(' + i.id + ',' + idx + ')" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:0 2px;line-height:1;flex-shrink:0">×</button>' +
+      '</div>'
+    ).join('');
+
+    const trItems = i.transfItens || [];
+    const trHtml = trItems.map((t, idx) =>
+      '<div class="ck-item" style="margin-bottom:4px">' +
+        '<div class="ck-box' + (t.ok ? ' feito' : '') + '" onclick="toggleTransf(' + i.id + ',' + idx + ')">' + (t.ok ? '✓' : '') + '</div>' +
+        '<span style="flex:1;font-size:13px' + (t.ok ? ';text-decoration:line-through;color:var(--text2)' : '') + '">' + (t.qtd > 1 ? t.qtd + '× ' : '') + t.nome + '</span>' +
+        '<button onclick="rmTransf(' + i.id + ',' + idx + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:15px;padding:0 4px;line-height:1">×</button>' +
+      '</div>'
+    ).join('');
+
+    const comprasHtml =
+      secHdr('CUSTOS CONSIDERADOS', 'fsub-cus-' + i.id) +
+        '<div class="campo" style="margin-bottom:8px">' +
+          '<textarea placeholder="Ex: Equipamento R$1.200, Mão de obra R$300..." rows="3" ' +
+          'style="' + taStyle + '" ' +
+          'onchange="salvarCampoFin(' + i.id + ',\'custos\',this.value)">' + (i.custos||'').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
+        '</div>' +
+      '</div>' +
+      secHdr('EQUIPAMENTO A COMPRAR', 'fsub-eq-' + i.id) +
+        '<div class="campo" style="margin-bottom:8px">' +
           (eqItems ? '<div style="margin-bottom:6px">' + eqItems + '</div>' : '') +
           '<div style="display:flex;gap:6px">' +
             '<input id="equip-inp-' + i.id + '" type="text" placeholder="Nome do equipamento..." ' +
               'style="flex:1;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" ' +
               'onkeydown="if(event.key===\'Enter\'){event.preventDefault();addEquip(' + i.id + ')}">' +
-            '<input id="equip-qtd-' + i.id + '" type="number" min="1" value="1" placeholder="Qtd" ' +
+            '<input id="equip-qtd-' + i.id + '" type="number" min="1" value="1" ' +
               'style="width:52px;font-size:13px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:center">' +
             '<button class="btn btn-roxo" style="font-size:12px;padding:5px 10px;white-space:nowrap" onclick="addEquip(' + i.id + ')">+ Add</button>' +
           '</div>' +
-        '</div>';
-      }()) +
-      (function() {
-        const trItems = i.transfItens || [];
-        const trHtml = trItems.map((t, idx) =>
-          '<div class="ck-item" style="margin-bottom:4px">' +
-            '<div class="ck-box' + (t.ok ? ' feito' : '') + '" onclick="toggleTransf(' + i.id + ',' + idx + ')" style="cursor:pointer">' + (t.ok ? '✓' : '') + '</div>' +
-            '<span style="flex:1;font-size:13px' + (t.ok ? ';text-decoration:line-through;color:var(--text2)' : '') + '">' + (t.qtd > 1 ? t.qtd + '× ' : '') + t.nome + '</span>' +
-            '<button onclick="rmTransf(' + i.id + ',' + idx + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:15px;padding:0 4px;line-height:1">×</button>' +
-          '</div>'
-        ).join('');
-        return '<div class="campo" style="margin-bottom:8px">' +
-          '<label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block">Transferência / Frete de Sapucaia para RJ</label>' +
+        '</div>' +
+      '</div>' +
+      secHdr('TRANSFERÊNCIA / SAPUCAIA → RJ', 'fsub-tr-' + i.id) +
+        '<div class="campo" style="margin-bottom:8px">' +
           (trHtml ? '<div style="margin-bottom:6px">' + trHtml + '</div>' : '') +
           '<div style="display:flex;gap:6px">' +
             '<input id="transf-inp-' + i.id + '" type="text" placeholder="Ex: Rack, Motor, Bomba..." ' +
               'style="flex:1;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" ' +
               'onkeydown="if(event.key===\'Enter\'){event.preventDefault();addTransf(' + i.id + ')}">' +
-            '<input id="transf-qtd-' + i.id + '" type="number" min="1" value="1" placeholder="Qtd" ' +
+            '<input id="transf-qtd-' + i.id + '" type="number" min="1" value="1" ' +
               'style="width:52px;font-size:13px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:center">' +
             '<button class="btn btn-roxo" style="font-size:12px;padding:5px 10px;white-space:nowrap" onclick="addTransf(' + i.id + ')">+ Add</button>' +
           '</div>' +
-        '</div>';
-      }()) +
-      '<div class="ck-item">' +
+        '</div>' +
+      '</div>' +
+      // Valor do material pago fica sempre visível (entre compras e financeiro)
+      '<div class="ck-item" style="margin:8px 0">' +
         '<div class="ck-box' + (matOk ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'mat_pago\')">' + (matOk ? '✓' : '') + '</div>' +
         '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px">' +
           '<span class="ck-label' + (matOk ? ' feito' : '') + '">Valor do material pago</span>' +
@@ -4503,9 +4519,9 @@ function renderFinanceiro() {
         '</div>' +
       '</div>';
 
-    // Seção Financeiro
+    // Seção Financeiro — também recolhível
     const finHtml =
-      '<p class="sec" style="margin:14px 0 10px">Financeiro</p>' +
+      '<div style="margin-top:4px">' + secHdr('FINANCEIRO', 'fsub-fin-' + i.id) +
       '<div class="ck-item" style="margin-bottom:8px">' +
         '<div class="ck-box' + (sinalOk ? ' feito' : '') + '" onclick="toggleCkFin(' + i.id + ',\'sinal_pago\')">' + (sinalOk ? '✓' : '') + '</div>' +
         '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px">' +
@@ -4554,7 +4570,9 @@ function renderFinanceiro() {
       '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">' +
         '<label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Observações</label>' +
         '<textarea rows="2" placeholder="Observações sobre pagamento, entrega, etc…" style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);resize:vertical;font-family:inherit" onchange="salvarObsCompras(' + i.id + ',this.value)">' + (i.obs_compras||'').replace(/</g,'&lt;') + '</textarea>' +
-      '</div>';
+      '</div>' +
+      '</div>' + // fecha conteúdo fsub-fin
+      '</div>';  // fecha wrapper margin-top
 
     const metaInfo = [
       i.vend ? '👤 ' + i.vend : '',
