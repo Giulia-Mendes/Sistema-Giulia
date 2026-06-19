@@ -436,7 +436,7 @@ app.post('/api/visitas', auth, (req, res) => {
   audit(req, 'CRIAR_VISITA', 'visitas', r.lastInsertRowid, null, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true, id: r.lastInsertRowid });
   // Sync Google Calendar (assíncrono, não bloqueia a resposta)
-  gcalSync('create', { tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, periodo: d.periodo || null, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []) })
+  gcalSync('create', { tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, periodo: d.periodo || null, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []), vendedora: d.vendedora || null, lead_id: d.lead_id || null })
     .then(eventId => { if (eventId) db.prepare('UPDATE visitas SET google_event_id=? WHERE id=?').run(eventId, r.lastInsertRowid); })
     .catch(() => {});
 });
@@ -448,7 +448,7 @@ app.put('/api/visitas/:id', auth, (req, res) => {
   audit(req, 'EDITAR_VISITA', 'visitas', req.params.id, antes, { nome: d.nome, data: d.data, tipo: d.tipo, vendedora: d.vendedora });
   res.json({ sucesso: true });
   // Sync Google Calendar
-  if (antes) gcalSync('update', { ...antes, tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, periodo: d.periodo || null, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []) }).catch(() => {});
+  if (antes) gcalSync('update', { ...antes, tipo: d.tipo, nome: d.nome, cel: d.cel, endereco: d.end, data: d.data, hora_ini: d.horaIni, hora_fim: d.horaFim, periodo: d.periodo || null, obs: d.obs, tecnicos: JSON.stringify(d.tecnicos || []), vendedora: d.vendedora || null, lead_id: d.lead_id || null }).catch(() => {});
 });
 app.put('/api/visitas/:id/laudo', auth, (req, res) => {
   const antes = db.prepare('SELECT laudo FROM visitas WHERE id=?').get(req.params.id);
