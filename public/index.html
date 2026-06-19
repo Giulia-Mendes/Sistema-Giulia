@@ -2679,7 +2679,7 @@ function montarTexto() {
   else if (pagKey === 'deb') lv = '• R$ ' + pv.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' no débito';
   else if (pag.parc > 0) { const pix = pv*(1-pag.taxa/100); const pa = pv/pag.parc; lv = '• R$ ' + pv.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' no cartão em até ' + pag.parc + 'x de R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '\n• R$ ' + pix.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' à vista via PIX'; }
   else if (document.getElementById('p-pag').value === 'boleto') { const sn = pv*.3; const pa = pv*.7/3; const re = pv*.96*.7; lv = 'Opção 1 — Boleto parcelado:\n• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '\n• Saldo em 3x de R$ ' + pa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (30/60/90 dias)\n\nOpção 2 — Boleto c/ desconto:\n• 30% de sinal: R$ ' + sn.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '\n• 70% na conclusão: R$ ' + re.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (Desconto de 4%)'; }
-  const prodLinhas = produtosAdicionais.map(p => '• ' + p.nome + (p.sku ? ' — SKU ' + p.sku : '') + (p.precoUn ? ' (R$ ' + (p.qtd * p.precoUn).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ')' : '')).join('\n');
+  const prodLinhas = produtosAdicionais.map(p => '• ' + (p.qtd > 1 ? p.qtd + 'x ' : '') + p.nome + (p.sku ? ' — SKU ' + p.sku : '') + (p.precoUn ? ' (R$ ' + (p.qtd * p.precoUn).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ')' : '')).join('\n');
   const matProp = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
   const itens = (prodLinhas || '• Equipamento') + (matProp > 0 ? '\n• Material para instalação' : '');
   const dTipo = document.getElementById('p-desc-tipo').value;
@@ -2808,6 +2808,12 @@ function renderAprovacao() {
           '<input type="text" id="aprov-lead-' + a.id + '" value="' + (a.lead_id || '') + '" placeholder="ID do lead" style="flex:1;min-width:120px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)" onclick="event.stopPropagation()">' +
           '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();salvarLeadAprov(' + a.id + ')">Salvar lead</button>' +
         '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">' +
+          '<span style="font-size:12px;color:var(--text2);white-space:nowrap">Orç. material</span>' +
+          '<div id="aprov-orcmat-label-' + a.id + '" style="flex:1;min-width:120px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:' + (_oLink ? 'var(--text1)' : 'var(--text2)') + '">' + (_oLink ? _oLink.cliente + ' · R$ ' + (_oLink.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : 'Nenhum vinculado') + '</div>' +
+          '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();_abrirSeletorOrcmatAprov(' + a.id + ')">📦 Vincular</button>' +
+          (_oLink ? '<button onclick="event.stopPropagation();_desvincularOrcmatAprov(' + a.id + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px" title="Desvincular">✕</button>' : '') +
+        '</div>' +
         '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
         (a.status === 'pendente'
           ? '<button class="btn btn-verde" onclick="acaoAprov(' + a.id + ',\'aprovado\',event)">✓ Aprovada</button>' +
@@ -2910,6 +2916,54 @@ async function salvarLeadAprov(id) {
   const p = pedidos.find(x => x.fonte === 'sistema' && x.id === id); if (p) p.lead_id = val;
 }
 
+
+function _abrirSeletorOrcmatAprov(aprovId) {
+  const opts = (orcamentos || []);
+  if (!opts.length) { alert('Nenhum orçamento de material cadastrado.'); return; }
+  const modal = document.getElementById('modal-overlay');
+  const box = document.getElementById('modal-box');
+  box.innerHTML =
+    '<h3 style="margin:0 0 16px">📦 Vincular orçamento de material</h3>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">' +
+    opts.map(o =>
+      '<div onclick="_confirmarVincularOrcmatAprov(' + aprovId + ',' + o.id + ')" style="cursor:pointer;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);transition:background 0.15s" onmouseover="this.style.background=\'var(--accent-light)\'" onmouseout="this.style.background=\'var(--surface)\'">' +
+        '<div style="font-weight:600">' + (o.cliente || 'Sem cliente') + '</div>' +
+        '<div style="font-size:12px;color:var(--text2)">' + (o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '') + ' · R$ ' + (o.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
+      '</div>'
+    ).join('') +
+    '</div>' +
+    '<button class="btn btn-branco" style="margin-top:16px;width:100%" onclick="fecharModal()">Cancelar</button>';
+  modal.style.display = 'flex';
+}
+
+async function _confirmarVincularOrcmatAprov(aprovId, orcmatId) {
+  fecharModal();
+  await fetch('/api/aprovacoes/' + aprovId + '/orcmat', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ orcmat_id: orcmatId })
+  });
+  const a = aprovacoes.find(x => x.id === aprovId);
+  if (a) a.orcmat_id = orcmatId;
+  const o = (orcamentos||[]).find(x => x.id === orcmatId);
+  const lbl = document.getElementById('aprov-orcmat-label-' + aprovId);
+  if (lbl && o) {
+    lbl.style.color = 'var(--text1)';
+    lbl.textContent = o.cliente + ' · R$ ' + (o.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  renderAprovacoes();
+}
+
+async function _desvincularOrcmatAprov(aprovId) {
+  await fetch('/api/aprovacoes/' + aprovId + '/orcmat', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ orcmat_id: null })
+  });
+  const a = aprovacoes.find(x => x.id === aprovId);
+  if (a) a.orcmat_id = null;
+  renderAprovacoes();
+}
 
 // ═══ EDITAR / EXCLUIR APROVAÇÃO ═══
 async function abrirEditarAprov(id, e) {

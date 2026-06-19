@@ -850,6 +850,11 @@ app.put('/api/pedidos/aprov/:id/lead', auth, (req, res) => {
   db.prepare('UPDATE aprovacoes SET lead_id=? WHERE id=?').run(req.body.lead_id || null, req.params.id);
   res.json({ sucesso: true });
 });
+app.put('/api/aprovacoes/:id/orcmat', auth, (req, res) => {
+  const val = req.body.orcmat_id !== undefined ? req.body.orcmat_id : null;
+  db.prepare('UPDATE aprovacoes SET orcmat_id=? WHERE id=?').run(val, req.params.id);
+  res.json({ sucesso: true });
+});
 app.put('/api/pedidos/tiny/:id/lead', auth, (req, res) => {
   db.prepare('UPDATE tiny_pedidos SET lead_id=? WHERE id=?').run(req.body.lead_id || null, req.params.id);
   res.json({ sucesso: true });
