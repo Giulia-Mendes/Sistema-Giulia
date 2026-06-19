@@ -2826,7 +2826,6 @@ function renderAprovacao() {
     }
     const _vLink = a.visita_id ? (visitas||[]).find(v => v.id === a.visita_id) : null;
     const _oLink = a.orcmat_id ? (orcamentos||[]).find(o => o.id === a.orcmat_id) : null;
-    const _fmtRv = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     return '<div class="item-card">' +
       '<div class="item-header" onclick="toggleAprov(' + a.id + ')">' +
       '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="badge ' + scls + '">' + slabel + '</span><span style="font-size:12px;color:#888780">' + a.vendedora + ' · ' + a.pag + '</span>' +
