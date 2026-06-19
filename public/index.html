@@ -2824,9 +2824,15 @@ function renderAprovacao() {
         (a.visita_id ? '<button class="btn btn-branco" onclick="event.stopPropagation();verVisitaDetalhe(' + a.visita_id + ')" style="border-color:var(--accent);color:var(--accent)">📅 Ver visita</button>' : '') +
         '</div></div>';
     }
+    const _vLink = a.visita_id ? (visitas||[]).find(v => v.id === a.visita_id) : null;
+    const _oLink = a.orcmat_id ? (orcamentos||[]).find(o => o.id === a.orcmat_id) : null;
+    const _fmtRv = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     return '<div class="item-card">' +
       '<div class="item-header" onclick="toggleAprov(' + a.id + ')">' +
-      '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="badge ' + scls + '">' + slabel + '</span><span style="font-size:12px;color:#888780">' + a.vendedora + ' · ' + a.pag + '</span></div>' +
+      '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="badge ' + scls + '">' + slabel + '</span><span style="font-size:12px;color:#888780">' + a.vendedora + ' · ' + a.pag + '</span>' +
+      (_vLink ? '<span class="badge" style="background:var(--accent-light);color:var(--accent);font-size:11px" onclick="event.stopPropagation();verVisitaDetalhe(' + a.visita_id + ')">📅 ' + (_vLink.data||'').split('-').reverse().join('/') + '</span>' : '') +
+      (_oLink ? '<span class="badge" style="background:#f0faf0;color:#2e7d32;font-size:11px">📦 ' + _fmtRv(_oLink.valor_total) + '</span>' : '') +
+      '</div>' +
       '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + a.cliente + '</p>' +
       '<p style="font-size:13px;color:#888780;margin:0">' + a.equip + '</p></div>' +
       '<div style="text-align:right;flex-shrink:0">' +
@@ -2927,6 +2933,21 @@ async function abrirEditarAprov(id, e) {
       document.getElementById('p-vendedora-outro').value = a.vendedora || '';
       document.getElementById('p-vendedora-outro').style.display = '';
     }
+  }
+
+  // Restaura orcmat vinculado
+  _propOrcmatId = a.orcmat_id || null;
+  if (_propOrcmatId) {
+    const oLink = (orcamentos || []).find(x => x.id === _propOrcmatId);
+    if (oLink) {
+      const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const df = (oLink.criado_em||'').slice(0,10).split('-').reverse().join('/');
+      document.getElementById('prop-orcmat-label').textContent = `${oLink.cliente} · ${fmtR(oLink.valor_total)} · ${df}`;
+      document.getElementById('prop-orcmat-label').style.color = 'var(--text1)';
+      document.getElementById('prop-orcmat-limpar').style.display = '';
+    }
+  } else {
+    _propLimparOrcmat();
   }
 
   // Restaura visita vinculada
@@ -3491,7 +3512,7 @@ async function enviarAprovacao() {
     const ctProd = cp + taxaR;
     const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
     const ctTotal = cp + cm + taxaR; // custo total real (para referência)
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null };
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
