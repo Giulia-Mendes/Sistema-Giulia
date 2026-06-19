@@ -282,6 +282,53 @@ select option { background: var(--surface); color: var(--text); }
 .foto-add:hover { border-color: var(--accent); background: var(--accent-light); }
 @media(max-width: 600px) { .foto-grid { grid-template-columns: repeat(3, 1fr); } }
 
+/* ORCMAT — layout mobile responsivo */
+@media(max-width: 600px) {
+  .orcmat-grid-header { display: none !important; }
+  .orcmat-linha {
+    display: grid !important;
+    grid-template-columns: 80px 1fr 1fr 36px !important;
+    grid-template-rows: auto auto auto !important;
+    grid-template-areas:
+      "nome  nome  nome  del"
+      "qtd   preco total total"
+      "obs   obs   obs   obs" !important;
+    gap: 8px !important;
+    padding: 12px 10px !important;
+    border-radius: 10px !important;
+    border: 1px solid var(--border) !important;
+    border-bottom: 1px solid var(--border) !important;
+    margin-bottom: 10px !important;
+    background: var(--surface) !important;
+  }
+  /* Linha do nome (catalogo ou livre) */
+  .orcmat-linha > *:first-child {
+    grid-area: nome !important;
+    font-size: 15px !important;
+    min-height: 42px !important;
+  }
+  /* Input nome livre — tamanho confortável no mobile */
+  .orcmat-nome-livre {
+    font-size: 16px !important;
+    padding: 10px 12px !important;
+  }
+  .orcmat-qtd     { grid-area: qtd   !important; font-size: 15px !important; padding: 8px !important; text-align: center !important; }
+  .orcmat-preco   { grid-area: preco !important; font-size: 15px !important; padding: 8px !important; text-align: right !important; }
+  .orcmat-total-linha {
+    grid-area: total !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--accent) !important;
+    padding-right: 4px !important;
+  }
+  .orcmat-estoque { display: none !important; } /* escondido no mobile — visível na busca */
+  .orcmat-obs-item { grid-area: obs !important; font-size: 14px !important; padding: 8px 10px !important; }
+  .orcmat-del-btn { grid-area: del !important; align-self: start !important; }
+}
+
 /* ANEXOS */
 .anx-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 8px; margin-bottom: 6px; }
 .anx-icone { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
@@ -6105,7 +6152,7 @@ function _orcmatCriarLinha(livre) {
     <input type="text" class="orcmat-obs-item" placeholder="Obs…"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;box-sizing:border-box">
     ${livre ? '' : '<input type="hidden" class="orcmat-un" value="UN">'}
-    <button onclick="this.closest('.orcmat-linha').remove();_orcmatAtualizarTotal()" title="Remover"
+    <button class="orcmat-del-btn" onclick="this.closest('.orcmat-linha').remove();_orcmatAtualizarTotal()" title="Remover"
       style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:14px">✕</button>`;
   document.getElementById('orcmat-linhas').appendChild(div);
   return div;
