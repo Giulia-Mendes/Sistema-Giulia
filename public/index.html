@@ -6085,8 +6085,12 @@ function _orcmatCriarLinha(livre) {
   div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 120px 120px 120px 140px 36px;gap:6px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--border)';
   div.dataset.livre = livre ? '1' : '0';
   div.innerHTML = livre
-    ? `<div><input type="text" class="orcmat-nome-livre" placeholder="Descreva o material…" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
-        style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;box-sizing:border-box"></div>`
+    ? `<div style="display:flex;gap:5px;align-items:center">
+        <input type="text" class="orcmat-nome-livre" placeholder="Descreva o material livre…" oninput="_orcmatAtualizarLinha(this.closest('.orcmat-linha'))"
+          style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);font-size:13px;box-sizing:border-box">
+        <input type="text" class="orcmat-un" value="UN" maxlength="6" title="Unidade (ex: UN, M, M², KG…)"
+          style="width:54px;flex-shrink:0;padding:7px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);font-size:12px;text-align:center;box-sizing:border-box;color:var(--text2)">
+       </div>`
     : `<div style="cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);min-height:32px;font-size:13px" onclick="orcmatAbrirBusca(this.closest('.orcmat-linha'))">
         <span class="orcmat-nome-display" style="font-weight:500">${'<span style="color:var(--text2)">Clique para buscar…</span>'}</span>
         <span class="orcmat-sku-display" style="font-size:11px;color:var(--text2);margin-left:6px"></span>
@@ -6100,7 +6104,7 @@ function _orcmatCriarLinha(livre) {
     <div class="orcmat-estoque" title="Estoque disponível (somente leitura)" style="text-align:center;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;cursor:default;user-select:none">—</div>
     <input type="text" class="orcmat-obs-item" placeholder="Obs…"
       style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;box-sizing:border-box">
-    <input type="hidden" class="orcmat-un" value="UN">
+    ${livre ? '' : '<input type="hidden" class="orcmat-un" value="UN">'}
     <button onclick="this.closest('.orcmat-linha').remove();_orcmatAtualizarTotal()" title="Remover"
       style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:14px">✕</button>`;
   document.getElementById('orcmat-linhas').appendChild(div);
