@@ -667,6 +667,18 @@ select option { background: var(--surface); color: var(--text); }
       <input type="number" id="p-temp" placeholder="Ex: 28" style="max-width:180px" oninput="gerarProposta()">
     </div>
     <div class="campo" style="margin-top:4px">
+      <label>Visita vinculada</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="prop-visita-label" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);font-size:13px;color:var(--text2);min-height:32px">
+          Nenhuma visita vinculada
+        </div>
+        <button type="button" class="btn btn-branco" onclick="_propAbrirSeletorVisita()" style="font-size:12px;white-space:nowrap">📅 Selecionar</button>
+        <button type="button" id="prop-visita-ver" class="btn btn-branco" onclick="verVisitaDetalhe(_propVisitaId)" style="font-size:12px;display:none">Ver</button>
+        <button type="button" id="prop-visita-limpar" onclick="_propLimparVisita()" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px;display:none" title="Desvincular visita">✕</button>
+      </div>
+      <input type="hidden" id="prop-visita-id">
+    </div>
+    <div class="campo" style="margin-top:4px">
       <label>Fotos / Arquivos da proposta</label>
       <div id="prop-anexos-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
       <button type="button" class="btn btn-branco" onclick="document.getElementById('prop-anexo-input').click()" style="font-size:13px">+ Adicionar foto / arquivo</button>
@@ -2334,6 +2346,7 @@ function toggleOutroVend() { document.getElementById('p-vendedora-outro').style.
 
 let produtosAdicionais = [];
 let propAnexos = []; // { nome, tipo, dados } base64
+let _propVisitaId = null; // visita vinculada à proposta atual
 function calcTotalProposta() {
   if (_bloqueandoCalcTotal) return;
   const mat = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
@@ -2751,6 +2764,7 @@ function renderAprovacao() {
         '<button class="btn btn-branco" onclick="reimprimirAprov(' + a.id + ',event)">🖨️ Imprimir</button>' +
         '<button class="btn btn-branco" onclick="abrirEditarAprov(' + a.id + ',event)">✏️ Editar</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirAprov(' + a.id + ',event)">🗑 Excluir</button>' +
+        (a.visita_id ? '<button class="btn btn-branco" onclick="event.stopPropagation();verVisitaDetalhe(' + a.visita_id + ')" style="border-color:var(--accent);color:var(--accent)">📅 Ver visita</button>' : '') +
         '</div></div>';
     }
     return '<div class="item-card">' +
@@ -2858,6 +2872,22 @@ async function abrirEditarAprov(id, e) {
     }
   }
 
+  // Restaura visita vinculada
+  _propVisitaId = a.visita_id || null;
+  if (_propVisitaId) {
+    const vLink = (visitas || []).find(x => x.id === _propVisitaId);
+    if (vLink) {
+      const df = (vLink.data || '').split('-').reverse().join('/');
+      const hr = vLink.hora_ini ? ' · ' + vLink.hora_ini : '';
+      document.getElementById('prop-visita-label').textContent = `${vLink.nome} · ${df}${hr}`;
+      document.getElementById('prop-visita-label').style.color = 'var(--text1)';
+      document.getElementById('prop-visita-ver').style.display = '';
+      document.getElementById('prop-visita-limpar').style.display = '';
+    }
+  } else {
+    _propLimparVisita();
+  }
+
   // Preenche campos básicos
   document.getElementById('p-cliente').value = a.cliente || '';
   setMoedaInput('p-custo-prod', a.custo_prod > 0 ? a.custo_prod : a.custo);
@@ -2915,6 +2945,7 @@ function cancelarEdicaoAprov() {
   editandoAprovId = null;
   propAnexos = [];
   renderPropAnexos();
+  _propLimparVisita();
   if (document.getElementById('p-temp')) document.getElementById('p-temp').value = '';
   document.getElementById('btn-enviar-aprov').textContent = 'Enviar para aprovação';
   document.getElementById('btn-cancelar-aprov').style.display = 'none';
@@ -3071,6 +3102,7 @@ function renderInstalacoes() {
         '<button class="btn btn-branco" onclick="abrirEditarInst(' + inst.id + ')">Editar</button>' +
         '<button class="btn btn-verde" onclick="irParaFinanceiro(' + inst.id + ')">Compras</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirInst(' + inst.id + ')">Excluir</button>' +
+        (inst.visita_ref_id ? '<button class="btn btn-branco" onclick="verVisitaDetalhe(' + inst.visita_ref_id + ')" style="border-color:var(--accent);color:var(--accent)">📅 Ver visita</button>' : '') +
         '</div></div>';
     }
     return '<div class="item-card">' +
@@ -3401,7 +3433,7 @@ async function enviarAprovacao() {
     const ctProd = cp + taxaR;
     const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
     const ctTotal = cp + cm + taxaR; // custo total real (para referência)
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp };
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
@@ -4169,6 +4201,7 @@ function renderPedidos() {
           '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="salvarLead(\'' + p.fonte + '\',' + p.id + ')">Salvar</button>' +
           '<button class="btn btn-preto" style="font-size:12px" onclick="pedidoParaInstalacao(\'' + p.fonte + '\',' + p.id + ')">→ Instalação</button>' +
           '<button class="btn btn-branco" style="font-size:12px" onclick="pedidoParaCompras(\'' + p.fonte + '\',' + p.id + ')">→ Compras</button>' +
+          (() => { const vp = p.lead_id ? (visitas||[]).find(v => v.lead_id && String(v.lead_id) === String(p.lead_id)) : null; return vp ? '<button class="btn btn-branco" style="font-size:12px;border-color:var(--accent);color:var(--accent)" onclick="verVisitaDetalhe(' + vp.id + ')">📅 Ver visita</button>' : ''; })() +
           (p.fonte === 'tiny' ? '<button class="btn btn-vermelho" style="font-size:12px;margin-left:auto" onclick="removerPedidoTiny(' + p.id + ')">Remover</button>' : '') +
         '</div>' +
       '</div>' +
@@ -5955,6 +5988,7 @@ function renderOrcamentos() {
         <div style="display:flex;align-items:center;gap:10px">
           ${stBadge(o.status)}
           <div style="font-size:17px;font-weight:700;color:var(--accent)">${fmtR(o.valor_total)}</div>
+          ${o.visita_id ? `<button onclick="event.stopPropagation();verVisitaDetalhe(${o.visita_id})" style="padding:4px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--accent)" title="Ver visita vinculada">📅</button>` : ''}
           <button onclick="event.stopPropagation();orcmatEditarOrcamento(${o.id})" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px">✏️</button>
           <button onclick="event.stopPropagation();orcmatExcluir(${o.id})" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--terra)">🗑</button>
         </div>
@@ -6110,6 +6144,73 @@ function setMoedaInput_el(el, v) {
 }
 
 // ── Busca de material (modal) ──
+// ── Ver detalhes de uma visita (popup) ──
+function verVisitaDetalhe(visitaId) {
+  const v = (visitas || []).find(x => x.id === visitaId);
+  const modal = document.getElementById('modal-visita-detalhe');
+  const body  = document.getElementById('modal-visita-detalhe-body');
+  if (!modal || !body) return;
+  if (!v) {
+    body.innerHTML = '<p style="color:var(--text2);font-size:13px;text-align:center">Visita não encontrada.</p>';
+    modal.style.display = 'flex';
+    return;
+  }
+  const dataFmt = (v.data || '').split('-').reverse().join('/');
+  const hora    = [v.hora_ini, v.hora_fim].filter(Boolean).join(' – ');
+  const tecs    = Array.isArray(v.tecnicos) ? v.tecnicos.map(t => t.split('|')[0]).join(', ') : (v.tecnicos || '—');
+  const row = (lbl, val) => val
+    ? `<div style="display:flex;gap:8px;align-items:flex-start">
+        <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;min-width:80px;padding-top:1px">${lbl}</span>
+        <span style="font-size:13px;font-weight:500;flex:1">${val}</span>
+       </div>`
+    : '';
+  body.innerHTML =
+    row('Cliente', v.nome) +
+    row('Data', dataFmt + (hora ? ' · ' + hora : '')) +
+    row('Endereço', v.endereco || '—') +
+    row('Técnico(s)', tecs || '—') +
+    row('Vendedora', v.vendedora || '') +
+    row('Tipo', v.tipo || 'visita') +
+    (v.obs ? row('Obs', v.obs) : '');
+  modal.style.display = 'flex';
+}
+
+// ── Seletor de visita na proposta ──
+function _propVincularVisita(v) {
+  _propVisitaId = v.id;
+  document.getElementById('prop-visita-id').value = v.id;
+  const dataFmt = (v.data || '').split('-').reverse().join('/');
+  const hora = v.hora_ini ? ' · ' + v.hora_ini : '';
+  document.getElementById('prop-visita-label').textContent = `${v.nome} · ${dataFmt}${hora}`;
+  document.getElementById('prop-visita-label').style.color = 'var(--text1)';
+  document.getElementById('prop-visita-ver').style.display = '';
+  document.getElementById('prop-visita-limpar').style.display = '';
+  document.getElementById('modal-sel-visita-prop').style.display = 'none';
+}
+function _propLimparVisita() {
+  _propVisitaId = null;
+  document.getElementById('prop-visita-id').value = '';
+  document.getElementById('prop-visita-label').textContent = 'Nenhuma visita vinculada';
+  document.getElementById('prop-visita-label').style.color = 'var(--text2)';
+  document.getElementById('prop-visita-ver').style.display = 'none';
+  document.getElementById('prop-visita-limpar').style.display = 'none';
+}
+function _propAbrirSeletorVisita() {
+  const lista = document.getElementById('sel-visita-prop-lista');
+  if (!lista) return;
+  const recentes = [...(visitas || [])].sort((a,b) => (b.data||'').localeCompare(a.data||'')).slice(0, 50);
+  lista.innerHTML = recentes.length ? recentes.map(v => {
+    const dataFmt = (v.data || '').split('-').reverse().join('/');
+    const hora = v.hora_ini ? ' · ' + v.hora_ini : '';
+    return `<div onclick="_propVincularVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer"
+      onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+      <div style="font-size:14px;font-weight:500">${v.nome}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">📅 ${dataFmt}${hora} · ${v.endereco || '—'}</div>
+    </div>`;
+  }).join('') : '<p style="text-align:center;color:var(--text2);padding:16px;font-size:13px">Nenhuma visita encontrada.</p>';
+  document.getElementById('modal-sel-visita-prop').style.display = 'flex';
+}
+
 let _orcmatBuscaTimer = null;
 
 function orcmatAbrirBusca(linha) {
@@ -6675,6 +6776,28 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
       <button class="btn" onclick="catAdicionarMaterial()" style="font-size:13px;white-space:nowrap">+ Adicionar</button>
     </div>
     <div id="cat-lista" style="max-height:50vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL SELETOR DE VISITA (proposta) -->
+<div class="modal-bg" id="modal-sel-visita-prop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:480px;width:95%;padding:0">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:15px">📅 Vincular visita</h3>
+      <button onclick="document.getElementById('modal-sel-visita-prop').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <div id="sel-visita-prop-lista" style="max-height:380px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE DE VISITA -->
+<div class="modal-bg" id="modal-visita-detalhe" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:420px;width:95%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0;font-size:15px">📅 Detalhes da visita</h3>
+      <button onclick="document.getElementById('modal-visita-detalhe').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <div id="modal-visita-detalhe-body" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </div>
 
