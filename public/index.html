@@ -726,6 +726,16 @@ select option { background: var(--surface); color: var(--text); }
       <input type="hidden" id="prop-visita-id">
     </div>
     <div class="campo" style="margin-top:4px">
+      <label>Orçamento de material vinculado</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="prop-orcmat-label" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);font-size:13px;color:var(--text2);min-height:32px">
+          Nenhum orçamento vinculado
+        </div>
+        <button type="button" class="btn btn-branco" onclick="_propAbrirSeletorOrcmat()" style="font-size:12px;white-space:nowrap">📦 Selecionar</button>
+        <button type="button" id="prop-orcmat-limpar" onclick="_propLimparOrcmat()" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px;display:none" title="Desvincular orçamento">✕</button>
+      </div>
+    </div>
+    <div class="campo" style="margin-top:4px">
       <label>Fotos / Arquivos da proposta</label>
       <div id="prop-anexos-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
       <button type="button" class="btn btn-branco" onclick="document.getElementById('prop-anexo-input').click()" style="font-size:13px">+ Adicionar foto / arquivo</button>
@@ -2993,6 +3003,7 @@ function cancelarEdicaoAprov() {
   propAnexos = [];
   renderPropAnexos();
   _propLimparVisita();
+  _propLimparOrcmat();
   if (document.getElementById('p-temp')) document.getElementById('p-temp').value = '';
   document.getElementById('btn-enviar-aprov').textContent = 'Enviar para aprovação';
   document.getElementById('btn-cancelar-aprov').style.display = 'none';
@@ -6237,6 +6248,10 @@ function _propVincularVisita(v) {
   document.getElementById('prop-visita-ver').style.display = '';
   document.getElementById('prop-visita-limpar').style.display = '';
   document.getElementById('modal-sel-visita-prop').style.display = 'none';
+  // Auto-preenche nome do cliente
+  const nomeEl = document.getElementById('p-cliente');
+  if (nomeEl && !nomeEl.value.trim()) nomeEl.value = v.nome || '';
+  gerarProposta();
 }
 function _propLimparVisita() {
   _propVisitaId = null;
@@ -6245,6 +6260,64 @@ function _propLimparVisita() {
   document.getElementById('prop-visita-label').style.color = 'var(--text2)';
   document.getElementById('prop-visita-ver').style.display = 'none';
   document.getElementById('prop-visita-limpar').style.display = 'none';
+}
+
+// ── Seletor de orçamento de material na proposta ──
+let _propOrcmatId = null;
+function _propVincularOrcmat(o) {
+  _propOrcmatId = o.id;
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
+  document.getElementById('prop-orcmat-label').textContent = `${o.cliente} · ${fmtR(o.valor_total)} · ${dataFmt}`;
+  document.getElementById('prop-orcmat-label').style.color = 'var(--text1)';
+  document.getElementById('prop-orcmat-limpar').style.display = '';
+  document.getElementById('modal-sel-orcmat-prop').style.display = 'none';
+  // Preenche custo de material e recalcula preço proposta
+  setMoedaInput('p-custo-mat', o.valor_total || 0);
+  autoFillMatProp();
+  // Preenche nome do cliente se vazio
+  const nomeEl = document.getElementById('p-cliente');
+  if (nomeEl && !nomeEl.value.trim()) nomeEl.value = o.cliente || '';
+  // Vincula visita automaticamente se o orcmat tem visita e a proposta ainda não tem
+  if (o.visita_id && !_propVisitaId) {
+    const v = (visitas || []).find(x => x.id === o.visita_id);
+    if (v) _propVincularVisita(v);
+  }
+  gerarProposta();
+}
+function _propLimparOrcmat() {
+  _propOrcmatId = null;
+  document.getElementById('prop-orcmat-label').textContent = 'Nenhum orçamento vinculado';
+  document.getElementById('prop-orcmat-label').style.color = 'var(--text2)';
+  document.getElementById('prop-orcmat-limpar').style.display = 'none';
+}
+function _propAbrirSeletorOrcmat() {
+  const lista = document.getElementById('sel-orcmat-prop-lista');
+  if (!lista) return;
+  // Mostra primeiro os orcmats da visita vinculada, depois os demais
+  const todos = [...(orcamentos || [])].filter(o => o.status !== 'rascunho' || true).sort((a,b) => {
+    const aMatch = _propVisitaId && a.visita_id === _propVisitaId ? 0 : 1;
+    const bMatch = _propVisitaId && b.visita_id === _propVisitaId ? 0 : 1;
+    if (aMatch !== bMatch) return aMatch - bMatch;
+    return (b.criado_em||'').localeCompare(a.criado_em||'');
+  }).slice(0, 60);
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  lista.innerHTML = todos.length ? todos.map(o => {
+    const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
+    const isMatch = _propVisitaId && o.visita_id === _propVisitaId;
+    return `<div onclick="_propVincularOrcmat(${JSON.stringify(o).replace(/"/g,'&quot;')})"
+      style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;${isMatch?'border-left:3px solid var(--accent);':''}"
+      onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:14px;font-weight:500">${o.cliente}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${dataFmt} · ${o.itens?.length||0} item(ns)${isMatch?' · <span style="color:var(--accent);font-weight:600">✓ desta visita</span>':''}</div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0">${fmtR(o.valor_total)}</div>
+      </div>
+    </div>`;
+  }).join('') : '<p style="text-align:center;color:var(--text2);padding:16px;font-size:13px">Nenhum orçamento encontrado.</p>';
+  document.getElementById('modal-sel-orcmat-prop').style.display = 'flex';
 }
 function _propAbrirSeletorVisita() {
   const lista = document.getElementById('sel-visita-prop-lista');
@@ -6827,6 +6900,17 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
       <button class="btn" onclick="catAdicionarMaterial()" style="font-size:13px;white-space:nowrap">+ Adicionar</button>
     </div>
     <div id="cat-lista" style="max-height:50vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL SELETOR DE ORÇAMENTO DE MATERIAL (proposta) -->
+<div class="modal-bg" id="modal-sel-orcmat-prop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:480px;width:95%;padding:0">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:15px">📦 Vincular orçamento de material</h3>
+      <button onclick="document.getElementById('modal-sel-orcmat-prop').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <div id="sel-orcmat-prop-lista" style="max-height:400px;overflow-y:auto"></div>
   </div>
 </div>
 
