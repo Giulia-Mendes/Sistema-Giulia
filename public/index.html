@@ -2813,7 +2813,8 @@ function renderAprovacao() {
         '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">' +
           '<span style="font-size:12px;color:var(--text2);white-space:nowrap">Orç. material</span>' +
           '<div id="aprov-orcmat-label-' + a.id + '" style="flex:1;min-width:120px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:' + (_oLink ? 'var(--text1)' : 'var(--text2)') + '">' + (_oLink ? _oLink.cliente + ' · R$ ' + (_oLink.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : 'Nenhum vinculado') + '</div>' +
-          '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();_abrirSeletorOrcmatAprov(' + a.id + ')">📦 Vincular</button>' +
+          (_oLink ? '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px;border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();orcmatVerOrcamento(' + a.orcmat_id + ')">📦 Ver</button>' : '') +
+          '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();_abrirSeletorOrcmatAprov(' + a.id + ')">' + (_oLink ? 'Trocar' : '📦 Vincular') + '</button>' +
           (_oLink ? '<button onclick="event.stopPropagation();_desvincularOrcmatAprov(' + a.id + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px" title="Desvincular">✕</button>' : '') +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
