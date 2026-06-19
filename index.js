@@ -101,11 +101,14 @@ function gcalEventFromVisita(v) {
   const tecnicos = (() => { try { return JSON.parse(v.tecnicos || '[]'); } catch { return []; } })();
   const tipoLabel = v.tipo === 'instalacao' ? 'Instalação' : v.tipo === 'manutencao' ? 'Manutenção' : 'Visita Técnica';
   const title = `${tipoLabel} – ${v.nome}`;
+  const tecNomes = tecnicos.map(t => t.split('|')[0]).join(', ');
   const desc = [
     v.endereco ? `📍 ${v.endereco}` : '',
     v.cel ? `📱 ${v.cel}` : '',
+    v.vendedora ? `👤 Vendedora: ${v.vendedora}` : '',
+    v.lead_id ? `🔗 Lead: ${v.lead_id}` : '',
     v.periodo ? `🕐 ${v.periodo}` : '',
-    tecnicos.length ? `👷 ${tecnicos.join(', ')}` : '',
+    tecNomes ? `👷 ${tecNomes}` : '',
     v.obs ? `📝 ${v.obs}` : ''
   ].filter(Boolean).join('\n');
 
