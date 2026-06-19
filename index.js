@@ -502,8 +502,8 @@ app.get('/api/aprovacoes/:id/anexos', auth, (req, res) => {
 });
 app.post('/api/aprovacoes', auth, (req, res) => {
   const d = req.body;
-  const r = db.prepare('INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,criado_por_id,criado_por_nome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, req.session.u.id, req.session.u.nome);
+  const r = db.prepare('INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,lead_id,criado_por_id,criado_por_nome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, req.session.u.id, req.session.u.nome);
   audit(req, 'CRIAR_PROPOSTA', 'aprovacoes', r.lastInsertRowid, null, { cliente: d.cliente, valor: d.valor });
   res.json({ sucesso: true, id: r.lastInsertRowid });
 });
@@ -516,8 +516,8 @@ app.put('/api/aprovacoes/:id', auth, (req, res) => {
     : (d.status === 'aprovado' && antes.status !== 'aprovado')
       ? new Date().toISOString().slice(0, 10)
       : (antes.aprovado_em || null);
-  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(html_proposta,?),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=?,visita_id=COALESCE(?,visita_id),orcmat_id=COALESCE(?,orcmat_id),aprovado_em=? WHERE id=?')
-    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, d.status, d.texto, d.custos || null, d.html_proposta || null, d.motivo_recusa || null, d.temperatura_alvo || null, d.anexos ? JSON.stringify(d.anexos) : null, d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, aprovadoEm, req.params.id);
+  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(html_proposta,?),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=?,visita_id=COALESCE(?,visita_id),orcmat_id=COALESCE(?,orcmat_id),lead_id=COALESCE(?,lead_id),aprovado_em=? WHERE id=?')
+    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, d.status, d.texto, d.custos || null, d.html_proposta || null, d.motivo_recusa || null, d.temperatura_alvo || null, d.anexos ? JSON.stringify(d.anexos) : null, d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, aprovadoEm, req.params.id);
   audit(req, 'EDITAR_PROPOSTA', 'aprovacoes', req.params.id, antes, { cliente: d.cliente, valor: d.valor, status: d.status });
   res.json({ sucesso: true });
 });

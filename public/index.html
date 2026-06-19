@@ -724,6 +724,7 @@ select option { background: var(--surface); color: var(--text); }
         <button type="button" id="prop-visita-limpar" onclick="_propLimparVisita()" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px;display:none" title="Desvincular visita">✕</button>
       </div>
       <input type="hidden" id="prop-visita-id">
+      <input type="hidden" id="prop-lead-id-hidden">
     </div>
     <div class="campo" style="margin-top:4px">
       <label>Orçamento de material vinculado</label>
@@ -3015,9 +3016,14 @@ async function abrirEditarAprov(id, e) {
       document.getElementById('prop-visita-label').style.color = 'var(--text1)';
       document.getElementById('prop-visita-ver').style.display = '';
       document.getElementById('prop-visita-limpar').style.display = '';
+      // Restaura lead_id da visita (ou da aprovação existente)
+      const hid = document.getElementById('prop-lead-id-hidden');
+      if (hid) hid.value = a.lead_id || vLink.lead_id || '';
     }
   } else {
     _propLimparVisita();
+    const hid = document.getElementById('prop-lead-id-hidden');
+    if (hid) hid.value = a.lead_id || '';
   }
 
   // Preenche campos básicos
@@ -3566,7 +3572,8 @@ async function enviarAprovacao() {
     const ctProd = cp + taxaR;
     const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
     const ctTotal = cp + cm + taxaR; // custo total real (para referência)
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null };
+    const _leadIdProp = document.getElementById('prop-lead-id-hidden')?.value?.trim() || null;
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
@@ -6326,11 +6333,14 @@ function _propVincularVisita(v) {
   // Auto-preenche nome do cliente
   const nomeEl = document.getElementById('p-cliente');
   if (nomeEl && !nomeEl.value.trim()) nomeEl.value = v.nome || '';
+  // Auto-preenche lead_id da visita
+  if (v.lead_id) { document.getElementById('prop-lead-id-hidden').value = v.lead_id; }
   gerarProposta();
 }
 function _propLimparVisita() {
   _propVisitaId = null;
   document.getElementById('prop-visita-id').value = '';
+  const hid = document.getElementById('prop-lead-id-hidden'); if (hid) hid.value = '';
   document.getElementById('prop-visita-label').textContent = 'Nenhuma visita vinculada';
   document.getElementById('prop-visita-label').style.color = 'var(--text2)';
   document.getElementById('prop-visita-ver').style.display = 'none';
