@@ -3371,7 +3371,7 @@ async function carregarPedidos() {
   try { const r = await fetch('/api/pedidos'); pedidos = await r.json(); } catch(e) { pedidos = []; }
 }
 async function carregarTudo() {
-  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTinyPedidos(), carregarPedidos()]);
+  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTinyPedidos(), carregarPedidos(), carregarOrcamentos()]);
   renderVisitas(); renderAprovacao(); renderResumoInst(); renderInstalacoes();
   const hoje = new Date();
   const de = document.getElementById('dash-de'), ate = document.getElementById('dash-ate');
