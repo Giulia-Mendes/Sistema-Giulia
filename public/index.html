@@ -4758,10 +4758,10 @@ let finCardsExpanded = new Set(); // padrão: fechado. Só abre se o usuário cl
 function calcVolOrcmat() {
   const v = n => parseFloat(document.getElementById(n)?.value) || 0;
   const c = v('ol-comp'), l = v('ol-larg'), pm = v('ol-prof'), pm2 = v('ol-prof-min') || pm;
-  let vol = c * l * ((pm + pm2) / 2) * 0.8;
+  let vol = c * l * ((pm + pm2) / 2);
   if (document.getElementById('ol-tem-prainha')?.checked) {
     const pc = v('ol-prainha-comp'), pl = v('ol-prainha-larg'), pp = v('ol-prainha-prof');
-    vol += pc * pl * pp * 0.8;
+    vol += pc * pl * pp;
   }
   const el = document.getElementById('ol-vol');
   if (el) el.value = vol > 0 ? vol.toFixed(2) : '';
