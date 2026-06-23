@@ -4631,15 +4631,15 @@ async function pedidoParaCompras(fonte, id) {
 
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios'],
-  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria'],
-  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat'],
+  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','kommo'],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo'],
+  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat'];
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais', kommo:'Kommo' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo'];
 
 async function carregarPermissoes() {
   try {
