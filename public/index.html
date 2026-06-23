@@ -1387,7 +1387,7 @@ select option { background: var(--surface); color: var(--text); }
       </div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-branco" onclick="fecharModal('modal-edit-visita')">Cancelar</button>
+      <button class="btn btn-branco" onclick="cancelarEditVisita()">Cancelar</button>
       <button class="btn btn-preto" onclick="salvarEditarVisita()">Salvar</button>
     </div>
   </div>
@@ -1532,6 +1532,7 @@ let tipoEventoEdit = 'visita';
 let fotosTmp = [];
 let laudoVisitaId = null;
 let editandoVisitaId = null;
+let clonandoVisita = false;
 let editandoAprovId = null;
 let filtroAprov = 'todas';
 let _bloqueandoCalcTotal = false;
@@ -2254,9 +2255,10 @@ function renderVisitas() {
         '<p class="sec" style="margin-top:14px">Texto do agendamento</p>' +
         '<div class="txt-agend">' + montarTextoVisita(v) + '</div>' +
         laudoHtml +
-        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e5e3db;flex-wrap:wrap">' +
+        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">' +
         '<button class="btn btn-branco" onclick="abrirEditarVisita(' + v.id + ')">✏️ Editar</button>' +
         '<button class="btn btn-branco" onclick="copiarAgend(' + v.id + ', event)">📋 Copiar</button>' +
+        '<button class="btn btn-branco" onclick="clonarVisita(' + v.id + ')">🔁 Clonar</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirVisita(' + v.id + ')">🗑 Excluir</button>' +
         '</div></div>';
     }
@@ -2282,6 +2284,108 @@ async function toggleVisita(id) {
   renderVisitas();
 }
 function copiarAgend(id, e) { e.stopPropagation(); const v = visitas.find(x => x.id === id); if (v) navigator.clipboard.writeText(montarTextoVisita(v)).catch(() => {}); }
+
+function clonarVisita(id) {
+  const v = visitas.find(x => x.id === id);
+  if (!v) return;
+
+  clonandoVisita = true;
+  editandoVisitaId = null;
+
+  // Preenche o modal de edição com os dados da visita original
+  selecionarTipoEdit(v.tipo || 'visita');
+  document.getElementById('ev-nome').value = v.nome || '';
+  document.getElementById('ev-cel').value = v.cel || '';
+  document.getElementById('ev-end').value = v.end || '';
+  document.getElementById('ev-cep').value = v.cep || '';
+  document.getElementById('ev-obs').value = v.obs || '';
+  document.getElementById('ev-vendedora').value = v.vendedora || '';
+  document.getElementById('ev-lead').value = v.lead_id || '';
+
+  // Data e hora em branco — usuário preenche a nova
+  document.getElementById('ev-data').value = '';
+  document.getElementById('ev-hora-ini').value = '';
+  document.getElementById('ev-hora-fim').value = '';
+  document.getElementById('ev-periodo').value = '';
+
+  // Técnicos
+  document.getElementById('ev-tec-joseilto').checked = (v.tecnicos||[]).includes('Joseilto da Silva Melo|05770641428');
+  document.getElementById('ev-tec-wesley').checked = (v.tecnicos||[]).includes('José Wesley Mendes da Silva|15417106496');
+  const outroTec = (v.tecnicos||[]).find(t =>
+    t !== 'Joseilto da Silva Melo|05770641428' &&
+    t !== 'José Wesley Mendes da Silva|15417106496'
+  );
+  if (outroTec) {
+    const [n, c] = outroTec.split('|');
+    document.getElementById('ev-outro-tec-span').textContent = n + ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    document.getElementById('ev-outro-tec-label').style.display = 'flex';
+    const ck = document.getElementById('ev-outro-tec-check');
+    if (ck) { ck.value = outroTec; ck.checked = true; }
+  } else {
+    document.getElementById('ev-outro-tec-label').style.display = 'none';
+    document.getElementById('ev-outro-tec-check').checked = false;
+  }
+
+  // Muda título e botão do modal para deixar claro que é um clone
+  const titulo = document.querySelector('#modal-edit-visita .modal > p');
+  if (titulo) titulo.textContent = '🔁 Nova visita com base neste agendamento';
+  const btnSalvar = document.querySelector('#modal-edit-visita button.btn-preto');
+  if (btnSalvar) btnSalvar.setAttribute('onclick', 'salvarClonarVisita()');
+
+  abrirModal('modal-edit-visita');
+
+  // Foca no campo de data para o usuário preencher
+  setTimeout(() => {
+    const dataField = document.getElementById('ev-data');
+    if (dataField) {
+      dataField.focus();
+      dataField.style.outline = '2px solid var(--accent)';
+      dataField.style.borderColor = 'var(--accent)';
+      setTimeout(() => { dataField.style.outline = ''; dataField.style.borderColor = ''; }, 2500);
+    }
+  }, 200);
+}
+
+async function salvarClonarVisita() {
+  if (!document.getElementById('ev-data').value) {
+    alert('Informe a data da nova visita.');
+    document.getElementById('ev-data').focus();
+    return;
+  }
+  const dados = {
+    tipo: tipoEventoEdit,
+    nome: document.getElementById('ev-nome').value,
+    cel: document.getElementById('ev-cel').value,
+    end: document.getElementById('ev-end').value,
+    cep: document.getElementById('ev-cep').value,
+    data: document.getElementById('ev-data').value,
+    horaIni: document.getElementById('ev-hora-ini').value,
+    horaFim: calcHoraFimAuto(document.getElementById('ev-hora-ini').value),
+    periodo: document.getElementById('ev-periodo').value,
+    obs: document.getElementById('ev-obs').value,
+    tecnicos: getTecsEdit(),
+    vendedora: document.getElementById('ev-vendedora').value || null,
+    lead_id: document.getElementById('ev-lead').value.trim() || null
+  };
+  await fetch('/api/visitas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+  _restaurarModalEditVisita();
+  fecharModal('modal-edit-visita');
+  await carregarVisitas();
+  renderVisitas();
+}
+
+function _restaurarModalEditVisita() {
+  clonandoVisita = false;
+  const titulo = document.querySelector('#modal-edit-visita .modal > p');
+  if (titulo) titulo.textContent = 'Editar agendamento';
+  const btnSalvar = document.querySelector('#modal-edit-visita button.btn-preto');
+  if (btnSalvar) btnSalvar.setAttribute('onclick', 'salvarEditarVisita()');
+}
+
+function cancelarEditVisita() {
+  if (clonandoVisita) _restaurarModalEditVisita();
+  fecharModal('modal-edit-visita');
+}
 
 // ═══ LAUDO ═══
 function calcVolLaudo() {
