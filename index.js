@@ -543,15 +543,18 @@ app.delete('/api/visitas/:id', auth, async (req, res) => {
   res.json({ sucesso: true });
   // Sync Google Calendar
   if (antes) gcalSync('delete', antes).catch(() => {});
-  // Exclui tarefa no Kommo se solicitado
+  // Conclui tarefa no Kommo se solicitado (DELETE retorna 403; PATCH com is_completed=true funciona)
   const excluirKommo = req.query.excluir_kommo === 'true';
   const taskId = antes?.kommo_task_id;
   if (excluirKommo && taskId) {
     try {
-      const { status } = await kommoRequest('DELETE', `/tasks/${taskId}`, null);
-      console.log(`[Kommo] Tarefa ${taskId} excluída (status ${status})`);
+      const { status, body } = await kommoRequest('PATCH', `/tasks`, [{ id: parseInt(taskId), is_completed: true }]);
+      console.log(`[Kommo] Tarefa ${taskId} concluída (status ${status})`);
+      if (status !== 200 && status !== 204) {
+        console.error('[Kommo] Resposta ao concluir tarefa:', JSON.stringify(body));
+      }
     } catch(e) {
-      console.error('[Kommo] Erro ao excluir tarefa:', e.message);
+      console.error('[Kommo] Erro ao concluir tarefa:', e.message);
     }
   }
 });
