@@ -1577,145 +1577,99 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     const inicio = Math.floor(new Date(dataStr + 'T00:00:00-03:00').getTime() / 1000);
     const fim    = Math.floor(new Date(dataStr + 'T23:59:59-03:00').getTime() / 1000);
 
-    // 1. Busca eventos de mensagem recebida no dia (ordenado do mais antigo → mais novo)
-    const { status: sEvt, body: evtBody } = await kommoGet(
-      `/events?filter[type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&order[created_at]=asc`
-    );
-    if (sEvt !== 200) return res.status(sEvt).json({ erro: 'Erro ao buscar eventos Kommo' });
-
-    const eventos = evtBody._embedded?.events || [];
-
-    // Extrai texto de mensagem do campo value_after (múltiplos formatos possíveis do Kommo)
-    function extrairTexto(va) {
-      if (!va) return '';
-      const v = Array.isArray(va) ? va[0] : va;
-      return v?.note?.params?.text
-          || v?.message?.text
-          || v?.text
-          || v?.comment
-          || '';
-    }
-
-    // 2. Agrupa por lead (entity_id), guarda só o PRIMEIRO evento de cada lead
-    const leadMap = {};
-    for (const evt of eventos) {
-      if (evt.entity_type !== 'leads' && evt.entity_type !== 'contacts') continue;
-      // Usa entity_id como chave temporária (pode ser lead ou contact)
-      const key = `${evt.entity_type}:${evt.entity_id}`;
-      if (!leadMap[key]) {
-        leadMap[key] = {
-          entity_type: evt.entity_type,
-          entity_id: evt.entity_id,
-          primeiro_contato: evt.created_at,
-          texto_primeira: extrairTexto(evt.value_after),
-        };
-      }
-    }
-
-    // 3. Busca leads criados no mesmo dia para enriquecer com nome/telefone
+    // 1. Busca leads criados no dia com contatos vinculados
     const { status: sL, body: leadsBody } = await kommoGet(
       `/leads?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&with=contacts&limit=250&order[created_at]=asc`
     );
-    const leadsHoje = sL === 200 ? (leadsBody._embedded?.leads || []) : [];
+    if (sL !== 200) return res.status(sL).json({ erro: 'Erro ao buscar leads Kommo' });
+    const leadsHoje = leadsBody._embedded?.leads || [];
 
-    // Mapa leadId → {name, contacts}
-    const leadsById = {};
+    // 2. Busca NOTAS de mensagem recebida no dia (contêm o texto real da mensagem)
+    // Notas têm params.text com o conteúdo do WhatsApp
+    const { status: sN, body: notesBody } = await kommoGet(
+      `/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&entity_type=leads&limit=250`
+    );
+    // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
+    const notasPorLead = {};
+    if (sN === 200) {
+      const notas = (notesBody._embedded?.notes || []).sort((a, b) => a.created_at - b.created_at);
+      for (const nota of notas) {
+        const lid = nota.entity_id;
+        if (!notasPorLead[lid]) {
+          // params.text = texto da mensagem; params.attachments = mídia
+          const texto = nota.params?.text
+            || nota.params?.attachments?.[0]?.name
+            || nota.params?.service
+            || '';
+          notasPorLead[lid] = { primeiro_contato: nota.created_at, texto_primeira: texto };
+        }
+      }
+    } else {
+      console.warn('[Kommo] Notes API status:', sN, '— usando fallback de eventos');
+      // Fallback: tenta eventos (value_after pode ter o texto em alguns planos)
+      try {
+        const { status: sEvt, body: evtBody } = await kommoGet(
+          `/events?filter[type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&order[created_at]=asc`
+        );
+        if (sEvt === 200) {
+          const eventos = evtBody._embedded?.events || [];
+          for (const evt of eventos) {
+            if (evt.entity_type !== 'leads') continue;
+            const lid = evt.entity_id;
+            if (!notasPorLead[lid]) {
+              const va = evt.value_after;
+              const v = Array.isArray(va) ? va[0] : va;
+              const texto = v?.note?.params?.text || v?.message?.text || v?.text || v?.comment || '';
+              notasPorLead[lid] = { primeiro_contato: evt.created_at, texto_primeira: texto };
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Coleta IDs de contatos para buscar telefones/nomes em lote
     const contactIds = new Set();
     for (const l of leadsHoje) {
-      leadsById[l.id] = { id: l.id, nome_lead: l.name || '', contatos: l._embedded?.contacts || [] };
       for (const c of l._embedded?.contacts || []) contactIds.add(c.id);
     }
 
-    // 4. Busca telefones dos contatos em lote
+    // 4. Busca nome e telefone dos contatos em lote
     const contatosTel = {};
     if (contactIds.size > 0) {
-      const ids = [...contactIds].slice(0, 50); // limite razoável
+      const ids = [...contactIds].slice(0, 50);
       const idsQuery = ids.map(id => `filter[id][]=${id}`).join('&');
       try {
         const { status: sC, body: cBody } = await kommoGet(`/contacts?${idsQuery}&limit=250`);
         if (sC === 200) {
           for (const c of cBody._embedded?.contacts || []) {
             const ph = (c.custom_fields_values || []).find(f => f.field_code === 'PHONE');
-            contatosTel[c.id] = {
-              nome: c.name || '',
-              tel: ph?.values?.[0]?.value || ''
-            };
+            contatosTel[c.id] = { nome: c.name || '', tel: ph?.values?.[0]?.value || '' };
           }
         }
       } catch {}
     }
 
-    // 5. Monta resultado combinando eventos + leads do dia
-    // Garante que todos os leads do dia apareçam, mesmo sem evento de mensagem
-    const resultado = [];
-    const vistos = new Set();
-
-    // Primeiro: leads que têm evento de mensagem
-    for (const item of Object.values(leadMap)) {
-      let leadId = null;
-      let nome = '';
-      let tel = '';
-
-      if (item.entity_type === 'leads') {
-        leadId = item.entity_id;
-        const l = leadsById[leadId];
-        if (l) {
-          const c = l.contatos[0];
-          const ct = c ? contatosTel[c.id] : null;
-          nome = ct?.nome || l.nome_lead || `Lead #${leadId}`;
-          tel = ct?.tel || '';
-        } else {
-          nome = `Lead #${leadId}`;
-        }
-      } else {
-        // entity_type === contacts: tenta achar o lead dono desse contato
-        const ct = contatosTel[item.entity_id];
-        nome = ct?.nome || `Contato #${item.entity_id}`;
-        tel = ct?.tel || '';
-        // Encontra lead associado
-        for (const l of leadsHoje) {
-          if (l._embedded?.contacts?.some(c => c.id === item.entity_id)) {
-            leadId = l.id;
-            break;
-          }
-        }
-        if (!leadId) continue; // sem lead associado, pula
-      }
-
-      if (vistos.has(leadId)) continue;
-      vistos.add(leadId);
-      resultado.push({
-        lead_id: leadId,
-        nome,
-        tel,
-        primeiro_contato: item.primeiro_contato,
-        texto_primeira: item.texto_primeira,
-        url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${leadId}`
-      });
-    }
-
-    // Depois: leads do dia sem evento de mensagem registrado
-    for (const l of leadsHoje) {
-      if (vistos.has(l.id)) continue;
-      const enriched = leadsById[l.id];
-      const c = enriched?.contatos?.[0];
+    // 5. Monta resultado: todos os leads do dia com texto da primeira mensagem (se houver)
+    const resultado = leadsHoje.map(l => {
+      const c = l._embedded?.contacts?.[0];
       const ct = c ? contatosTel[c.id] : null;
-      resultado.push({
+      const nota = notasPorLead[l.id] || null;
+      return {
         lead_id: l.id,
-        nome: ct?.nome || enriched?.nome_lead || l.name || `Lead #${l.id}`,
+        nome: ct?.nome || l.name || `Lead #${l.id}`,
         tel: ct?.tel || '',
-        primeiro_contato: null,
-        texto_primeira: '',
+        primeiro_contato: nota?.primeiro_contato || l.created_at || null,
+        texto_primeira: nota?.texto_primeira || '',
         url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${l.id}`
-      });
-    }
+      };
+    });
 
-    // Ordena por hora da primeira mensagem
+    // Ordena por hora do primeiro contato
     resultado.sort((a, b) => (a.primeiro_contato || 0) - (b.primeiro_contato || 0));
 
     res.json({ total: resultado.length, data: dataStr, leads: resultado });
   } catch (e) {
-    console.error('[Kommo primeiras-mensagens] Erro:', e.message);
+    console.error('[Kommo primeiras-mensagens] Erro:', e.message, e.stack);
     res.status(500).json({ erro: e.message });
   }
 });
