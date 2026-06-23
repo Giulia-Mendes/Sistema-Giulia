@@ -3742,20 +3742,24 @@ async function agendarVisita() {
 
 async function enviarMensagemKommo(leadId, texto) {
   const toast = document.getElementById('kommo-toast');
-  if (toast) { toast.textContent = '🟣 Enviando mensagem no Kommo...'; toast.style.display = 'flex'; }
+  if (toast) { toast.innerHTML = '🟣 Registrando no Kommo...'; toast.style.display = 'flex'; }
   try {
     const r = await fetch('/api/kommo/lead/' + leadId + '/mensagem', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto })
     });
-    const d = await r.json();
+    let d; try { d = await r.json(); } catch { d = {}; }
     if (r.ok && d.sucesso) {
-      if (toast) { toast.textContent = '✅ Mensagem enviada no Kommo!'; setTimeout(() => { toast.style.display = 'none'; }, 4000); }
+      const urlLead = d.url_lead || ('https://capelato.kommo.com/leads/detail/' + leadId);
+      if (toast) {
+        toast.innerHTML = '✅ Anotado no Kommo! <a href="' + urlLead + '" target="_blank" style="color:var(--accent);margin-left:8px;text-decoration:underline">📲 Abrir conversa →</a>';
+        setTimeout(() => { toast.style.display = 'none'; }, 10000);
+      }
     } else {
-      if (toast) { toast.textContent = '⚠️ ' + (d.erro || 'Não foi possível enviar no Kommo'); setTimeout(() => { toast.style.display = 'none'; }, 7000); }
+      if (toast) { toast.textContent = '⚠️ ' + (d.erro || 'Não foi possível registrar no Kommo'); setTimeout(() => { toast.style.display = 'none'; }, 7000); }
     }
   } catch (e) {
-    if (toast) { toast.textContent = '❌ Erro ao enviar no Kommo'; setTimeout(() => { toast.style.display = 'none'; }, 5000); }
+    if (toast) { toast.textContent = '❌ Erro ao conectar com Kommo'; setTimeout(() => { toast.style.display = 'none'; }, 5000); }
   }
 }
 

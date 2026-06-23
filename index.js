@@ -1384,55 +1384,41 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
   }
 });
 
-// ── KOMMO: enviar mensagem para o chat ativo do lead ──
+// ── KOMMO: registrar visita no lead (nota + link para conversa) ──
 app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
   const leadId = req.params.id;
   const { texto } = req.body;
   if (!texto) return res.status(400).json({ erro: 'Texto da mensagem é obrigatório' });
 
   try {
-    // 1. Busca o lead com talks vinculados
-    const { status: sLead, body: lead } = await kommoGet(`/leads/${leadId}?with=contacts`);
-    if (sLead !== 200) return res.status(404).json({ erro: 'Lead não encontrado no Kommo' });
+    // 1. Cria nota interna no lead com o texto da visita
+    const notaTexto = `📅 Visita agendada pelo Alery:\n\n${texto}`;
+    const { status: sNota } = await kommoPost(`/leads/${leadId}/notes`, [
+      { note_type: 'common', params: { text: notaTexto } }
+    ]);
 
-    // 2. Busca talks (conversas ativas) vinculados ao lead
-    const { status: sTalks, body: talksBody } = await kommoGet(`/talks?filter[entity_id]=${leadId}&filter[entity_type]=leads&limit=10`);
-
-    let enviado = false;
-    let chatId = null;
-
-    if (sTalks === 200 && talksBody._embedded?.talks?.length > 0) {
-      // Pega o talk mais recente
-      const talk = talksBody._embedded.talks[0];
-      chatId = talk.id;
-
-      // 3. Envia a mensagem via talk
-      const { status: sMsg } = await kommoPost(`/talks/${chatId}/reply`, { text: texto });
-      if (sMsg === 200 || sMsg === 201) enviado = true;
-    }
-
-    if (!enviado) {
-      // Fallback: tenta via chats do contato principal
-      const contacts = lead._embedded?.contacts || [];
-      if (contacts.length > 0) {
-        const contId = contacts[0].id;
-        const { status: sChats, body: chatsBody } = await kommoGet(`/chats?contact_id=${contId}&limit=5`);
-        if (sChats === 200 && chatsBody._embedded?.chats?.length > 0) {
-          chatId = chatsBody._embedded.chats[0].id;
-          const { status: sMsg } = await kommoPost(`/chats/${chatId}/messages`, { text: texto });
-          if (sMsg === 200 || sMsg === 201) enviado = true;
-        }
+    // 2. Busca talk ativo para retornar link da conversa WhatsApp
+    let talkId = null;
+    try {
+      const { status: sTalks, body: talksBody } = await kommoGet(`/talks?filter[entity_id]=${leadId}&filter[entity_type]=leads&limit=1`);
+      if (sTalks === 200 && talksBody._embedded?.talks?.length > 0) {
+        talkId = talksBody._embedded.talks[0].talk_id;
       }
-    }
+    } catch {}
 
-    if (enviado) {
-      console.log(`[Kommo] Mensagem enviada para lead ${leadId} via chat ${chatId}`);
-      res.json({ sucesso: true, chat_id: chatId });
+    if (sNota === 200 || sNota === 201) {
+      console.log(`[Kommo] Nota criada no lead ${leadId}`);
+      res.json({
+        sucesso: true,
+        nota: true,
+        talk_id: talkId,
+        url_lead: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${leadId}`
+      });
     } else {
-      res.status(422).json({ erro: 'Nenhuma conversa WhatsApp ativa encontrada para este lead. Inicie uma conversa no Kommo primeiro.' });
+      res.status(500).json({ erro: `Erro ao criar nota no Kommo (status ${sNota})` });
     }
   } catch (e) {
-    console.error('[Kommo mensagem] Erro:', e.message);
+    console.error('[Kommo nota] Erro:', e.message);
     res.status(500).json({ erro: e.message });
   }
 });
