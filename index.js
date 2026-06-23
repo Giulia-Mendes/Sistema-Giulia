@@ -1697,11 +1697,12 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     // Depois: leads do dia sem evento de mensagem registrado
     for (const l of leadsHoje) {
       if (vistos.has(l.id)) continue;
-      const c = l.contatos[0];
+      const enriched = leadsById[l.id];
+      const c = enriched?.contatos?.[0];
       const ct = c ? contatosTel[c.id] : null;
       resultado.push({
         lead_id: l.id,
-        nome: ct?.nome || l.nome_lead || `Lead #${l.id}`,
+        nome: ct?.nome || enriched?.nome_lead || l.name || `Lead #${l.id}`,
         tel: ct?.tel || '',
         primeiro_contato: null,
         texto_primeira: '',
