@@ -372,26 +372,59 @@ app.get('/api/me', (req, res) => {
 });
 
 // ── PERMISSÕES POR PERFIL ──
+// Todas as páginas conhecidas pelo sistema
+const ALL_SYSTEM_PAGES = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo'];
+
 const DEFAULT_ROLE_PAGES = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat'],
-  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat'],
-  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat'],
+  admin:    [...ALL_SYSTEM_PAGES],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo'],
+  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
 };
+
+// Páginas obrigatórias para admin (não podem ser removidas)
+const ADMIN_LOCKED = new Set(['dashboard','parametros','usuarios','auditoria']);
+
 app.get('/api/role-permissions', auth, (req, res) => {
-  const row = db.prepare("SELECT valor FROM config WHERE chave='role_permissions'").get();
-  const saved = row ? JSON.parse(row.valor) : {};
-  // admin sempre recebe a lista completa atualizada (ignora versão salva no banco)
-  res.json({ ...DEFAULT_ROLE_PAGES, ...saved, admin: DEFAULT_ROLE_PAGES.admin });
+  try {
+    const row = db.prepare("SELECT valor FROM config WHERE chave='role_permissions'").get();
+    const saved = row ? JSON.parse(row.valor) : {};
+    // Mescla: respeita o que foi salvo, mas garante que páginas novas tenham defaults
+    const result = {};
+    for (const role of Object.keys(DEFAULT_ROLE_PAGES)) {
+      if (saved[role]) {
+        // Adiciona páginas novas que ainda não estão no banco (ex: kommo adicionado depois)
+        const savedSet = new Set(saved[role]);
+        const novaspags = DEFAULT_ROLE_PAGES[role].filter(p => !ALL_SYSTEM_PAGES.slice(0, ALL_SYSTEM_PAGES.indexOf('kommo')).includes(p) && !savedSet.has(p));
+        result[role] = ALL_SYSTEM_PAGES.filter(p => savedSet.has(p) || novaspags.includes(p));
+      } else {
+        result[role] = DEFAULT_ROLE_PAGES[role];
+      }
+      // Admin sempre tem as páginas bloqueadas
+      if (role === 'admin') {
+        for (const p of ADMIN_LOCKED) { if (!result[role].includes(p)) result[role].push(p); }
+      }
+    }
+    res.json(result);
+  } catch(e) {
+    console.error('[role-permissions GET] Erro:', e.message);
+    res.json(DEFAULT_ROLE_PAGES);
+  }
 });
 app.put('/api/role-permissions', auth, adminOnly, (req, res) => {
-  // admin sempre mantém acesso total
-  const data = { ...req.body, admin: DEFAULT_ROLE_PAGES.admin };
-  db.prepare("INSERT INTO config (chave,valor) VALUES ('role_permissions',?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor")
-    .run(JSON.stringify(data));
-  audit(req, 'EDITAR_PERMISSOES', 'config', 0, null, data);
-  res.json({ sucesso: true });
+  try {
+    const data = { ...DEFAULT_ROLE_PAGES, ...req.body };
+    // Garante que páginas obrigatórias do admin sempre estejam presentes
+    for (const p of ADMIN_LOCKED) { if (!data.admin.includes(p)) data.admin.push(p); }
+    db.prepare("INSERT INTO config (chave,valor) VALUES ('role_permissions',?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor")
+      .run(JSON.stringify(data));
+    audit(req, 'EDITAR_PERMISSOES', 'config', 0, null, data);
+    res.json({ sucesso: true });
+  } catch(e) {
+    console.error('[role-permissions PUT] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
 });
 
 // ── PARÂMETROS DE PROPOSTA ──
