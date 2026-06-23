@@ -1116,59 +1116,58 @@ select option { background: var(--surface); color: var(--text); }
 <div id="tela-kommo" class="tela">
 
   <!-- Cabeçalho -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:22px">🟣</span>
-      <div>
-        <div style="font-weight:700;font-size:16px;color:var(--text)">Kommo CRM</div>
-        <div style="font-size:12px;color:var(--text2)" id="kommo-subtitulo">Carregando...</div>
-      </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-weight:700;font-size:17px;color:var(--text)">🟣 Primeiros contatos</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px" id="kommo-subtitulo">Carregando...</div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-branco" onclick="carregarKommo()" style="font-size:12px">🔄 Atualizar</button>
-      <select id="kommo-periodo" onchange="carregarKommo()" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
-        <option value="hoje">Hoje</option>
-        <option value="ontem">Ontem</option>
-        <option value="7dias">Últimos 7 dias</option>
-        <option value="30dias">Últimos 30 dias</option>
-      </select>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="kommo-data" onchange="carregarKommo()"
+        style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <button class="btn btn-branco" onclick="kommoHoje()" style="font-size:12px">Hoje</button>
+      <button class="btn btn-branco" onclick="carregarKommo()" style="font-size:12px">🔄</button>
     </div>
   </div>
 
-  <!-- Stats do período -->
-  <div class="stat4" id="kommo-stats" style="margin-bottom:10px">
-    <div class="stat"><div class="lbl">Novos leads</div><div class="val" id="ks-total">—</div></div>
-    <div class="stat"><div class="lbl">Primeiro contato</div><div class="val" id="ks-primeiro">—</div></div>
-    <div class="stat"><div class="lbl">Campanhas</div><div class="val" id="ks-campanhas">—</div></div>
-    <div class="stat"><div class="lbl">Valor total</div><div class="val" id="ks-valor" style="font-size:13px">—</div></div>
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+    <div class="stat"><div class="lbl">Total</div><div class="val" id="ks-total">—</div></div>
+    <div class="stat"><div class="lbl">Ortum S12</div><div class="val" id="ks-s12" style="color:#1976D2">—</div></div>
+    <div class="stat"><div class="lbl">Prime Inv.</div><div class="val" id="ks-prime" style="color:#E64A19">—</div></div>
+    <div class="stat"><div class="lbl">Outros</div><div class="val" id="ks-outros" style="color:#666">—</div></div>
   </div>
 
-  <!-- Por campanha -->
-  <div class="card" style="margin-bottom:10px;padding:14px 16px">
-    <div style="font-weight:600;margin-bottom:10px;color:var(--text);font-size:14px">📣 Por campanha</div>
-    <div id="kommo-por-campanha" style="display:flex;flex-wrap:wrap;gap:8px">
-      <span style="color:var(--text2);font-size:13px">—</span>
+  <!-- Seção S12 -->
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-s12">
+    <div onclick="toggleKommoSec('s12')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">🌊</span>
+      <span style="font-weight:600;font-size:14px;color:#1976D2">Ortum S12</span>
+      <span id="kommo-badge-s12" style="background:#1976D2;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-s12">▼</span>
     </div>
+    <div id="kommo-lista-s12" style="padding:4px 0"></div>
   </div>
 
-  <!-- Lista de leads -->
-  <div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <div style="font-weight:600;font-size:14px;color:var(--text)">👥 Leads do período</div>
-      <input type="text" id="kommo-busca" placeholder="🔍 Buscar por nome, campanha..." oninput="filtrarLeadsKommo()"
-        style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:220px">
+  <!-- Seção Prime Full Inverter -->
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-prime">
+    <div onclick="toggleKommoSec('prime')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">🔥</span>
+      <span style="font-weight:600;font-size:14px;color:#E64A19">Prime Full Inverter</span>
+      <span id="kommo-badge-prime" style="background:#E64A19;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-prime">▼</span>
     </div>
-    <div id="kommo-lista-leads" style="padding:8px 0">
-      <div style="padding:16px;text-align:center;color:var(--text2);font-size:13px">Carregando leads...</div>
-    </div>
+    <div id="kommo-lista-prime" style="padding:4px 0"></div>
   </div>
 
-  <!-- Mensagens/Eventos recentes -->
-  <div class="card" style="margin-top:10px;padding:0;overflow:hidden">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;color:var(--text)">💬 Atividade recente</div>
-    <div id="kommo-eventos" style="padding:8px 0">
-      <div style="padding:16px;text-align:center;color:var(--text2);font-size:13px">Carregando eventos...</div>
+  <!-- Seção Outros -->
+  <div class="card" style="padding:0;overflow:hidden" id="kommo-sec-outros">
+    <div onclick="toggleKommoSec('outros')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">📦</span>
+      <span style="font-weight:600;font-size:14px;color:var(--text)">Outros</span>
+      <span id="kommo-badge-outros" style="background:var(--text2);color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-outros">▼</span>
     </div>
+    <div id="kommo-lista-outros" style="padding:4px 0"></div>
   </div>
 
 </div>
@@ -6168,155 +6167,127 @@ function corCampanha(nome) {
   return cores[h];
 }
 
-async function carregarKommo() {
-  const periodo = document.getElementById('kommo-periodo')?.value || 'hoje';
-  document.getElementById('kommo-subtitulo').textContent = 'Atualizando...';
+// ─── KOMMO: página de primeiros contatos ───
+let _kommoLeadsCache = [];
+const _kommoSecs = { s12: true, prime: true, outros: true };
 
-  // Calcula timestamps do período
-  const agora = new Date();
-  let ini, fim;
-  if (periodo === 'hoje') {
-    ini = new Date(agora); ini.setHours(0,0,0,0);
-    fim = new Date(agora); fim.setHours(23,59,59,999);
-  } else if (periodo === 'ontem') {
-    ini = new Date(agora); ini.setDate(ini.getDate()-1); ini.setHours(0,0,0,0);
-    fim = new Date(agora); fim.setDate(fim.getDate()-1); fim.setHours(23,59,59,999);
-  } else if (periodo === '7dias') {
-    ini = new Date(agora); ini.setDate(ini.getDate()-6); ini.setHours(0,0,0,0);
-    fim = new Date(agora); fim.setHours(23,59,59,999);
-  } else {
-    ini = new Date(agora); ini.setDate(ini.getDate()-29); ini.setHours(0,0,0,0);
-    fim = new Date(agora); fim.setHours(23,59,59,999);
+function kommoHoje() {
+  const hoje = new Date();
+  const y = hoje.getFullYear(), m = String(hoje.getMonth()+1).padStart(2,'0'), d = String(hoje.getDate()).padStart(2,'0');
+  document.getElementById('kommo-data').value = `${y}-${m}-${d}`;
+  carregarKommo();
+}
+
+function toggleKommoSec(sec) {
+  _kommoSecs[sec] = !_kommoSecs[sec];
+  const lista = document.getElementById('kommo-lista-' + sec);
+  const seta  = document.getElementById('kommo-toggle-' + sec);
+  if (lista) lista.style.display = _kommoSecs[sec] ? '' : 'none';
+  if (seta)  seta.textContent = _kommoSecs[sec] ? '▼' : '▶';
+}
+
+function detectarModelo(texto) {
+  if (!texto) return 'outros';
+  const t = texto.toLowerCase();
+  if (t.includes('s12')) return 's12';
+  if (t.includes('prime') || t.includes('full inverter') || t.includes('inverter')) return 'prime';
+  return 'outros';
+}
+
+function fmtHoraKommo(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtTelBR(tel) {
+  if (!tel) return '';
+  const n = tel.replace(/\D/g, '').replace(/^55/, '');
+  if (n.length === 11) return `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0,2)}) ${n.slice(2,6)}-${n.slice(6)}`;
+  return tel;
+}
+
+function renderKommoSecao(sec, leads, corBg, corText) {
+  const badge = document.getElementById('kommo-badge-' + sec);
+  const lista  = document.getElementById('kommo-lista-' + sec);
+  if (badge) badge.textContent = leads.length;
+  if (!lista) return;
+  if (!leads.length) {
+    lista.innerHTML = `<div style="padding:14px 16px;color:var(--text2);font-size:13px;text-align:center">Nenhum contato</div>`;
+    return;
   }
+  lista.innerHTML = leads.map(l => {
+    const nome = l.nome || `Lead #${l.lead_id}`;
+    const tel  = fmtTelBR(l.tel);
+    const hora = fmtHoraKommo(l.primeiro_contato);
+    const msg  = l.texto_primeira || '';
+    const ini  = (nome[0] || '?').toUpperCase();
+    return `<div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
+      <div style="width:34px;height:34px;border-radius:50%;background:${corBg};color:${corText};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;margin-top:2px">${ini}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:600;font-size:13px;color:var(--text)">${nome}</span>
+          ${tel ? `<span style="font-size:12px;color:var(--text2)">${tel}</span>` : ''}
+          <span style="font-size:11px;color:var(--text2);margin-left:auto">${hora}</span>
+        </div>
+        ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;word-break:break-word">"${msg.length > 160 ? msg.slice(0,160)+'…' : msg}"</div>` : '<div style="font-size:12px;color:var(--text2);margin-top:3px;font-style:italic">Texto da mensagem não disponível</div>'}
+      </div>
+      <a href="${l.url}" target="_blank" style="flex-shrink:0;color:var(--accent);font-size:18px;margin-top:2px;text-decoration:none" title="Abrir no Kommo">↗</a>
+    </div>`;
+  }).join('');
+}
+
+async function carregarKommo() {
+  const dataInput = document.getElementById('kommo-data');
+  if (!dataInput.value) kommoHoje();
+  const data = dataInput.value;
+  document.getElementById('kommo-subtitulo').textContent = 'Carregando...';
+
+  // Atualiza stats para "carregando"
+  ['ks-total','ks-s12','ks-prime','ks-outros'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '…';
+  });
 
   try {
-    // Carrega leads e eventos em paralelo
-    const [rLeads, rEvt] = await Promise.all([
-      fetch('/api/kommo/periodo?de=' + Math.floor(ini/1000) + '&ate=' + Math.floor(fim/1000)),
-      fetch('/api/kommo/eventos')
-    ]);
-    const dLeads = await rLeads.json();
-    const dEvt   = await rEvt.json();
+    const r = await fetch('/api/kommo/primeiras-mensagens?data=' + data);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erro || 'Erro ao carregar');
 
-    _kommoLeadsCache = dLeads.leads || [];
+    _kommoLeadsCache = d.leads || [];
+
+    // Separa por modelo
+    const s12 = [], prime = [], outros = [];
+    for (const l of _kommoLeadsCache) {
+      const m = detectarModelo(l.texto_primeira);
+      if (m === 's12') s12.push(l);
+      else if (m === 'prime') prime.push(l);
+      else outros.push(l);
+    }
 
     // Stats
-    const totalValor = _kommoLeadsCache.reduce((s, l) => s + (l.valor || 0), 0);
-    const numCamp = Object.keys(dLeads.por_campanha || {}).length;
-    document.getElementById('ks-total').textContent = _kommoLeadsCache.length;
-    document.getElementById('ks-primeiro').textContent = _kommoLeadsCache.length;
-    document.getElementById('ks-campanhas').textContent = numCamp;
-    document.getElementById('ks-valor').textContent = fmtBRL(totalValor);
+    document.getElementById('ks-total').textContent  = _kommoLeadsCache.length;
+    document.getElementById('ks-s12').textContent    = s12.length;
+    document.getElementById('ks-prime').textContent  = prime.length;
+    document.getElementById('ks-outros').textContent = outros.length;
 
-    // Por campanha
-    const campEl = document.getElementById('kommo-por-campanha');
-    const pc = dLeads.por_campanha || {};
-    if (Object.keys(pc).length === 0) {
-      campEl.innerHTML = '<span style="color:var(--text2);font-size:13px">Nenhum lead no período</span>';
-    } else {
-      campEl.innerHTML = Object.entries(pc)
-        .sort((a,b) => b[1]-a[1])
-        .map(([nome, qtd]) => {
-          const cor = corCampanha(nome);
-          return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer" onclick="filtrarPorCampanha('${nome.replace(/'/g,"\\'")}')">
-            <span style="width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0"></span>
-            <span style="font-size:13px;color:var(--text)">${nome}</span>
-            <span style="font-size:12px;font-weight:700;color:${cor}">${qtd}</span>
-          </div>`;
-        }).join('');
-    }
-
-    // Subtítulo
-    const label = { hoje:'hoje', ontem:'ontem', '7dias':'nos últimos 7 dias', '30dias':'nos últimos 30 dias' };
+    // Formata data para exibição
+    const [ano, mes, dia] = data.split('-');
+    const hoje = new Date().toISOString().slice(0,10);
+    const ontem = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const labelData = data === hoje ? 'Hoje' : data === ontem ? 'Ontem' : `${dia}/${mes}/${ano}`;
     document.getElementById('kommo-subtitulo').textContent =
-      `${_kommoLeadsCache.length} lead${_kommoLeadsCache.length !== 1 ? 's' : ''} ${label[periodo]}`;
+      `${_kommoLeadsCache.length} contato${_kommoLeadsCache.length !== 1 ? 's' : ''} • ${labelData}`;
 
-    // Atualiza badge
-    if (periodo === 'hoje' && _kommoLeadsCache.length > 0) {
-      const badge = document.getElementById('badge-kommo');
-      if (badge) { badge.textContent = _kommoLeadsCache.length; badge.style.display = ''; }
-    }
+    // Renderiza seções
+    renderKommoSecao('s12',    s12,    '#BBDEFB', '#1565C0');
+    renderKommoSecao('prime',  prime,  '#FFE0B2', '#BF360C');
+    renderKommoSecao('outros', outros, '#E0E0E0', '#424242');
 
-    renderLeadsKommo(_kommoLeadsCache);
-    renderEventosKommo(dEvt.eventos || []);
   } catch (e) {
-    document.getElementById('kommo-subtitulo').textContent = 'Erro ao carregar';
+    document.getElementById('kommo-subtitulo').textContent = 'Erro: ' + e.message;
     console.error('[Kommo]', e);
   }
-}
-
-function filtrarPorCampanha(campanha) {
-  const input = document.getElementById('kommo-busca');
-  if (input) input.value = campanha;
-  filtrarLeadsKommo();
-}
-
-function filtrarLeadsKommo() {
-  const q = (document.getElementById('kommo-busca')?.value || '').toLowerCase();
-  const filtrados = q ? _kommoLeadsCache.filter(l =>
-    (l.nome||'').toLowerCase().includes(q) ||
-    (l.campanha||'').toLowerCase().includes(q) ||
-    (l.pipeline||'').toLowerCase().includes(q) ||
-    (l.status||'').toLowerCase().includes(q)
-  ) : _kommoLeadsCache;
-  renderLeadsKommo(filtrados);
-}
-
-function renderLeadsKommo(leads) {
-  const el = document.getElementById('kommo-lista-leads');
-  if (!leads.length) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Nenhum lead encontrado</div>';
-    return;
-  }
-  el.innerHTML = leads.map(l => {
-    const cor = corCampanha(l.campanha || l.pipeline || '');
-    const hora = fmtDataKommo(l.criado_em);
-    const nome = l.nome || '(sem nome)';
-    const valor = l.valor ? ' · ' + fmtBRL(l.valor) : '';
-    return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="window.open('https://capelato.kommo.com/leads/detail/${l.id}','_blank')">
-      <div style="width:36px;height:36px;border-radius:50%;background:${cor}22;border:2px solid ${cor};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;color:${cor};font-weight:700">
-        ${(nome[0]||'?').toUpperCase()}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">${l.status}${valor}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="display:inline-flex;align-items:center;gap:4px;background:${cor}22;border:1px solid ${cor}55;border-radius:12px;padding:2px 8px;font-size:11px;color:${cor};font-weight:600;margin-bottom:3px">${l.campanha || l.pipeline}</div>
-        <div style="font-size:11px;color:var(--text2)">${hora}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-const TIPO_EVENTO = {
-  incoming_chat_message: '💬 Mensagem recebida',
-  outgoing_chat_message: '💬 Mensagem enviada',
-  incoming_call: '📞 Ligação recebida',
-  outgoing_call: '📞 Ligação feita',
-  incoming_email: '📧 Email recebido',
-  outgoing_email: '📧 Email enviado'
-};
-
-function renderEventosKommo(eventos) {
-  const el = document.getElementById('kommo-eventos');
-  if (!eventos.length) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Nenhum evento recente</div>';
-    return;
-  }
-  el.innerHTML = eventos.slice(0, 20).map(e => {
-    const tipo = TIPO_EVENTO[e.tipo] || e.tipo;
-    const hora = fmtDataKommo(e.criado_em);
-    const msg  = e.value_after?.note_text || e.value_after?.text || '';
-    return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
-      <div style="font-size:18px;flex-shrink:0;margin-top:1px">${tipo.split(' ')[0]}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;color:var(--text)">${tipo.slice(tipo.indexOf(' ')+1)}</div>
-        ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:pre-wrap;word-break:break-word">${msg.slice(0,200)}${msg.length>200?'…':''}</div>` : ''}
-      </div>
-      <div style="font-size:11px;color:var(--text2);flex-shrink:0">${hora}</div>
-    </div>`;
-  }).join('');
 }
 
 // ═══ SOBRESCREVER irPara PARA CARREGAR AUDITORIA/USUÁRIOS ═══
