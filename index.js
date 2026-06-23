@@ -1415,6 +1415,7 @@ app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
     // Calcula prazo: 1 dia antes da visita, pulando fim de semana para sexta-feira
     let completeTill = null;
     let prazoTexto = null;
+    const dias = ['dom','seg','ter','qua','qui','sex','sáb'];
     if (data_visita) {
       // data_visita formato: 'YYYY-MM-DD' (data local BR)
       // Cria data às 09:00 horário de Brasília (UTC-3)
@@ -1423,8 +1424,15 @@ app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
       if (d.getDay() === 0) d.setDate(d.getDate() - 2); // domingo → sexta
       if (d.getDay() === 6) d.setDate(d.getDate() - 1); // sábado → sexta
       completeTill = Math.floor(d.getTime() / 1000);
-      const dias = ['dom','seg','ter','qua','qui','sex','sáb'];
       prazoTexto = `${dias[d.getDay()]} ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
+    }
+    // Kommo exige complete_till obrigatório — usa amanhã 09h como fallback
+    if (!completeTill) {
+      const amanha = new Date();
+      amanha.setDate(amanha.getDate() + 1);
+      amanha.setHours(12, 0, 0, 0); // 09:00 BRT ≈ 12:00 UTC
+      completeTill = Math.floor(amanha.getTime() / 1000);
+      prazoTexto = `${dias[amanha.getDay()]} ${amanha.getDate().toString().padStart(2,'0')}/${(amanha.getMonth()+1).toString().padStart(2,'0')} (sem data)`;
     }
 
     // Cria tarefa vinculada ao lead
