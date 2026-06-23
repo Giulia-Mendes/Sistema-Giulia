@@ -3777,10 +3777,14 @@ async function enviarMensagemKommo(leadId, texto, dataVisita, visitaId) {
       const prazoTxt = d.prazo_tarefa ? ' (prazo: ' + d.prazo_tarefa + ')' : '';
       // Salva o ID da tarefa na visita para poder excluir depois
       if (d.task_id && visitaId) {
+        const taskIdStr = String(d.task_id);
         fetch('/api/visitas/' + visitaId + '/kommo-task', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kommo_task_id: String(d.task_id) })
+          body: JSON.stringify({ kommo_task_id: taskIdStr })
         }).catch(() => {});
+        // Atualiza o array em memória imediatamente (sem precisar recarregar)
+        const vMem = visitas.find(x => x.id === visitaId || x.id === Number(visitaId));
+        if (vMem) vMem.kommo_task_id = taskIdStr;
       }
       if (toast) {
         toast.innerHTML = '✅ Tarefa criada no Kommo' + prazoTxt + '! <a href="' + urlLead + '" target="_blank" style="color:var(--accent);margin-left:8px;text-decoration:underline">📋 Abrir lead →</a>';
