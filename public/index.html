@@ -2173,7 +2173,8 @@ function montarTextoVisita(v) {
   const tipo = v.tipo === 'instalacao' ? 'Instalação' : 'Visita técnica';
   const tecs = (v.tecnicos || []).map(t => {
     const [n, c] = t.split('|');
-    return n + '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    const cpfFmt = c ? c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
+    return n + (cpfFmt ? '\nCPF ' + cpfFmt : '');
   }).join('\n\n') || '—';
   return 'Agendamento de ' + tipo + '.\n' +
     'Nome: ' + v.nome + '\n\n' +
