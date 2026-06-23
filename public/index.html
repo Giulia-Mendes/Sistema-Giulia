@@ -418,6 +418,9 @@ select option { background: var(--surface); color: var(--text); }
 </div>
 
 
+<!-- Toast Kommo -->
+<div id="kommo-toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:13px;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;align-items:center;gap:8px;white-space:nowrap"></div>
+
 <!-- Hamburger (mobile) -->
 <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Menu">☰</button>
 <div class="nav-overlay" id="nav-overlay" onclick="toggleSidebar()"></div>
@@ -649,9 +652,13 @@ select option { background: var(--surface); color: var(--text); }
       </div>
     </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn btn-preto" onclick="agendarVisita()">📅 Agendar</button>
       <button class="btn btn-branco" onclick="copiarTextoVisita()">📋 Copiar texto</button>
+      <label id="v-enviar-kommo-label" style="display:none;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;margin-left:4px">
+        <input type="checkbox" id="v-enviar-kommo" checked style="width:15px;height:15px;accent-color:var(--accent)">
+        <span>🟣 Enviar no Kommo</span>
+      </label>
     </div>
 
     <div id="texto-visita-wrap" style="display:none">
@@ -3645,7 +3652,11 @@ async function buscarLeadKommo(prefix) {
   const leadInput = document.getElementById(prefix + '-lead');
   const infoSpan  = document.getElementById(prefix + '-lead-info');
   const id = (leadInput.value || '').trim();
-  if (!id) { if (infoSpan) infoSpan.textContent = ''; return; }
+  if (!id) {
+    if (infoSpan) infoSpan.textContent = '';
+    if (prefix === 'v') { const l = document.getElementById('v-enviar-kommo-label'); if (l) l.style.display = 'none'; }
+    return;
+  }
   if (infoSpan) infoSpan.textContent = '🔄';
   try {
     const r = await fetch('/api/kommo/lead/' + id);
@@ -3659,8 +3670,14 @@ async function buscarLeadKommo(prefix) {
     // Preenche nome e celular apenas se os campos estiverem vazios
     const nomeEl = document.getElementById(prefix + '-nome');
     const celEl  = document.getElementById(prefix + '-cel');
-    if (nomeEl && !nomeEl.value && data.nome) nomeEl.value = data.nome;
+    if (nomeEl && !nomeEl.value && data.nome) { nomeEl.value = data.nome; if (typeof gerarTexto === 'function' && prefix === 'v') gerarTexto(); }
     if (celEl  && !celEl.value  && data.cel)  celEl.value  = data.cel;
+
+    // Mostra checkbox "Enviar no Kommo" apenas no formulário principal (prefix='v')
+    if (prefix === 'v') {
+      const labelKommo = document.getElementById('v-enviar-kommo-label');
+      if (labelKommo) labelKommo.style.display = 'flex';
+    }
   } catch {
     if (infoSpan) infoSpan.textContent = '❌ erro';
   }
@@ -3702,6 +3719,10 @@ async function agendarVisita() {
     tecnicos: getTecs(), vendedora: document.getElementById('v-vendedora').value || null,
     lead_id: document.getElementById('v-lead').value.trim() || null
   };
+  const leadId = dados.lead_id;
+  const textoKommo = leadId ? document.getElementById('texto-visita')?.textContent?.trim() : null;
+  const enviarKommo = leadId && textoKommo && document.getElementById('v-enviar-kommo')?.checked;
+
   const r = await fetch('/api/visitas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
   const d = await r.json();
   if (d.sucesso) {
@@ -3710,8 +3731,30 @@ async function agendarVisita() {
     document.getElementById('v-data').value = ''; document.getElementById('v-hora-ini').value = ''; document.getElementById('v-hora-fim').value = ''; document.getElementById('v-periodo').value = '';
     document.querySelectorAll('#tela-visita input[type=checkbox]').forEach(c => c.checked = false);
     document.getElementById('texto-visita-wrap').style.display = 'none';
+    document.getElementById('v-lead-info').textContent = '';
     selecionarTipo('visita');
     await carregarVisitas(); renderVisitas();
+
+    if (enviarKommo) enviarMensagemKommo(leadId, textoKommo);
+  }
+}
+
+async function enviarMensagemKommo(leadId, texto) {
+  const toast = document.getElementById('kommo-toast');
+  if (toast) { toast.textContent = '🟣 Enviando mensagem no Kommo...'; toast.style.display = 'flex'; }
+  try {
+    const r = await fetch('/api/kommo/lead/' + leadId + '/mensagem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto })
+    });
+    const d = await r.json();
+    if (r.ok && d.sucesso) {
+      if (toast) { toast.textContent = '✅ Mensagem enviada no Kommo!'; setTimeout(() => { toast.style.display = 'none'; }, 4000); }
+    } else {
+      if (toast) { toast.textContent = '⚠️ ' + (d.erro || 'Não foi possível enviar no Kommo'); setTimeout(() => { toast.style.display = 'none'; }, 7000); }
+    }
+  } catch (e) {
+    if (toast) { toast.textContent = '❌ Erro ao enviar no Kommo'; setTimeout(() => { toast.style.display = 'none'; }, 5000); }
   }
 }
 

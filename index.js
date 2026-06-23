@@ -168,13 +168,18 @@ setupGoogleCalendar();
 const KOMMO_TOKEN     = process.env.KOMMO_TOKEN || '';
 const KOMMO_SUBDOMAIN = process.env.KOMMO_SUBDOMAIN || '';
 
-function kommoGet(path) {
+function kommoRequest(method, path, body) {
   return new Promise((resolve, reject) => {
     if (!KOMMO_TOKEN || !KOMMO_SUBDOMAIN) return reject(new Error('Kommo não configurado'));
     const url = `https://${KOMMO_SUBDOMAIN}.kommo.com/api/v4${path}`;
+    const bodyStr = body ? JSON.stringify(body) : null;
     const opts = {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${KOMMO_TOKEN}`, 'Content-Type': 'application/json' }
+      method,
+      headers: {
+        'Authorization': `Bearer ${KOMMO_TOKEN}`,
+        'Content-Type': 'application/json',
+        ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
+      }
     };
     const req = https.request(url, opts, res => {
       let data = '';
@@ -185,9 +190,12 @@ function kommoGet(path) {
       });
     });
     req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
     req.end();
   });
 }
+const kommoGet  = (path)       => kommoRequest('GET',  path, null);
+const kommoPost = (path, body) => kommoRequest('POST', path, body);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1327,6 +1335,59 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
     res.json({ id: lead.id, nome, cel, status_id: lead.status_id, pipeline_id: lead.pipeline_id, valor: lead.price });
   } catch (e) {
     console.error('[Kommo] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── KOMMO: enviar mensagem para o chat ativo do lead ──
+app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
+  const leadId = req.params.id;
+  const { texto } = req.body;
+  if (!texto) return res.status(400).json({ erro: 'Texto da mensagem é obrigatório' });
+
+  try {
+    // 1. Busca o lead com talks vinculados
+    const { status: sLead, body: lead } = await kommoGet(`/leads/${leadId}?with=contacts`);
+    if (sLead !== 200) return res.status(404).json({ erro: 'Lead não encontrado no Kommo' });
+
+    // 2. Busca talks (conversas ativas) vinculados ao lead
+    const { status: sTalks, body: talksBody } = await kommoGet(`/talks?filter[entity_id]=${leadId}&filter[entity_type]=leads&limit=10`);
+
+    let enviado = false;
+    let chatId = null;
+
+    if (sTalks === 200 && talksBody._embedded?.talks?.length > 0) {
+      // Pega o talk mais recente
+      const talk = talksBody._embedded.talks[0];
+      chatId = talk.id;
+
+      // 3. Envia a mensagem via talk
+      const { status: sMsg } = await kommoPost(`/talks/${chatId}/reply`, { text: texto });
+      if (sMsg === 200 || sMsg === 201) enviado = true;
+    }
+
+    if (!enviado) {
+      // Fallback: tenta via chats do contato principal
+      const contacts = lead._embedded?.contacts || [];
+      if (contacts.length > 0) {
+        const contId = contacts[0].id;
+        const { status: sChats, body: chatsBody } = await kommoGet(`/chats?contact_id=${contId}&limit=5`);
+        if (sChats === 200 && chatsBody._embedded?.chats?.length > 0) {
+          chatId = chatsBody._embedded.chats[0].id;
+          const { status: sMsg } = await kommoPost(`/chats/${chatId}/messages`, { text: texto });
+          if (sMsg === 200 || sMsg === 201) enviado = true;
+        }
+      }
+    }
+
+    if (enviado) {
+      console.log(`[Kommo] Mensagem enviada para lead ${leadId} via chat ${chatId}`);
+      res.json({ sucesso: true, chat_id: chatId });
+    } else {
+      res.status(422).json({ erro: 'Nenhuma conversa WhatsApp ativa encontrada para este lead. Inicie uma conversa no Kommo primeiro.' });
+    }
+  } catch (e) {
+    console.error('[Kommo mensagem] Erro:', e.message);
     res.status(500).json({ erro: e.message });
   }
 });
