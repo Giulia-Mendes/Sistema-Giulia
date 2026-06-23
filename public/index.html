@@ -657,7 +657,7 @@ select option { background: var(--surface); color: var(--text); }
       <button class="btn btn-branco" onclick="copiarTextoVisita()">📋 Copiar texto</button>
       <label id="v-enviar-kommo-label" style="display:none;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;margin-left:4px">
         <input type="checkbox" id="v-enviar-kommo" checked style="width:15px;height:15px;accent-color:var(--accent)">
-        <span>🟣 Enviar no Kommo</span>
+        <span>🟣 Criar tarefa no Kommo</span>
       </label>
     </div>
 
@@ -3742,27 +3742,28 @@ async function agendarVisita() {
     selecionarTipo('visita');
     await carregarVisitas(); renderVisitas();
 
-    if (enviarKommo) enviarMensagemKommo(leadId, textoKommo);
+    if (enviarKommo) enviarMensagemKommo(leadId, textoKommo, dados.data);
   }
 }
 
-async function enviarMensagemKommo(leadId, texto) {
+async function enviarMensagemKommo(leadId, texto, dataVisita) {
   const toast = document.getElementById('kommo-toast');
-  if (toast) { toast.innerHTML = '🟣 Registrando no Kommo...'; toast.style.display = 'flex'; }
+  if (toast) { toast.innerHTML = '🟣 Criando tarefa no Kommo...'; toast.style.display = 'flex'; }
   try {
     const r = await fetch('/api/kommo/lead/' + leadId + '/mensagem', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto })
+      body: JSON.stringify({ texto, data_visita: dataVisita })
     });
     let d; try { d = await r.json(); } catch { d = {}; }
     if (r.ok && d.sucesso) {
       const urlLead = d.url_lead || ('https://capelato.kommo.com/leads/detail/' + leadId);
+      const prazoTxt = d.prazo_tarefa ? ' (prazo: ' + d.prazo_tarefa + ')' : '';
       if (toast) {
-        toast.innerHTML = '✅ Anotado no Kommo! <a href="' + urlLead + '" target="_blank" style="color:var(--accent);margin-left:8px;text-decoration:underline">📲 Abrir conversa →</a>';
-        setTimeout(() => { toast.style.display = 'none'; }, 10000);
+        toast.innerHTML = '✅ Tarefa criada no Kommo' + prazoTxt + '! <a href="' + urlLead + '" target="_blank" style="color:var(--accent);margin-left:8px;text-decoration:underline">📋 Abrir lead →</a>';
+        setTimeout(() => { toast.style.display = 'none'; }, 12000);
       }
     } else {
-      if (toast) { toast.textContent = '⚠️ ' + (d.erro || 'Não foi possível registrar no Kommo'); setTimeout(() => { toast.style.display = 'none'; }, 7000); }
+      if (toast) { toast.textContent = '⚠️ ' + (d.erro || 'Não foi possível criar tarefa no Kommo'); setTimeout(() => { toast.style.display = 'none'; }, 7000); }
     }
   } catch (e) {
     if (toast) { toast.textContent = '❌ Erro ao conectar com Kommo'; setTimeout(() => { toast.style.display = 'none'; }, 5000); }

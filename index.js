@@ -1386,41 +1386,53 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
   }
 });
 
-// ── KOMMO: registrar visita no lead (nota + link para conversa) ──
+// ── KOMMO: criar tarefa no lead com prazo D-1 (pula fim de semana para sexta) ──
 app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
   const leadId = req.params.id;
-  const { texto } = req.body;
+  const { texto, data_visita } = req.body;
   if (!texto) return res.status(400).json({ erro: 'Texto da mensagem é obrigatório' });
 
   try {
-    // 1. Cria nota interna no lead com o texto da visita
-    const notaTexto = `📅 Visita agendada pelo Alery:\n\n${texto}`;
-    const { status: sNota } = await kommoPost(`/leads/${leadId}/notes`, [
-      { note_type: 'common', params: { text: notaTexto } }
-    ]);
+    // Calcula prazo: 1 dia antes da visita, pulando fim de semana para sexta-feira
+    let completeTill = null;
+    let prazoTexto = null;
+    if (data_visita) {
+      // data_visita formato: 'YYYY-MM-DD' (data local BR)
+      // Cria data às 09:00 horário de Brasília (UTC-3)
+      const d = new Date(data_visita + 'T09:00:00-03:00');
+      d.setDate(d.getDate() - 1); // D-1
+      if (d.getDay() === 0) d.setDate(d.getDate() - 2); // domingo → sexta
+      if (d.getDay() === 6) d.setDate(d.getDate() - 1); // sábado → sexta
+      completeTill = Math.floor(d.getTime() / 1000);
+      const dias = ['dom','seg','ter','qua','qui','sex','sáb'];
+      prazoTexto = `${dias[d.getDay()]} ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
+    }
 
-    // 2. Busca talk ativo para retornar link da conversa WhatsApp
-    let talkId = null;
-    try {
-      const { status: sTalks, body: talksBody } = await kommoGet(`/talks?filter[entity_id]=${leadId}&filter[entity_type]=leads&limit=1`);
-      if (sTalks === 200 && talksBody._embedded?.talks?.length > 0) {
-        talkId = talksBody._embedded.talks[0].talk_id;
-      }
-    } catch {}
+    // Cria tarefa vinculada ao lead
+    const tarefaPayload = [{
+      task_type_id: 1, // 1 = Ligação (ícone padrão de lembrete)
+      text: `📅 Lembrar da visita agendada:\n\n${texto}`,
+      complete_till: completeTill,
+      entity_id: parseInt(leadId),
+      entity_type: 'leads'
+    }];
 
-    if (sNota === 200 || sNota === 201) {
-      console.log(`[Kommo] Nota criada no lead ${leadId}`);
+    const { status: sTarefa, body: tarefaResp } = await kommoPost('/tasks', tarefaPayload);
+
+    if (sTarefa === 200 || sTarefa === 201) {
+      console.log(`[Kommo] Tarefa criada no lead ${leadId}, prazo: ${prazoTexto}`);
       res.json({
         sucesso: true,
-        nota: true,
-        talk_id: talkId,
+        tarefa: true,
+        prazo_tarefa: prazoTexto,
         url_lead: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${leadId}`
       });
     } else {
-      res.status(500).json({ erro: `Erro ao criar nota no Kommo (status ${sNota})` });
+      console.error('[Kommo tarefa] Erro status:', sTarefa, JSON.stringify(tarefaResp));
+      res.status(500).json({ erro: `Erro ao criar tarefa no Kommo (status ${sTarefa})` });
     }
   } catch (e) {
-    console.error('[Kommo nota] Erro:', e.message);
+    console.error('[Kommo tarefa] Erro:', e.message);
     res.status(500).json({ erro: e.message });
   }
 });
