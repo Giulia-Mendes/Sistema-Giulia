@@ -1329,6 +1329,106 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
   }
 });
 
+// ── KOMMO: pipelines (nomes das etapas/campanhas) ──
+let _kommoPipelines = null;
+let _kommoPipelinesTs = 0;
+async function getKommoPipelines() {
+  const now = Date.now();
+  if (_kommoPipelines && now - _kommoPipelinesTs < 5 * 60 * 1000) return _kommoPipelines;
+  try {
+    const { status, body } = await kommoGet('/pipelines?limit=50');
+    if (status === 200 && body._embedded?.pipelines) {
+      _kommoPipelines = {};
+      for (const p of body._embedded.pipelines) {
+        _kommoPipelines[p.id] = { nome: p.name, statuses: {} };
+        for (const s of (p._embedded?.statuses || [])) {
+          _kommoPipelines[p.id].statuses[s.id] = s.name;
+        }
+      }
+      _kommoPipelinesTs = now;
+    }
+  } catch {}
+  return _kommoPipelines || {};
+}
+
+// ── KOMMO: leads por período ──
+app.get('/api/kommo/periodo', auth, async (req, res) => {
+  try {
+    const pipelines = await getKommoPipelines();
+    // Período via query params (timestamps Unix) ou padrão = hoje
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const inicio = parseInt(req.query.de)  || Math.floor(hoje.getTime() / 1000);
+    const fim    = parseInt(req.query.ate) || Math.floor((hoje.getTime() + 86400000 - 1) / 1000);
+
+    const { status, body } = await kommoGet(
+      `/leads?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&with=contacts,custom_fields&limit=100&order[created_at]=desc`
+    );
+    if (status !== 200) return res.status(status).json({ erro: 'Erro ao buscar leads no Kommo', detalhe: body });
+
+    const leads = body._embedded?.leads || [];
+    const resultado = leads.map(l => {
+      const pipeline = pipelines[l.pipeline_id] || {};
+      const status_nome = pipeline.statuses?.[l.status_id] || 'Desconhecido';
+      const pipeline_nome = pipeline.nome || 'Sem funil';
+
+      // Campanha via custom fields UTM
+      const utmSource   = (l.custom_fields_values || []).find(f => f.field_code === 'UTM_SOURCE');
+      const utmCampaign = (l.custom_fields_values || []).find(f => f.field_code === 'UTM_CAMPAIGN');
+      const campanha = utmCampaign?.values?.[0]?.value || utmSource?.values?.[0]?.value || pipeline_nome;
+
+      const contatos = (l._embedded?.contacts || []).map(c => ({ id: c.id, nome: c.name || '' }));
+      return {
+        id: l.id,
+        nome: l.name || '',
+        criado_em: l.created_at,
+        valor: l.price || 0,
+        pipeline: pipeline_nome,
+        status: status_nome,
+        campanha,
+        contatos
+      };
+    });
+
+    // Agrupa por campanha
+    const por_campanha = {};
+    for (const l of resultado) {
+      if (!por_campanha[l.campanha]) por_campanha[l.campanha] = 0;
+      por_campanha[l.campanha]++;
+    }
+
+    res.json({ total: resultado.length, por_campanha, leads: resultado });
+  } catch (e) {
+    console.error('[Kommo hoje] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── KOMMO: eventos/mensagens recentes ──
+app.get('/api/kommo/eventos', auth, async (req, res) => {
+  try {
+    const { status, body } = await kommoGet(
+      '/events?filter[type][]=incoming_chat_message&filter[type][]=outgoing_chat_message&filter[type][]=incoming_call&filter[type][]=outgoing_call&limit=30&order[created_at]=desc'
+    );
+    if (status !== 200) return res.status(status).json({ erro: 'Erro ao buscar eventos' });
+
+    const eventos = (body._embedded?.events || []).map(e => ({
+      id: e.id,
+      tipo: e.type,
+      criado_em: e.created_at,
+      entity_id: e.entity_id,
+      entity_type: e.entity_type,
+      created_by: e.created_by,
+      value_after: e.value_after?.[0] || null,
+      value_before: e.value_before?.[0] || null
+    }));
+
+    res.json({ total: eventos.length, eventos });
+  } catch (e) {
+    console.error('[Kommo eventos] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // Evita que erros não capturados derrubem o processo
 process.on('uncaughtException', err => {
   console.error('[uncaughtException]', err);
