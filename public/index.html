@@ -1558,7 +1558,13 @@ select option { background: var(--surface); color: var(--text); }
 <div class="modal-bg" id="modal-confirmar">
   <div class="modal-sm">
     <p style="font-size:16px;font-weight:500;margin-bottom:8px" id="confirmar-titulo">Confirmar exclusão</p>
-    <p style="font-size:13px;color:#888780;margin-bottom:20px">Essa ação não pode ser desfeita.</p>
+    <p style="font-size:13px;color:#888780;margin-bottom:12px">Essa ação não pode ser desfeita.</p>
+    <div id="confirmar-kommo-wrap" style="display:none;margin-bottom:16px;padding:10px 12px;background:var(--surface2,#f5f0eb);border-radius:8px;border:1px solid var(--border,#e0d9d0)">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="confirmar-excluir-kommo" checked style="width:14px;height:14px;accent-color:var(--accent)">
+        <span>🟣 Também excluir a tarefa no Kommo</span>
+      </label>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-branco" onclick="fecharModal('modal-confirmar')">Cancelar</button>
       <button class="btn btn-vermelho" onclick="confirmarExclusao()">🗑 Excluir</button>
@@ -2273,6 +2279,17 @@ function salvarEditarVisita() {
 function pedirExcluirVisita(id) {
   excluindoId = id; excluindoTipo = 'visita';
   document.getElementById('confirmar-titulo').textContent = 'Excluir agendamento?';
+  // Mostra opção de excluir tarefa no Kommo se a visita tiver uma
+  const v = visitas.find(x => x.id === id);
+  const kommoWrap = document.getElementById('confirmar-kommo-wrap');
+  if (kommoWrap) {
+    if (v?.kommo_task_id) {
+      kommoWrap.style.display = 'block';
+      document.getElementById('confirmar-excluir-kommo').checked = true;
+    } else {
+      kommoWrap.style.display = 'none';
+    }
+  }
   abrirModal('modal-confirmar');
 }
 let filtroVisita = 'futuras';
@@ -3742,11 +3759,11 @@ async function agendarVisita() {
     selecionarTipo('visita');
     await carregarVisitas(); renderVisitas();
 
-    if (enviarKommo) enviarMensagemKommo(leadId, textoKommo, dados.data);
+    if (enviarKommo) enviarMensagemKommo(leadId, textoKommo, dados.data, d.id);
   }
 }
 
-async function enviarMensagemKommo(leadId, texto, dataVisita) {
+async function enviarMensagemKommo(leadId, texto, dataVisita, visitaId) {
   const toast = document.getElementById('kommo-toast');
   if (toast) { toast.innerHTML = '🟣 Criando tarefa no Kommo...'; toast.style.display = 'flex'; }
   try {
@@ -3758,6 +3775,13 @@ async function enviarMensagemKommo(leadId, texto, dataVisita) {
     if (r.ok && d.sucesso) {
       const urlLead = d.url_lead || ('https://capelato.kommo.com/leads/detail/' + leadId);
       const prazoTxt = d.prazo_tarefa ? ' (prazo: ' + d.prazo_tarefa + ')' : '';
+      // Salva o ID da tarefa na visita para poder excluir depois
+      if (d.task_id && visitaId) {
+        fetch('/api/visitas/' + visitaId + '/kommo-task', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kommo_task_id: String(d.task_id) })
+        }).catch(() => {});
+      }
       if (toast) {
         toast.innerHTML = '✅ Tarefa criada no Kommo' + prazoTxt + '! <a href="' + urlLead + '" target="_blank" style="color:var(--accent);margin-left:8px;text-decoration:underline">📋 Abrir lead →</a>';
         setTimeout(() => { toast.style.display = 'none'; }, 12000);
@@ -3790,7 +3814,9 @@ async function salvarEditarVisita() {
 // VISITAS - excluir
 async function confirmarExclusao() {
   if (excluindoTipo === 'visita') {
-    await fetch('/api/visitas/' + excluindoId, { method: 'DELETE' });
+    const excluirKommo = document.getElementById('confirmar-excluir-kommo')?.checked;
+    const url = '/api/visitas/' + excluindoId + (excluirKommo ? '?excluir_kommo=true' : '');
+    await fetch(url, { method: 'DELETE' });
     await carregarVisitas(); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas();
   } else if (excluindoTipo === 'aprov') {
     await fetch('/api/aprovacoes/' + excluindoId, { method: 'DELETE' });

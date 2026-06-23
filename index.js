@@ -492,7 +492,7 @@ app.post('/api/trocar-senha', auth, (req, res) => {
 
 // ── VISITAS ──
 app.get('/api/visitas', auth, (req, res) => {
-  const rows = db.prepare('SELECT id,tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,periodo,obs,tecnicos,vendedora,lead_id,laudo,criado_por_id,criado_por_nome,criado_em FROM visitas ORDER BY data ASC, hora_ini ASC, criado_em DESC').all().map(v => ({
+  const rows = db.prepare('SELECT id,tipo,nome,cel,endereco,cep,data,hora_ini,hora_fim,periodo,obs,tecnicos,vendedora,lead_id,laudo,kommo_task_id,criado_por_id,criado_por_nome,criado_em FROM visitas ORDER BY data ASC, hora_ini ASC, criado_em DESC').all().map(v => ({
     ...v,
     horaIni: v.hora_ini, horaFim: v.hora_fim, end: v.endereco, periodo: v.periodo,
     tecnicos: JSON.parse(v.tecnicos || '[]'), fotos: [], _tem_fotos: false,
@@ -529,13 +529,31 @@ app.put('/api/visitas/:id/laudo', auth, (req, res) => {
   audit(req, 'SALVAR_LAUDO', 'visitas', req.params.id, antes?.laudo ? JSON.parse(antes.laudo) : null, req.body.laudo);
   res.json({ sucesso: true });
 });
-app.delete('/api/visitas/:id', auth, (req, res) => {
-  const antes = db.prepare('SELECT nome,data,tipo,google_event_id FROM visitas WHERE id=?').get(req.params.id);
+// Salva o ID da tarefa Kommo na visita (chamado após criar a tarefa)
+app.patch('/api/visitas/:id/kommo-task', auth, (req, res) => {
+  const { kommo_task_id } = req.body;
+  db.prepare('UPDATE visitas SET kommo_task_id=? WHERE id=?').run(kommo_task_id || null, req.params.id);
+  res.json({ sucesso: true });
+});
+
+app.delete('/api/visitas/:id', auth, async (req, res) => {
+  const antes = db.prepare('SELECT nome,data,tipo,google_event_id,kommo_task_id FROM visitas WHERE id=?').get(req.params.id);
   db.prepare('DELETE FROM visitas WHERE id=?').run(req.params.id);
   audit(req, 'EXCLUIR_VISITA', 'visitas', req.params.id, antes, null);
   res.json({ sucesso: true });
   // Sync Google Calendar
   if (antes) gcalSync('delete', antes).catch(() => {});
+  // Exclui tarefa no Kommo se solicitado
+  const excluirKommo = req.query.excluir_kommo === 'true';
+  const taskId = antes?.kommo_task_id;
+  if (excluirKommo && taskId) {
+    try {
+      const { status } = await kommoRequest('DELETE', `/tasks/${taskId}`, null);
+      console.log(`[Kommo] Tarefa ${taskId} excluída (status ${status})`);
+    } catch(e) {
+      console.error('[Kommo] Erro ao excluir tarefa:', e.message);
+    }
+  }
 });
 app.get('/api/visitas/:id/fotos', auth, (req, res) => {
   const row = db.prepare('SELECT fotos FROM visitas WHERE id=?').get(req.params.id);
@@ -859,6 +877,7 @@ try { db.prepare('ALTER TABLE orcamentos_mat ADD COLUMN laudo TEXT DEFAULT NULL'
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN visita_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN orcmat_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE materiais_catalogo ADD COLUMN preco_custo REAL DEFAULT 0').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE visitas ADD COLUMN kommo_task_id TEXT DEFAULT NULL').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──
 db.exec(`
@@ -1420,10 +1439,12 @@ app.post('/api/kommo/lead/:id/mensagem', auth, async (req, res) => {
     const { status: sTarefa, body: tarefaResp } = await kommoPost('/tasks', tarefaPayload);
 
     if (sTarefa === 200 || sTarefa === 201) {
-      console.log(`[Kommo] Tarefa criada no lead ${leadId}, prazo: ${prazoTexto}`);
+      const taskId = tarefaResp?._embedded?.tasks?.[0]?.id || null;
+      console.log(`[Kommo] Tarefa ${taskId} criada no lead ${leadId}, prazo: ${prazoTexto}`);
       res.json({
         sucesso: true,
         tarefa: true,
+        task_id: taskId,
         prazo_tarefa: prazoTexto,
         url_lead: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${leadId}`
       });
