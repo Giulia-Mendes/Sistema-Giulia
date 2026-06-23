@@ -1305,9 +1305,21 @@ app.use((err, req, res, next) => {
   if (!res.headersSent) res.status(500).json({ erro: 'Erro interno do servidor.' });
 });
 
+// ── KOMMO: diagnóstico (sem expor o token) ──
+app.get('/api/kommo/status', auth, (req, res) => {
+  res.json({
+    token_configurado: !!KOMMO_TOKEN,
+    token_tamanho: KOMMO_TOKEN.length,
+    subdomain: KOMMO_SUBDOMAIN || '(vazio)'
+  });
+});
+
 // ── KOMMO: buscar lead por ID ──
 app.get('/api/kommo/lead/:id', auth, async (req, res) => {
   try {
+    if (!KOMMO_TOKEN || !KOMMO_SUBDOMAIN) {
+      return res.status(503).json({ erro: 'Kommo não configurado no servidor (variáveis ausentes)' });
+    }
     const { status, body } = await kommoGet(`/leads/${req.params.id}?with=contacts`);
     if (status !== 200) return res.status(status).json({ erro: 'Lead não encontrado no Kommo' });
 

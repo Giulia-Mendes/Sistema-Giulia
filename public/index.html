@@ -3660,9 +3660,10 @@ async function buscarLeadKommo(prefix) {
   if (infoSpan) infoSpan.textContent = '🔄';
   try {
     const r = await fetch('/api/kommo/lead/' + id);
-    const data = await r.json();
+    let data;
+    try { data = await r.json(); } catch { data = {}; }
     if (!r.ok || data.erro) {
-      if (infoSpan) infoSpan.textContent = '❌ não encontrado';
+      if (infoSpan) infoSpan.textContent = '❌ ' + (data.erro || 'não encontrado');
       return;
     }
     if (infoSpan) infoSpan.textContent = '✅ ' + (data.nome || '');
