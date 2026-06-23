@@ -3659,7 +3659,11 @@ async function buscarLeadKommo(prefix) {
   }
   if (infoSpan) infoSpan.textContent = '🔄';
   try {
-    const r = await fetch('/api/kommo/lead/' + id);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000); // timeout 15s
+    let r;
+    try { r = await fetch('/api/kommo/lead/' + id, { signal: ctrl.signal }); }
+    finally { clearTimeout(timer); }
     let data;
     try { data = await r.json(); } catch { data = {}; }
     if (!r.ok || data.erro) {
@@ -3679,8 +3683,9 @@ async function buscarLeadKommo(prefix) {
       const labelKommo = document.getElementById('v-enviar-kommo-label');
       if (labelKommo) labelKommo.style.display = 'flex';
     }
-  } catch {
-    if (infoSpan) infoSpan.textContent = '❌ erro';
+  } catch (e) {
+    console.error('[Kommo] Erro ao buscar lead:', e);
+    if (infoSpan) infoSpan.textContent = '❌ ' + (e.message || 'erro de conexão');
   }
 }
 

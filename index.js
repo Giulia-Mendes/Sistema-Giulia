@@ -175,6 +175,7 @@ function kommoRequest(method, path, body) {
     const bodyStr = body ? JSON.stringify(body) : null;
     const opts = {
       method,
+      timeout: 12000, // 12s timeout na conexão
       headers: {
         'Authorization': `Bearer ${KOMMO_TOKEN}`,
         'Content-Type': 'application/json',
@@ -189,6 +190,7 @@ function kommoRequest(method, path, body) {
         catch { resolve({ status: res.statusCode, body: data }); }
       });
     });
+    req.on('timeout', () => { req.destroy(new Error('Timeout ao conectar com Kommo (12s)')); });
     req.on('error', reject);
     if (bodyStr) req.write(bodyStr);
     req.end();
