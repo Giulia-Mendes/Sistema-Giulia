@@ -606,7 +606,10 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <div class="campo">
         <label>Lead Kommo</label>
-        <input type="text" id="v-lead" placeholder="ID do lead">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="v-lead" placeholder="ID do lead" onblur="buscarLeadKommo('v')" style="flex:1">
+          <span id="v-lead-info" style="font-size:12px;color:var(--text2);white-space:nowrap"></span>
+        </div>
       </div>
       <div class="campo" style="margin-bottom:12px">
         <label>Observação</label>
@@ -1368,7 +1371,10 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <div class="campo">
         <label>Lead Kommo</label>
-        <input type="text" id="ev-lead" placeholder="ID do lead">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="ev-lead" placeholder="ID do lead" onblur="buscarLeadKommo('ev')" style="flex:1">
+          <span id="ev-lead-info" style="font-size:12px;color:var(--text2);white-space:nowrap"></span>
+        </div>
       </div>
       <div class="campo"><label>Observação</label><input type="text" id="ev-obs"></div>
     </div>
@@ -3561,6 +3567,32 @@ async function carregarInstalacoes() {
 }
 
 // ═══ SOBRESCREVER FUNÇÕES QUE SALVAM DADOS ═══
+
+// ── KOMMO: buscar lead e preencher campos ──
+async function buscarLeadKommo(prefix) {
+  const leadInput = document.getElementById(prefix + '-lead');
+  const infoSpan  = document.getElementById(prefix + '-lead-info');
+  const id = (leadInput.value || '').trim();
+  if (!id) { if (infoSpan) infoSpan.textContent = ''; return; }
+  if (infoSpan) infoSpan.textContent = '🔄';
+  try {
+    const r = await fetch('/api/kommo/lead/' + id);
+    const data = await r.json();
+    if (!r.ok || data.erro) {
+      if (infoSpan) infoSpan.textContent = '❌ não encontrado';
+      return;
+    }
+    if (infoSpan) infoSpan.textContent = '✅ ' + (data.nome || '');
+
+    // Preenche nome e celular apenas se os campos estiverem vazios
+    const nomeEl = document.getElementById(prefix + '-nome');
+    const celEl  = document.getElementById(prefix + '-cel');
+    if (nomeEl && !nomeEl.value && data.nome) nomeEl.value = data.nome;
+    if (celEl  && !celEl.value  && data.cel)  celEl.value  = data.cel;
+  } catch {
+    if (infoSpan) infoSpan.textContent = '❌ erro';
+  }
+}
 
 // VISITAS - agendar
 function calcHoraFimAuto(horaIni) {

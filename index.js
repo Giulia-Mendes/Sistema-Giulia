@@ -159,6 +159,36 @@ async function gcalSync(action, visita) {
 
 setupGoogleCalendar();
 
+// ══════════════════════════════════════════════════════════════
+// KOMMO CRM INTEGRATION
+// Variáveis de ambiente necessárias:
+//   KOMMO_TOKEN      → token de longa duração (JWT)
+//   KOMMO_SUBDOMAIN  → ex: capelato
+// ══════════════════════════════════════════════════════════════
+const KOMMO_TOKEN     = process.env.KOMMO_TOKEN || '';
+const KOMMO_SUBDOMAIN = process.env.KOMMO_SUBDOMAIN || '';
+
+function kommoGet(path) {
+  return new Promise((resolve, reject) => {
+    if (!KOMMO_TOKEN || !KOMMO_SUBDOMAIN) return reject(new Error('Kommo não configurado'));
+    const url = `https://${KOMMO_SUBDOMAIN}.kommo.com/api/v4${path}`;
+    const opts = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${KOMMO_TOKEN}`, 'Content-Type': 'application/json' }
+    };
+    const req = https.request(url, opts, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1265,6 +1295,38 @@ app.use((err, req, res, next) => {
   }
   console.error('[erro]', err);
   if (!res.headersSent) res.status(500).json({ erro: 'Erro interno do servidor.' });
+});
+
+// ── KOMMO: buscar lead por ID ──
+app.get('/api/kommo/lead/:id', auth, async (req, res) => {
+  try {
+    const { status, body } = await kommoGet(`/leads/${req.params.id}?with=contacts`);
+    if (status !== 200) return res.status(status).json({ erro: 'Lead não encontrado no Kommo' });
+
+    const lead = body;
+    // Busca o contato principal vinculado ao lead
+    let nome = lead.name || '';
+    let cel = '';
+    const contactLinks = lead._embedded?.contacts || [];
+    if (contactLinks.length > 0) {
+      try {
+        const contId = contactLinks[0].id;
+        const cr = await kommoGet(`/contacts/${contId}`);
+        if (cr.status === 200) {
+          const contact = cr.body;
+          if (!nome) nome = contact.name || '';
+          const phones = (contact.custom_fields_values || []).find(f => f.field_code === 'PHONE');
+          if (phones && phones.values && phones.values.length > 0) {
+            cel = phones.values[0].value || '';
+          }
+        }
+      } catch {}
+    }
+    res.json({ id: lead.id, nome, cel, status_id: lead.status_id, pipeline_id: lead.pipeline_id, valor: lead.price });
+  } catch (e) {
+    console.error('[Kommo] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
 });
 
 // Evita que erros não capturados derrubem o processo
