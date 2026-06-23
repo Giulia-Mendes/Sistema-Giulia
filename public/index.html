@@ -4730,30 +4730,10 @@ async function carregarPermissoes() {
   try {
     const r = await fetch('/api/role-permissions');
     const salvo = await r.json();
-
-    // Detecta páginas novas (adicionadas ao código mas nunca salvas no banco)
-    // Uma página é "nova" se não aparece em nenhum role salvo
-    const todasSalvas = new Set(Object.values(salvo).flat());
-    const paginasNovas = ALL_PAGES.filter(p => !todasSalvas.has(p));
-
-    // Defaults para páginas novas por role
-    const defaultNovas = {
-      admin:    ALL_PAGES,
-      gerente:  ['kommo'],
-      vendedor: ['kommo'],
-      tecnico:  [],
-      user:     [],
-    };
-
+    // Aplica o que está salvo no banco — sem auto-salvar nunca
+    // Páginas novas (não salvas ainda) ficam visíveis na tela de permissões para o admin configurar
     for (const role of ['admin','gerente','vendedor','tecnico','user']) {
-      const saved = salvo[role] || rolePages[role] || [];
-      const extras = paginasNovas.filter(p => (defaultNovas[role] || []).includes(p));
-      rolePages[role] = ALL_PAGES.filter(p => saved.includes(p) || extras.includes(p));
-    }
-
-    // Persiste se havia páginas novas para não repetir na próxima carga
-    if (paginasNovas.length > 0) {
-      fetch('/api/role-permissions', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rolePages) }).catch(()=>{});
+      if (salvo[role]) rolePages[role] = salvo[role];
     }
   } catch(e) {}
 }
