@@ -1304,8 +1304,8 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
     if (status !== 200) return res.status(status).json({ erro: 'Lead não encontrado no Kommo' });
 
     const lead = body;
-    // Busca o contato principal vinculado ao lead
-    let nome = lead.name || '';
+    // Prioridade: nome do CONTATO (pessoa real) > nome do lead (pode ser "Lead #XXXXX")
+    let nome = '';
     let cel = '';
     const contactLinks = lead._embedded?.contacts || [];
     if (contactLinks.length > 0) {
@@ -1314,7 +1314,7 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
         const cr = await kommoGet(`/contacts/${contId}`);
         if (cr.status === 200) {
           const contact = cr.body;
-          if (!nome) nome = contact.name || '';
+          nome = contact.name || '';
           const phones = (contact.custom_fields_values || []).find(f => f.field_code === 'PHONE');
           if (phones && phones.values && phones.values.length > 0) {
             cel = phones.values[0].value || '';
@@ -1322,6 +1322,8 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
         }
       } catch {}
     }
+    // Só usa o nome do lead como fallback se não achou contato
+    if (!nome) nome = lead.name || '';
     res.json({ id: lead.id, nome, cel, status_id: lead.status_id, pipeline_id: lead.pipeline_id, valor: lead.price });
   } catch (e) {
     console.error('[Kommo] Erro:', e.message);
