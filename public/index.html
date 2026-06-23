@@ -4687,7 +4687,32 @@ const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','p
 async function carregarPermissoes() {
   try {
     const r = await fetch('/api/role-permissions');
-    rolePages = await r.json();
+    const salvo = await r.json();
+
+    // Detecta páginas novas (adicionadas ao código mas nunca salvas no banco)
+    // Uma página é "nova" se não aparece em nenhum role salvo
+    const todasSalvas = new Set(Object.values(salvo).flat());
+    const paginasNovas = ALL_PAGES.filter(p => !todasSalvas.has(p));
+
+    // Defaults para páginas novas por role
+    const defaultNovas = {
+      admin:    ALL_PAGES,
+      gerente:  ['kommo'],
+      vendedor: ['kommo'],
+      tecnico:  [],
+      user:     [],
+    };
+
+    for (const role of ['admin','gerente','vendedor','tecnico','user']) {
+      const saved = salvo[role] || rolePages[role] || [];
+      const extras = paginasNovas.filter(p => (defaultNovas[role] || []).includes(p));
+      rolePages[role] = ALL_PAGES.filter(p => saved.includes(p) || extras.includes(p));
+    }
+
+    // Persiste se havia páginas novas para não repetir na próxima carga
+    if (paginasNovas.length > 0) {
+      fetch('/api/role-permissions', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rolePages) }).catch(()=>{});
+    }
   } catch(e) {}
 }
 
@@ -5880,24 +5905,25 @@ async function carregarListaUsuarios() {
   const usuarios = await r.json();
   const lista = document.getElementById('lista-usuarios');
 
-  const editRoles = ['gerente','vendedor','tecnico','user'];
+  const editRoles = ['admin','gerente','vendedor','tecnico','user'];
   const tHead = '<tr><th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border)">Página</th>' +
     editRoles.map(r => '<th style="padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);text-align:center;min-width:90px">' + ROLE_LABEL[r] + '</th>').join('') + '</tr>';
-  const tBody = ALL_PAGES.filter(p => p !== 'auditoria' && p !== 'usuarios').map(p =>
+  // Páginas bloqueadas para admin (não pode remover o próprio acesso de gestão)
+  const adminLocked = new Set(['parametros','usuarios','auditoria','dashboard']);
+  const tBody = ALL_PAGES.map(p =>
     '<tr>' +
-    '<td style="padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border)">' + PAGE_LABEL[p] + '</td>' +
+    '<td style="padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border)">' + (PAGE_LABEL[p] || p) + '</td>' +
     editRoles.map(r => {
       const checked = (rolePages[r] || []).includes(p);
-      const locked = p === 'dashboard';
+      const locked = p === 'dashboard' || (r === 'admin' && adminLocked.has(p));
       return '<td style="text-align:center;border-bottom:1px solid var(--border)">' +
-        '<input type="checkbox"' + (checked ? ' checked' : '') + (locked ? ' disabled title="Obrigatório para todos"' : ' onchange="salvarPermissao(\'' + r + '\',\'' + p + '\',this.checked)"') + ' style="width:16px;height:16px;cursor:' + (locked?'not-allowed':'pointer') + '"></td>';
+        '<input type="checkbox"' + (checked ? ' checked' : '') + (locked ? ' checked disabled title="' + (p==='dashboard'?'Obrigatório para todos':'Obrigatório para administrador') + '"' : ' onchange="salvarPermissao(\'' + r + '\',\'' + p + '\',this.checked)"') + ' style="width:16px;height:16px;cursor:' + (locked?'not-allowed':'pointer') + '"></td>';
     }).join('') + '</tr>'
   ).join('');
-  const tAdmin = '<tr style="background:var(--surface2)"><td colspan="' + (editRoles.length+1) + '" style="padding:8px 12px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">👑 Administrador — acesso completo (não editável)</td></tr>';
   const legendaHtml = '<div class="card" style="margin-bottom:12px;padding:14px 16px">' +
     '<p class="sec" style="margin:0 0 12px">Permissões por perfil</p>' +
     '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%">' +
-    '<thead>' + tHead + '</thead><tbody>' + tAdmin + tBody + '</tbody></table></div></div>';
+    '<thead>' + tHead + '</thead><tbody>' + tBody + '</tbody></table></div></div>';
 
   const tinyHtml = usuarioLogado && usuarioLogado.role === 'admin'
     ? '<div class="card" style="margin-bottom:12px;padding:14px 16px">' +
