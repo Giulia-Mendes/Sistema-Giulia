@@ -1584,53 +1584,60 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     if (sL !== 200) return res.status(sL).json({ erro: 'Erro ao buscar leads Kommo' });
     const leadsHoje = leadsBody._embedded?.leads || [];
 
-    // 2. Busca NOTAS de mensagem recebida no dia (contêm o texto real da mensagem)
-    // Notas têm params.text com o conteúdo do WhatsApp
+    // Mapa contato→lead (mensagens WhatsApp ficam vinculadas ao contato no Kommo)
+    const contatoParaLead = {};
+    const contactIds = new Set();
+    for (const l of leadsHoje) {
+      for (const c of l._embedded?.contacts || []) {
+        contactIds.add(c.id);
+        contatoParaLead[c.id] = l.id;
+      }
+    }
+
+    // 2. Busca NOTAS de mensagem recebida no dia SEM filtro de entity_type
+    // (WhatsApp Business vincula ao contato, não ao lead)
     const { status: sN, body: notesBody } = await kommoGet(
-      `/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&entity_type=leads&limit=250`
+      `/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
     );
+    console.log('[Kommo] Notes status:', sN, '| count:', notesBody?._embedded?.notes?.length ?? 0);
+    if (notesBody?._embedded?.notes?.[0]) {
+      console.log('[Kommo] Sample note params:', JSON.stringify(notesBody._embedded.notes[0].params).substring(0, 300));
+      console.log('[Kommo] Sample note entity:', notesBody._embedded.notes[0].entity_type, notesBody._embedded.notes[0].entity_id);
+    }
+
     // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
     const notasPorLead = {};
+
+    function extrairTextoNota(params) {
+      if (!params) return '';
+      // Tenta múltiplos campos — estrutura varia por plano/canal do Kommo
+      return params.text
+        || params.origin?.message?.body
+        || params.origin?.message?.text
+        || params.message?.text
+        || (typeof params.message === 'string' ? params.message : '')
+        || params.comment
+        || params.attachments?.[0]?.name
+        || '';
+    }
+
     if (sN === 200) {
       const notas = (notesBody._embedded?.notes || []).sort((a, b) => a.created_at - b.created_at);
       for (const nota of notas) {
-        const lid = nota.entity_id;
-        if (!notasPorLead[lid]) {
-          // params.text = texto da mensagem; params.attachments = mídia
-          const texto = nota.params?.text
-            || nota.params?.attachments?.[0]?.name
-            || nota.params?.service
-            || '';
-          notasPorLead[lid] = { primeiro_contato: nota.created_at, texto_primeira: texto };
+        let leadId = null;
+        if (nota.entity_type === 'leads') {
+          leadId = nota.entity_id;
+        } else if (nota.entity_type === 'contacts') {
+          leadId = contatoParaLead[nota.entity_id] || null;
+        }
+        if (!leadId) continue;
+        if (!notasPorLead[leadId]) {
+          notasPorLead[leadId] = {
+            primeiro_contato: nota.created_at,
+            texto_primeira: extrairTextoNota(nota.params)
+          };
         }
       }
-    } else {
-      console.warn('[Kommo] Notes API status:', sN, '— usando fallback de eventos');
-      // Fallback: tenta eventos (value_after pode ter o texto em alguns planos)
-      try {
-        const { status: sEvt, body: evtBody } = await kommoGet(
-          `/events?filter[type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&order[created_at]=asc`
-        );
-        if (sEvt === 200) {
-          const eventos = evtBody._embedded?.events || [];
-          for (const evt of eventos) {
-            if (evt.entity_type !== 'leads') continue;
-            const lid = evt.entity_id;
-            if (!notasPorLead[lid]) {
-              const va = evt.value_after;
-              const v = Array.isArray(va) ? va[0] : va;
-              const texto = v?.note?.params?.text || v?.message?.text || v?.text || v?.comment || '';
-              notasPorLead[lid] = { primeiro_contato: evt.created_at, texto_primeira: texto };
-            }
-          }
-        }
-      } catch {}
-    }
-
-    // 3. Coleta IDs de contatos para buscar telefones/nomes em lote
-    const contactIds = new Set();
-    for (const l of leadsHoje) {
-      for (const c of l._embedded?.contacts || []) contactIds.add(c.id);
     }
 
     // 4. Busca nome e telefone dos contatos em lote
