@@ -650,7 +650,7 @@ app.get('/api/rep/propostas', authRep, (req, res) => {
       SELECT a.id, a.cliente, a.equip, a.valor, a.pag, a.status, a.temperatura_alvo,
              a.visita_id, a.orcmat_id, a.vendedora, a.criado_em, a.rep_enviado_em,
              a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id,
-             a.texto AS prop_texto, a.anexos AS prop_anexos,
+             a.texto AS prop_texto, a.anexos AS prop_anexos, a.html_proposta AS prop_html,
              v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome,
              v.data AS vis_data, v.hora_ini AS vis_hora_ini, v.hora_fim AS vis_hora_fim,
              v.obs AS vis_obs, v.tecnicos AS vis_tecnicos,

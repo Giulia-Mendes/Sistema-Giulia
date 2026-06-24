@@ -7392,20 +7392,23 @@ function renderRep() {
 
       // ── Proposta ──
       let propHtml = '';
-      if (p.prop_texto) {
-        propHtml = '<div style="font-size:13px;background:#f5f4f0;border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.7;max-height:260px;overflow-y:auto">' + p.prop_texto.replace(/</g,'&lt;') + '</div>';
+      if (p.prop_texto || p.prop_html) {
+        propHtml = '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+          '<button class="btn btn-branco" onclick="event.stopPropagation();repImprimirProposta(' + p.id + ')" style="font-size:13px">🖨️ Imprimir proposta</button>' +
+        '</div>' +
+        (p.prop_texto ? '<div style="font-size:13px;background:#f5f4f0;border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.7;max-height:260px;overflow-y:auto">' + p.prop_texto.replace(/</g,'&lt;') + '</div>' : '');
       }
       let anexosHtml = '';
       if (p.prop_anexos) {
         const anexos = (() => { try { return typeof p.prop_anexos === 'string' ? JSON.parse(p.prop_anexos) : p.prop_anexos; } catch(e) { return []; } })();
         if (Array.isArray(anexos) && anexos.length) {
-          anexosHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+          anexosHtml = '<div style="margin-top:10px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Arquivos anexados</div><div style="display:flex;flex-wrap:wrap;gap:8px">' +
             anexos.map(ax => {
               const isImg = ax.tipo && ax.tipo.startsWith('image/');
               return '<a href="' + ax.dados + '" download="' + ax.nome + '" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2);width:80px;text-decoration:none">' +
                 (isImg ? '<img src="' + ax.dados + '" style="width:80px;height:60px;object-fit:cover">' : '<div style="width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>') +
                 '<span style="font-size:10px;color:var(--text2);padding:2px 4px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">' + ax.nome + '</span></a>';
-            }).join('') + '</div>';
+            }).join('') + '</div></div>';
         }
       }
 
@@ -7453,6 +7456,23 @@ function renderRep() {
       '</div>' + bodyHtml +
     '</div>';
   }).join('');
+}
+
+async function repImprimirProposta(id) {
+  const p = repPropostas.find(x => x.id === id);
+  if (!p) return;
+  let html = p.prop_html;
+  if (!html) {
+    try {
+      const r = await fetch('/api/aprovacoes/' + id + '/html');
+      const d = await r.json();
+      if (d.html_proposta) { html = d.html_proposta; p.prop_html = html; }
+    } catch(e) {}
+  }
+  if (!html) { alert('Proposta sem HTML gerado. Reimprima pela página de Aprovação primeiro.'); return; }
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 async function salvarRepVisita(id) {
