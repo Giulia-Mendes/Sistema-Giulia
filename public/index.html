@@ -3073,6 +3073,13 @@ function renderAprovacao() {
           '</div>';
         })() +
         '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">' +
+          '<span style="font-size:12px;color:var(--text2);white-space:nowrap">Visita</span>' +
+          '<div id="aprov-visita-label-' + a.id + '" style="flex:1;min-width:120px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:' + (_vLink ? 'var(--text1)' : 'var(--text2)') + '">' + (_vLink ? _vLink.nome + ' · ' + (_vLink.data||'').split('-').reverse().join('/') : 'Nenhuma vinculada') + '</div>' +
+          (_vLink ? '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px;border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();verVisitaDetalhe(' + a.visita_id + ')">📅 Ver</button>' : '') +
+          '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();_abrirSeletorVisitaAprov(' + a.id + ')">' + (_vLink ? 'Trocar' : '📅 Vincular') + '</button>' +
+          (_vLink ? '<button onclick="event.stopPropagation();_desvincularVisitaAprov(' + a.id + ')" style="background:none;border:none;color:var(--terra);cursor:pointer;font-size:14px" title="Desvincular">✕</button>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">' +
           '<span style="font-size:12px;color:var(--text2);white-space:nowrap">Orç. material</span>' +
           '<div id="aprov-orcmat-label-' + a.id + '" style="flex:1;min-width:120px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:' + (_oLink ? 'var(--text1)' : 'var(--text2)') + '">' + (_oLink ? _oLink.cliente + ' · R$ ' + (_oLink.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : 'Nenhum vinculado') + '</div>' +
           (_oLink ? '<button class="btn btn-branco" style="font-size:12px;padding:4px 10px;border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();orcmatVerOrcamento(' + a.orcmat_id + ')">📦 Ver</button>' : '') +
@@ -3216,6 +3223,43 @@ async function _confirmarVincularOrcmatAprov(aprovId, orcmatId) {
     lbl.style.color = 'var(--text1)';
     lbl.textContent = o.cliente + ' · R$ ' + (o.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
+  renderAprovacoes();
+}
+
+let _seletorVisitaAprovId = null;
+function _abrirSeletorVisitaAprov(aprovId) {
+  _seletorVisitaAprovId = aprovId;
+  const busca = document.getElementById('modal-sel-visita-busca');
+  if (busca) busca.value = '';
+  _filtrarVisitasAprov();
+  document.getElementById('modal-sel-visita-aprov').style.display = 'flex';
+}
+function _filtrarVisitasAprov() {
+  const q = (document.getElementById('modal-sel-visita-busca')?.value || '').toLowerCase();
+  const opts = (visitas || []).filter(v => !q || [v.nome, v.endereco, v.data].some(f => (f||'').toLowerCase().includes(q)));
+  const lista = document.getElementById('modal-sel-visita-aprov-lista');
+  if (!lista) return;
+  if (!opts.length) { lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:16px;font-size:13px">Nenhuma visita encontrada.</p>'; return; }
+  lista.innerHTML = opts.map(v => {
+    const dataFmt = v.data ? v.data.split('-').reverse().join('/') : '—';
+    const hora = v.hora_ini ? ' às ' + v.hora_ini : '';
+    return '<div onclick="_confirmarVincularVisitaAprov(' + _seletorVisitaAprovId + ',' + v.id + ')" style="cursor:pointer;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">' +
+      '<div style="font-weight:600">' + (v.nome||'Sem nome') + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">' + dataFmt + hora + (v.endereco ? ' · ' + v.endereco : '') + '</div>' +
+    '</div>';
+  }).join('');
+}
+async function _confirmarVincularVisitaAprov(aprovId, visitaId) {
+  document.getElementById('modal-sel-visita-aprov').style.display = 'none';
+  await fetch('/api/aprovacoes/' + aprovId + '/visita', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ visita_id: visitaId }) });
+  const a = aprovacoes.find(x => x.id === aprovId);
+  if (a) a.visita_id = visitaId;
+  renderAprovacoes();
+}
+async function _desvincularVisitaAprov(aprovId) {
+  await fetch('/api/aprovacoes/' + aprovId + '/visita', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ visita_id: null }) });
+  const a = aprovacoes.find(x => x.id === aprovId);
+  if (a) a.visita_id = null;
   renderAprovacoes();
 }
 
@@ -7732,6 +7776,16 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
       <button onclick="document.getElementById('modal-sel-orcmat-aprov').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
     </div>
     <div id="modal-sel-orcmat-aprov-lista" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+<div class="modal-bg" id="modal-sel-visita-aprov" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:480px;width:95%;max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0">
+      <h3 style="margin:0;font-size:15px">📅 Vincular visita técnica</h3>
+      <button onclick="document.getElementById('modal-sel-visita-aprov').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <input type="text" id="modal-sel-visita-busca" placeholder="🔍 Buscar por cliente ou endereço..." oninput="_filtrarVisitasAprov()" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin-bottom:10px;flex-shrink:0">
+    <div id="modal-sel-visita-aprov-lista" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
   </div>
 </div>
 <div class="modal-bg" id="modal-visita-detalhe" style="display:none" onclick="if(event.target===this)this.style.display='none'">
