@@ -7472,8 +7472,9 @@ function renderRep() {
           '<div class="campo" style="margin-bottom:4px"><label>Observação / O que foi conversado</label>' +
           '<textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
           '<p style="font-size:12px;color:var(--text2);margin:0 0 12px">Registre o que foi conversado, objeções ou próximos passos.</p>' +
-          '<div style="display:flex;gap:8px">' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
+            (['admin','gerente'].includes(usuarioLogado?.role) ? '<button class="btn btn-vermelho" onclick="removerDaRep(' + p.id + ')">✕ Remover da representação</button>' : '') +
           '</div>' +
           (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
           (objecao && p.rep_obs ? '<div style="font-size:12px;color:var(--slate-txt);margin-top:10px">Motivo da objeção salvo.</div>' : '')
@@ -7517,6 +7518,19 @@ async function repImprimirProposta(id) {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+}
+
+async function removerDaRep(id) {
+  if (!confirm('Remover esta proposta da representação?')) return;
+  try {
+    await fetch('/api/aprovacoes/' + id + '/enviar-rep', { method: 'DELETE' });
+    repPropostas = repPropostas.filter(p => p.id !== id);
+    repExpandido = null;
+    renderRep();
+    // Atualiza o botão na página de aprovação também
+    const a = aprovacoes.find(x => x.id === id);
+    if (a) a.rep_enviado = 0;
+  } catch(e) { alert('Erro de conexão.'); }
 }
 
 async function salvarRepVisita(id) {
