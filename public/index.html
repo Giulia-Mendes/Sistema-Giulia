@@ -6187,7 +6187,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
           ${tel ? `<span style="font-size:12px;color:var(--text2)">${tel}</span>` : ''}
           <span style="font-size:11px;color:var(--text2);margin-left:auto">${hora}</span>
         </div>
-        ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;word-break:break-word">"${msg.length > 160 ? msg.slice(0,160)+'…' : msg}"</div>` : '<div style="font-size:12px;color:var(--text2);margin-top:3px;font-style:italic">Texto da mensagem não disponível</div>'}
+        ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;word-break:break-word">"${msg.length > 160 ? msg.slice(0,160)+'…' : msg}"</div>` : ''}
       </div>
       <a href="${l.url}" target="_blank" style="flex-shrink:0;color:var(--accent);font-size:18px;margin-top:2px;text-decoration:none" title="Abrir no Kommo">↗</a>
     </div>`;
@@ -6210,8 +6210,6 @@ async function carregarKommo() {
     const d = await r.json();
     if (!r.ok) throw new Error(d.erro || 'Erro ao carregar');
     // Debug temporário — ver console do navegador (F12)
-    if (d._debug) console.log('[Kommo DEBUG]', JSON.stringify(d._debug, null, 2));
-
     _kommoLeadsCache = d.leads || [];
 
     // Separa por modelo
