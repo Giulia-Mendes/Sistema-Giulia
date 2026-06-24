@@ -648,15 +648,30 @@ app.get('/api/rep/propostas', authRep, (req, res) => {
   try {
     const rows = db.prepare(`
       SELECT a.id, a.cliente, a.equip, a.valor, a.pag, a.status, a.temperatura_alvo,
-             a.visita_id, a.vendedora, a.criado_em, a.rep_enviado_em,
+             a.visita_id, a.orcmat_id, a.vendedora, a.criado_em, a.rep_enviado_em,
              a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id,
-             v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome, v.data AS vis_data
+             a.texto AS prop_texto, a.anexos AS prop_anexos,
+             v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome,
+             v.data AS vis_data, v.hora_ini AS vis_hora_ini, v.hora_fim AS vis_hora_fim,
+             v.obs AS vis_obs, v.tecnicos AS vis_tecnicos,
+             o.valor_total AS orc_valor_total, o.laudo AS orc_laudo, o.obs AS orc_obs,
+             (SELECT json_group_array(json_object(
+               'nome', i.nome, 'sku', i.sku, 'quantidade', i.quantidade,
+               'unidade', i.unidade, 'preco_unit', i.preco_unit, 'preco_total', i.preco_total
+             )) FROM orcamentos_mat_itens i WHERE i.orcamento_id = a.orcmat_id ORDER BY i.ordem) AS orc_itens_json
       FROM aprovacoes a
       LEFT JOIN visitas v ON v.id = a.visita_id
+      LEFT JOIN orcamentos_mat o ON o.id = a.orcmat_id
       WHERE a.rep_enviado = 1
       ORDER BY a.rep_enviado_em DESC
     `).all();
-    res.json(rows);
+    res.json(rows.map(r => ({
+      ...r,
+      orc_laudo:    r.orc_laudo    ? (() => { try { return JSON.parse(r.orc_laudo);    } catch(e) { return null; } })() : null,
+      orc_itens:    r.orc_itens_json ? (() => { try { return JSON.parse(r.orc_itens_json); } catch(e) { return []; } })() : [],
+      vis_tecnicos: r.vis_tecnicos ? (() => { try { return JSON.parse(r.vis_tecnicos); } catch(e) { return []; } })() : [],
+      orc_itens_json: undefined,
+    })));
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 app.put('/api/rep/propostas/:id', authRep, (req, res) => {

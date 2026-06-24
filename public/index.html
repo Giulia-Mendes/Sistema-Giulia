@@ -7347,26 +7347,90 @@ function renderRep() {
     let bodyHtml = '';
     if (isExp) {
       const dataVal = p.rep_data_visita || '';
+      const sec = (icon, title, content) =>
+        '<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)">' + icon + ' ' + title + '</div>' + content + '</div>';
+
+      // ── Visita técnica ──
+      const tecnicos = Array.isArray(p.vis_tecnicos) ? p.vis_tecnicos.map(t => typeof t === 'object' ? (t.nome||t.name||JSON.stringify(t)) : t).join(', ') : '';
+      const visInfo =
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;font-size:13px">' +
+        (p.vis_data     ? '<div><span style="color:var(--text2)">Data:</span> <strong>' + fmtD(p.vis_data) + (p.vis_hora_ini ? ' às ' + p.vis_hora_ini : '') + '</strong></div>' : '') +
+        (endereco       ? '<div style="grid-column:1/-1"><span style="color:var(--text2)">Endereço:</span> <strong>' + endereco + '</strong></div>' : '') +
+        (tel            ? '<div><span style="color:var(--text2)">Contato:</span> <strong>' + tel + '</strong></div>' : '') +
+        (tecnicos       ? '<div><span style="color:var(--text2)">Técnico(s):</span> <strong>' + tecnicos + '</strong></div>' : '') +
+        (p.temperatura_alvo ? '<div><span style="color:var(--text2)">Temp. alvo:</span> <strong>' + p.temperatura_alvo + '°C</strong></div>' : '') +
+        '</div>' +
+        (p.vis_obs ? '<div style="margin-top:8px;font-size:13px;background:var(--surface2);border-radius:8px;padding:10px 12px;white-space:pre-wrap;line-height:1.6">' + p.vis_obs.replace(/</g,'&lt;') + '</div>' : '');
+
+      // ── Orçamento de materiais ──
+      let orcHtml = '';
+      if (p.orcmat_id) {
+        const laudo = p.orc_laudo;
+        const laudoHtml = laudo ? (() => {
+          const campos = Object.entries(laudo).filter(([k,v]) => v !== null && v !== '' && v !== undefined);
+          const labels = { tipo:'Tipo', comprimento:'Comprimento', largura:'Largura', profundidade_media:'Prof. média', profundidade_min:'Prof. mín.', profundidade_max:'Prof. máx.', volume:'Volume', cobertura:'Cobertura', formato:'Formato', obs:'Obs.' };
+          return campos.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;font-size:13px;margin-bottom:10px">' +
+            campos.map(([k,v]) => '<div><span style="color:var(--text2)">' + (labels[k]||k) + ':</span> <strong>' + v + '</strong></div>').join('') + '</div>' : '';
+        })() : '';
+        const itens = Array.isArray(p.orc_itens) && p.orc_itens.length ? p.orc_itens : [];
+        const itensHtml = itens.length ?
+          '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+          '<thead><tr style="background:var(--surface2)">' +
+          '<th style="text-align:left;padding:5px 8px;font-weight:600;border-bottom:1px solid var(--border)">Material</th>' +
+          '<th style="text-align:center;padding:5px 8px;font-weight:600;border-bottom:1px solid var(--border)">Qtd</th>' +
+          '<th style="text-align:right;padding:5px 8px;font-weight:600;border-bottom:1px solid var(--border)">Unit.</th>' +
+          '<th style="text-align:right;padding:5px 8px;font-weight:600;border-bottom:1px solid var(--border)">Total</th>' +
+          '</tr></thead><tbody>' +
+          itens.map(i => '<tr><td style="padding:5px 8px;border-bottom:1px solid var(--border)">' + (i.nome||'') + (i.sku ? ' <span style="color:var(--text2);font-size:11px">(' + i.sku + ')</span>' : '') + '</td>' +
+            '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid var(--border)">' + (i.quantidade||1) + ' ' + (i.unidade||'UN') + '</td>' +
+            '<td style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--border)">' + fmtR(i.preco_unit) + '</td>' +
+            '<td style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--border);font-weight:500">' + fmtR(i.preco_total) + '</td></tr>').join('') +
+          '<tr style="background:var(--surface2)"><td colspan="3" style="padding:6px 8px;font-weight:600;text-align:right">Total:</td><td style="padding:6px 8px;font-weight:700;text-align:right">' + fmtR(p.orc_valor_total) + '</td></tr>' +
+          '</tbody></table></div>' : '';
+        orcHtml = laudoHtml + itensHtml + (p.orc_obs ? '<div style="margin-top:8px;font-size:13px;background:var(--surface2);border-radius:8px;padding:8px 12px">' + p.orc_obs.replace(/</g,'&lt;') + '</div>' : '');
+      }
+
+      // ── Proposta ──
+      let propHtml = '';
+      if (p.prop_texto) {
+        propHtml = '<div style="font-size:13px;background:#f5f4f0;border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.7;max-height:260px;overflow-y:auto">' + p.prop_texto.replace(/</g,'&lt;') + '</div>';
+      }
+      let anexosHtml = '';
+      if (p.prop_anexos) {
+        const anexos = (() => { try { return typeof p.prop_anexos === 'string' ? JSON.parse(p.prop_anexos) : p.prop_anexos; } catch(e) { return []; } })();
+        if (Array.isArray(anexos) && anexos.length) {
+          anexosHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+            anexos.map(ax => {
+              const isImg = ax.tipo && ax.tipo.startsWith('image/');
+              return '<a href="' + ax.dados + '" download="' + ax.nome + '" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2);width:80px;text-decoration:none">' +
+                (isImg ? '<img src="' + ax.dados + '" style="width:80px;height:60px;object-fit:cover">' : '<div style="width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>') +
+                '<span style="font-size:10px;color:var(--text2);padding:2px 4px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">' + ax.nome + '</span></a>';
+            }).join('') + '</div>';
+        }
+      }
+
       bodyHtml = '<div class="item-body" onclick="event.stopPropagation()">' +
-        (p.temperatura_alvo ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">🌡️ Temperatura alvo:</span> <strong>' + p.temperatura_alvo + '°C</strong></div>' : '') +
-        (endereco ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📍 Endereço:</span> <strong>' + endereco + '</strong></div>' : '') +
-        (tel ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📞 Contato:</span> <strong>' + tel + '</strong></div>' : '') +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
-          '<div class="campo"><label>Data da visita</label><input type="date" id="rep-data-' + p.id + '" value="' + dataVal + '" style="font-size:13px"></div>' +
-          '<div class="campo"><label>Status</label><select id="rep-status-' + p.id + '" style="font-size:13px">' +
-            '<option value="pendente"'  + (st==='pendente' ?'selected':'') + '>Pendente</option>' +
-            '<option value="objecao"'   + (st==='objecao'  ?'selected':'') + '>⏸ Objeção temporária</option>' +
-            '<option value="visitado"'  + (st==='visitado' ?'selected':'') + '>✓ Visitado</option>' +
-          '</select></div>' +
-        '</div>' +
-        '<div class="campo" style="margin-bottom:4px"><label>Observação / O que foi conversado</label>' +
-        '<textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
-        '<p style="font-size:12px;color:var(--text2);margin:0 0 12px">Use este campo para registrar o que foi conversado, objeções do cliente ou próximos passos.</p>' +
-        '<div style="display:flex;gap:8px">' +
-          '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
-        '</div>' +
-        (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
-        (objecao && p.rep_obs ? '<div style="font-size:12px;color:var(--slate-txt);margin-top:10px">Motivo da objeção salvo.</div>' : '') +
+        (visInfo || endereco || tel ? sec('📅', 'Visita técnica', visInfo) : '') +
+        (p.orcmat_id && orcHtml ? sec('📦', 'Orçamento de materiais', orcHtml) : '') +
+        (propHtml || anexosHtml ? sec('📄', 'Proposta', propHtml + anexosHtml) : '') +
+        sec('📝', 'Registro do representante',
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+            '<div class="campo"><label>Data da visita</label><input type="date" id="rep-data-' + p.id + '" value="' + dataVal + '" style="font-size:13px"></div>' +
+            '<div class="campo"><label>Status</label><select id="rep-status-' + p.id + '" style="font-size:13px">' +
+              '<option value="pendente"'  + (st==='pendente' ?'selected':'') + '>Pendente</option>' +
+              '<option value="objecao"'   + (st==='objecao'  ?'selected':'') + '>⏸ Objeção temporária</option>' +
+              '<option value="visitado"'  + (st==='visitado' ?'selected':'') + '>✓ Visitado</option>' +
+            '</select></div>' +
+          '</div>' +
+          '<div class="campo" style="margin-bottom:4px"><label>Observação / O que foi conversado</label>' +
+          '<textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
+          '<p style="font-size:12px;color:var(--text2);margin:0 0 12px">Registre o que foi conversado, objeções ou próximos passos.</p>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
+          '</div>' +
+          (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
+          (objecao && p.rep_obs ? '<div style="font-size:12px;color:var(--slate-txt);margin-top:10px">Motivo da objeção salvo.</div>' : '')
+        ) +
       '</div>';
     }
 
