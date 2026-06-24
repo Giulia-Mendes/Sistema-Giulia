@@ -6209,6 +6209,8 @@ async function carregarKommo() {
     const r = await fetch('/api/kommo/primeiras-mensagens?data=' + data);
     const d = await r.json();
     if (!r.ok) throw new Error(d.erro || 'Erro ao carregar');
+    // Debug temporário — ver console do navegador (F12)
+    if (d._debug) console.log('[Kommo DEBUG]', JSON.stringify(d._debug, null, 2));
 
     _kommoLeadsCache = d.leads || [];
 

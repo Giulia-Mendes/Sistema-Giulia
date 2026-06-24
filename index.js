@@ -1685,7 +1685,23 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     // Ordena por hora do primeiro contato
     resultado.sort((a, b) => (a.primeiro_contato || 0) - (b.primeiro_contato || 0));
 
-    res.json({ total: resultado.length, data: dataStr, leads: resultado });
+    // Debug temporário: inclui estrutura bruta dos eventos e talks na resposta
+    const primeiroEvento = evtBody?._embedded?.events?.[0];
+    res.json({
+      total: resultado.length,
+      data: dataStr,
+      leads: resultado,
+      _debug: {
+        eventsStatus: sEvt,
+        eventsCount: eventos.length,
+        talksStatus: sTalks,
+        firstEventKeys: primeiroEvento ? Object.keys(primeiroEvento) : [],
+        firstEventType: primeiroEvento?.type,
+        firstEventEntityType: primeiroEvento?.entity_type,
+        firstEventValueAfter: primeiroEvento?.value_after,
+        firstTalk: talksBody?._embedded?.talks?.[0] ? Object.keys(talksBody._embedded.talks[0]) : []
+      }
+    });
   } catch (e) {
     console.error('[Kommo primeiras-mensagens] Erro:', e.message, e.stack);
     res.status(500).json({ erro: e.message });
