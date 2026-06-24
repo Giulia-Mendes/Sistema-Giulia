@@ -1594,23 +1594,12 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       }
     }
 
-    // 2. Busca NOTAS de mensagem recebida no dia SEM filtro de entity_type
-    // (WhatsApp Business vincula ao contato, não ao lead)
-    const { status: sN, body: notesBody } = await kommoGet(
-      `/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
-    );
-    console.log('[Kommo] Notes status:', sN, '| count:', notesBody?._embedded?.notes?.length ?? 0);
-    if (notesBody?._embedded?.notes?.[0]) {
-      console.log('[Kommo] Sample note params:', JSON.stringify(notesBody._embedded.notes[0].params).substring(0, 300));
-      console.log('[Kommo] Sample note entity:', notesBody._embedded.notes[0].entity_type, notesBody._embedded.notes[0].entity_id);
-    }
-
-    // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
-    const notasPorLead = {};
+    // 2. Busca NOTAS de mensagem recebida no dia
+    // WhatsApp Business no Kommo vincula notas ao CONTATO (entity_type=contacts)
+    // Tenta contacts primeiro, depois leads como fallback
 
     function extrairTextoNota(params) {
       if (!params) return '';
-      // Tenta múltiplos campos — estrutura varia por plano/canal do Kommo
       return params.text
         || params.origin?.message?.body
         || params.origin?.message?.text
@@ -1621,22 +1610,42 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
         || '';
     }
 
-    if (sN === 200) {
-      const notas = (notesBody._embedded?.notes || []).sort((a, b) => a.created_at - b.created_at);
-      for (const nota of notas) {
-        let leadId = null;
-        if (nota.entity_type === 'leads') {
-          leadId = nota.entity_id;
-        } else if (nota.entity_type === 'contacts') {
-          leadId = contatoParaLead[nota.entity_id] || null;
-        }
-        if (!leadId) continue;
-        if (!notasPorLead[leadId]) {
-          notasPorLead[leadId] = {
-            primeiro_contato: nota.created_at,
-            texto_primeira: extrairTextoNota(nota.params)
-          };
-        }
+    // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
+    const notasPorLead = {};
+
+    async function buscarNotas(entityType) {
+      const { status, body } = await kommoGet(
+        `/notes?entity_type=${entityType}&filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
+      );
+      console.log(`[Kommo] Notes ${entityType} status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
+      if (status === 200 && body?._embedded?.notes?.[0]) {
+        console.log(`[Kommo] Sample note (${entityType}) params:`, JSON.stringify(body._embedded.notes[0].params).substring(0, 400));
+      }
+      return status === 200 ? (body._embedded?.notes || []) : [];
+    }
+
+    // Busca notas de contatos (WhatsApp) e de leads (outros canais)
+    const [notasContatos, notasLeads] = await Promise.all([
+      buscarNotas('contacts'),
+      buscarNotas('leads')
+    ]);
+
+    const todasNotas = [...notasContatos, ...notasLeads]
+      .sort((a, b) => a.created_at - b.created_at);
+
+    for (const nota of todasNotas) {
+      let leadId = null;
+      if (nota.entity_type === 'leads') {
+        leadId = nota.entity_id;
+      } else if (nota.entity_type === 'contacts') {
+        leadId = contatoParaLead[nota.entity_id] || null;
+      }
+      if (!leadId) continue;
+      if (!notasPorLead[leadId]) {
+        notasPorLead[leadId] = {
+          primeiro_contato: nota.created_at,
+          texto_primeira: extrairTextoNota(nota.params)
+        };
       }
     }
 
