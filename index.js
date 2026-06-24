@@ -1613,23 +1613,31 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
     const notasPorLead = {};
 
-    // Kommo API v4 usa /leads/notes e /contacts/notes como paths separados
-    async function buscarNotas(entityPath) {
+    // Kommo API v4: filtra notas por entity_id (não suporta filter[created_at] em /notes)
+    // Busca notas dos leads de hoje por ID
+    const leadIds = leadsHoje.map(l => l.id);
+    const contIds = [...contactIds];
+
+    async function buscarNotasPorIds(entityPath, ids) {
+      if (ids.length === 0) return [];
+      const idsQuery = ids.slice(0, 50).map(id => `filter[entity_id][]=${id}`).join('&');
       const { status, body } = await kommoGet(
-        `/${entityPath}/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
+        `/${entityPath}/notes?${idsQuery}&filter[note_type][]=incoming_chat_message&limit=250`
       );
-      console.log(`[Kommo] Notes /${entityPath}/notes status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
+      console.log(`[Kommo] /${entityPath}/notes status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
       if (status === 200 && body?._embedded?.notes?.[0]) {
         const n = body._embedded.notes[0];
-        console.log(`[Kommo] Sample note (${entityPath}) entity_id:`, n.entity_id, 'params:', JSON.stringify(n.params).substring(0, 400));
+        console.log(`[Kommo] Sample note params:`, JSON.stringify(n.params).substring(0, 500));
+      } else if (status !== 200) {
+        console.log(`[Kommo] /${entityPath}/notes body:`, JSON.stringify(body).substring(0, 200));
       }
       return status === 200 ? (body._embedded?.notes || []) : [];
     }
 
-    // Busca notas de contatos (WhatsApp Business) e de leads (outros canais) em paralelo
-    const [notasContatos, notasLeads] = await Promise.all([
-      buscarNotas('contacts'),
-      buscarNotas('leads')
+    // Busca notas dos leads e dos contatos (WhatsApp vincula ao contato no Kommo)
+    const [notasLeads, notasContatos] = await Promise.all([
+      buscarNotasPorIds('leads', leadIds),
+      buscarNotasPorIds('contacts', contIds)
     ]);
 
     const todasNotas = [...notasContatos, ...notasLeads]
