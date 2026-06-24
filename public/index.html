@@ -1355,7 +1355,7 @@ select option { background: var(--surface); color: var(--text); }
     <h2 style="font-size:18px;font-weight:700;margin:0">🤝 Representação</h2>
     <button class="btn btn-branco" onclick="carregarRenderRep()" style="font-size:13px">🔄 Atualizar</button>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
     <div class="card" style="text-align:center;padding:12px">
       <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Total</div>
       <div id="rep-stat-total" style="font-size:24px;font-weight:700">—</div>
@@ -1365,6 +1365,10 @@ select option { background: var(--surface); color: var(--text); }
       <div id="rep-stat-pendente" style="font-size:24px;font-weight:700;color:var(--bronze-txt)">—</div>
     </div>
     <div class="card" style="text-align:center;padding:12px">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Objeção temp.</div>
+      <div id="rep-stat-objecao" style="font-size:24px;font-weight:700;color:var(--slate-txt)">—</div>
+    </div>
+    <div class="card" style="text-align:center;padding:12px">
       <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Visitado</div>
       <div id="rep-stat-visitado" style="font-size:24px;font-weight:700;color:var(--mineral-txt)">—</div>
     </div>
@@ -1372,6 +1376,7 @@ select option { background: var(--surface); color: var(--text); }
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
     <button class="btn btn-preto" id="rep-filtro-todos" onclick="setRepFiltro('todos')">Todos</button>
     <button class="btn btn-branco" id="rep-filtro-pendente" onclick="setRepFiltro('pendente')">Pendente</button>
+    <button class="btn btn-branco" id="rep-filtro-objecao" onclick="setRepFiltro('objecao')">Objeção temp.</button>
     <button class="btn btn-branco" id="rep-filtro-visitado" onclick="setRepFiltro('visitado')">Visitado</button>
   </div>
   <div id="rep-lista"></div>
@@ -7289,7 +7294,7 @@ async function carregarRenderRep() {
 
 function setRepFiltro(f) {
   repFiltro = f;
-  ['todos','pendente','visitado'].forEach(k => {
+  ['todos','pendente','objecao','visitado'].forEach(k => {
     const btn = document.getElementById('rep-filtro-' + k);
     if (btn) btn.className = 'btn ' + (k === f ? 'btn-preto' : 'btn-branco');
   });
@@ -7302,20 +7307,23 @@ function toggleRepCard(id) {
 }
 
 function renderRep() {
-  const total = repPropostas.length;
-  const pendentes = repPropostas.filter(p => p.rep_status !== 'visitado').length;
+  const total     = repPropostas.length;
+  const pendentes = repPropostas.filter(p => !p.rep_status || p.rep_status === 'pendente').length;
+  const objecoes  = repPropostas.filter(p => p.rep_status === 'objecao').length;
   const visitados = repPropostas.filter(p => p.rep_status === 'visitado').length;
   const _s = id => document.getElementById(id);
-  if (_s('rep-stat-total')) _s('rep-stat-total').textContent = total;
+  if (_s('rep-stat-total'))    _s('rep-stat-total').textContent    = total;
   if (_s('rep-stat-pendente')) _s('rep-stat-pendente').textContent = pendentes;
+  if (_s('rep-stat-objecao'))  _s('rep-stat-objecao').textContent  = objecoes;
   if (_s('rep-stat-visitado')) _s('rep-stat-visitado').textContent = visitados;
 
   const lista = document.getElementById('rep-lista');
   if (!lista) return;
 
-  let filtradas = repFiltro === 'todos' ? repPropostas
+  let filtradas = repFiltro === 'todos'    ? repPropostas
     : repFiltro === 'visitado' ? repPropostas.filter(p => p.rep_status === 'visitado')
-    : repPropostas.filter(p => p.rep_status !== 'visitado');
+    : repFiltro === 'objecao'  ? repPropostas.filter(p => p.rep_status === 'objecao')
+    : repPropostas.filter(p => !p.rep_status || p.rep_status === 'pendente');
 
   if (!filtradas.length) {
     lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">Nenhuma proposta' + (repFiltro !== 'todos' ? ' nesta categoria' : ' enviada para representação') + '.</p>';
@@ -7326,9 +7334,11 @@ function renderRep() {
   const fmtD = d => d ? d.slice(0,10).split('-').reverse().join('/') : '—';
 
   lista.innerHTML = filtradas.map(p => {
-    const visitado = p.rep_status === 'visitado';
-    const scls = visitado ? 'badge-verde' : 'badge-amarelo';
-    const slabel = visitado ? '✓ Visitado' : 'Pendente';
+    const st = p.rep_status || 'pendente';
+    const visitado = st === 'visitado';
+    const objecao  = st === 'objecao';
+    const scls   = visitado ? 'badge-verde' : objecao ? 'badge-teal' : 'badge-amarelo';
+    const slabel = visitado ? '✓ Visitado'  : objecao ? '⏸ Objeção temp.' : 'Pendente';
     const isExp = repExpandido === p.id;
     const enviadoEm = fmtD(p.rep_enviado_em);
     const endereco = [p.endereco, p.cep].filter(Boolean).join(' — ');
@@ -7337,20 +7347,26 @@ function renderRep() {
     let bodyHtml = '';
     if (isExp) {
       const dataVal = p.rep_data_visita || '';
-      const obsVal = (p.rep_obs || '').replace(/"/g,'&quot;');
       bodyHtml = '<div class="item-body" onclick="event.stopPropagation()">' +
         (p.temperatura_alvo ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">🌡️ Temperatura alvo:</span> <strong>' + p.temperatura_alvo + '°C</strong></div>' : '') +
         (endereco ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📍 Endereço:</span> <strong>' + endereco + '</strong></div>' : '') +
         (tel ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📞 Contato:</span> <strong>' + tel + '</strong></div>' : '') +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
           '<div class="campo"><label>Data da visita</label><input type="date" id="rep-data-' + p.id + '" value="' + dataVal + '" style="font-size:13px"></div>' +
-          '<div class="campo"><label>Status</label><select id="rep-status-' + p.id + '" style="font-size:13px"><option value="pendente"' + (!visitado?'selected':'') + '>Pendente</option><option value="visitado"' + (visitado?'selected':'') + '>Visitado</option></select></div>' +
+          '<div class="campo"><label>Status</label><select id="rep-status-' + p.id + '" style="font-size:13px">' +
+            '<option value="pendente"'  + (st==='pendente' ?'selected':'') + '>Pendente</option>' +
+            '<option value="objecao"'   + (st==='objecao'  ?'selected':'') + '>⏸ Objeção temporária</option>' +
+            '<option value="visitado"'  + (st==='visitado' ?'selected':'') + '>✓ Visitado</option>' +
+          '</select></div>' +
         '</div>' +
-        '<div class="campo" style="margin-bottom:12px"><label>Observação / O que foi conversado</label><textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
+        '<div class="campo" style="margin-bottom:4px"><label>Observação / O que foi conversado</label>' +
+        '<textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
+        '<p style="font-size:12px;color:var(--text2);margin:0 0 12px">Use este campo para registrar o que foi conversado, objeções do cliente ou próximos passos.</p>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
         '</div>' +
         (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
+        (objecao && p.rep_obs ? '<div style="font-size:12px;color:var(--slate-txt);margin-top:10px">Motivo da objeção salvo.</div>' : '') +
       '</div>';
     }
 
