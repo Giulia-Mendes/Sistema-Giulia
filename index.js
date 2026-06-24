@@ -1613,18 +1613,20 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
     const notasPorLead = {};
 
-    async function buscarNotas(entityType) {
+    // Kommo API v4 usa /leads/notes e /contacts/notes como paths separados
+    async function buscarNotas(entityPath) {
       const { status, body } = await kommoGet(
-        `/notes?entity_type=${entityType}&filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
+        `/${entityPath}/notes?filter[note_type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
       );
-      console.log(`[Kommo] Notes ${entityType} status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
+      console.log(`[Kommo] Notes /${entityPath}/notes status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
       if (status === 200 && body?._embedded?.notes?.[0]) {
-        console.log(`[Kommo] Sample note (${entityType}) params:`, JSON.stringify(body._embedded.notes[0].params).substring(0, 400));
+        const n = body._embedded.notes[0];
+        console.log(`[Kommo] Sample note (${entityPath}) entity_id:`, n.entity_id, 'params:', JSON.stringify(n.params).substring(0, 400));
       }
       return status === 200 ? (body._embedded?.notes || []) : [];
     }
 
-    // Busca notas de contatos (WhatsApp) e de leads (outros canais)
+    // Busca notas de contatos (WhatsApp Business) e de leads (outros canais) em paralelo
     const [notasContatos, notasLeads] = await Promise.all([
       buscarNotas('contacts'),
       buscarNotas('leads')
