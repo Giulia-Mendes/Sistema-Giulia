@@ -1594,67 +1594,59 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       }
     }
 
-    // 2. Busca NOTAS de mensagem recebida no dia
-    // WhatsApp Business no Kommo vincula notas ao CONTATO (entity_type=contacts)
-    // Tenta contacts primeiro, depois leads como fallback
+    // 2. Busca eventos de mensagem recebida no dia
+    // WhatsApp Business no Kommo usa sistema amojo (chats) — texto pode estar nos events
+    const { status: sEvt, body: evtBody } = await kommoGet(
+      `/events?filter[type][]=incoming_chat_message&filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&order[created_at]=asc`
+    );
+    console.log('[Kommo] Events status:', sEvt, '| count:', evtBody?._embedded?.events?.length ?? 0);
+    if (evtBody?._embedded?.events?.[0]) {
+      const ev = evtBody._embedded.events[0];
+      // Loga estrutura completa para diagnóstico
+      console.log('[Kommo] Full event keys:', Object.keys(ev).join(', '));
+      console.log('[Kommo] value_after raw:', JSON.stringify(ev.value_after).substring(0, 800));
+      console.log('[Kommo] value_before raw:', JSON.stringify(ev.value_before).substring(0, 400));
+    }
 
-    function extrairTextoNota(params) {
-      if (!params) return '';
-      return params.text
-        || params.origin?.message?.body
-        || params.origin?.message?.text
-        || params.message?.text
-        || (typeof params.message === 'string' ? params.message : '')
-        || params.comment
-        || params.attachments?.[0]?.name
-        || '';
+    // 3. Tenta também a API de talks (conversas WhatsApp no Kommo)
+    const { status: sTalks, body: talksBody } = await kommoGet(
+      `/talks?limit=50&order[created_at]=desc`
+    );
+    console.log('[Kommo] Talks status:', sTalks);
+    if (sTalks === 200 && talksBody?._embedded?.talks?.[0]) {
+      console.log('[Kommo] Sample talk:', JSON.stringify(talksBody._embedded.talks[0]).substring(0, 600));
+    }
+
+    // Extrai texto do value_after do evento (tenta todos os campos possíveis)
+    function extrairTextoEvento(va) {
+      if (!va) return '';
+      const v = Array.isArray(va) ? va[0] : va;
+      if (!v) return '';
+      return v?.message?.body
+          || v?.message?.text
+          || v?.note?.params?.text
+          || v?.text
+          || v?.body
+          || v?.comment
+          || (typeof v?.message === 'string' ? v.message : '')
+          || '';
     }
 
     // Mapa: leadId → { primeiro_contato (unix), texto_primeira }
     const notasPorLead = {};
-
-    // Kommo API v4: filtra notas por entity_id (não suporta filter[created_at] em /notes)
-    // Busca notas dos leads de hoje por ID
-    const leadIds = leadsHoje.map(l => l.id);
-    const contIds = [...contactIds];
-
-    async function buscarNotasPorIds(entityPath, ids) {
-      if (ids.length === 0) return [];
-      const idsQuery = ids.slice(0, 50).map(id => `filter[entity_id][]=${id}`).join('&');
-      const { status, body } = await kommoGet(
-        `/${entityPath}/notes?${idsQuery}&filter[note_type][]=incoming_chat_message&limit=250`
-      );
-      console.log(`[Kommo] /${entityPath}/notes status:`, status, '| count:', body?._embedded?.notes?.length ?? 0);
-      if (status === 200 && body?._embedded?.notes?.[0]) {
-        const n = body._embedded.notes[0];
-        console.log(`[Kommo] Sample note params:`, JSON.stringify(n.params).substring(0, 500));
-      } else if (status !== 200) {
-        console.log(`[Kommo] /${entityPath}/notes body:`, JSON.stringify(body).substring(0, 200));
-      }
-      return status === 200 ? (body._embedded?.notes || []) : [];
-    }
-
-    // Busca notas dos leads e dos contatos (WhatsApp vincula ao contato no Kommo)
-    const [notasLeads, notasContatos] = await Promise.all([
-      buscarNotasPorIds('leads', leadIds),
-      buscarNotasPorIds('contacts', contIds)
-    ]);
-
-    const todasNotas = [...notasContatos, ...notasLeads]
-      .sort((a, b) => a.created_at - b.created_at);
-
-    for (const nota of todasNotas) {
+    const eventos = evtBody?._embedded?.events || [];
+    for (const evt of eventos) {
       let leadId = null;
-      if (nota.entity_type === 'leads') {
-        leadId = nota.entity_id;
-      } else if (nota.entity_type === 'contacts') {
-        leadId = contatoParaLead[nota.entity_id] || null;
+      if (evt.entity_type === 'leads') {
+        leadId = evt.entity_id;
+      } else if (evt.entity_type === 'contacts') {
+        leadId = contatoParaLead[evt.entity_id] || null;
       }
       if (!leadId) continue;
       if (!notasPorLead[leadId]) {
         notasPorLead[leadId] = {
-          primeiro_contato: nota.created_at,
-          texto_primeira: extrairTextoNota(nota.params)
+          primeiro_contato: evt.created_at,
+          texto_primeira: extrairTextoEvento(evt.value_after)
         };
       }
     }
