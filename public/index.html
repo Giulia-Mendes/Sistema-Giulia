@@ -10,6 +10,8 @@
   document.addEventListener('DOMContentLoaded', function() {
     var _logo = document.getElementById('login-logo');
     if (_logo) _logo.src = _t === 'dark' ? '/logo-dark.png' : '/logo-light.png';
+    var _dc = document.getElementById('p-criado-em');
+    if (_dc) _dc.value = new Date().toISOString().slice(0, 10);
   });
 </script>
 <style>
@@ -733,6 +735,10 @@ select option { background: var(--surface); color: var(--text); }
     <div class="campo" style="margin-top:4px">
       <label>Temperatura alvo do aquecimento (°C)</label>
       <input type="number" id="p-temp" placeholder="Ex: 28" style="max-width:180px" oninput="gerarProposta()">
+    </div>
+    <div class="campo" style="margin-top:4px">
+      <label>Data da proposta</label>
+      <input type="date" id="p-criado-em" style="max-width:180px">
     </div>
     <div class="campo" style="margin-top:4px">
       <label>Visita vinculada</label>
@@ -3245,6 +3251,7 @@ async function abrirEditarAprov(id, e) {
   setMoedaInput('p-venda', a.valor);
   document.getElementById('p-custos').value = a.custos || '';
   if (document.getElementById('p-temp')) document.getElementById('p-temp').value = a.temperatura_alvo || '';
+  if (document.getElementById('p-criado-em')) document.getElementById('p-criado-em').value = (a.criado_em || '').slice(0, 10);
 
   // Carrega anexos se ainda não foram carregados
   if (a._tem_anexos && (!a.anexos || !a.anexos.length)) {
@@ -3297,6 +3304,7 @@ function cancelarEdicaoAprov() {
   _propLimparVisita();
   _propLimparOrcmat();
   if (document.getElementById('p-temp')) document.getElementById('p-temp').value = '';
+  if (document.getElementById('p-criado-em')) document.getElementById('p-criado-em').value = new Date().toISOString().slice(0, 10);
   document.getElementById('btn-enviar-aprov').textContent = 'Enviar para aprovação';
   document.getElementById('btn-cancelar-aprov').style.display = 'none';
   regenerarProp();
@@ -3871,7 +3879,8 @@ async function enviarAprovacao() {
     const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
     const ctTotal = cp + cm + taxaR; // custo total real (para referência)
     const _leadIdProp = document.getElementById('prop-lead-id-hidden')?.value?.trim() || null;
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp };
+    const _criadoEm = document.getElementById('p-criado-em')?.value || null;
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp, criado_em: _criadoEm || null };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
