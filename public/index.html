@@ -498,6 +498,17 @@ select option { background: var(--surface); color: var(--text); }
       </div>
     </div>
 
+    <!-- REPRESENTAÇÃO -->
+    <div class="nav-grupo" id="navg-representacao">
+      <div class="nav-grupo-header" onclick="toggleNavGrupo('representacao')">
+        <span class="nav-grupo-label">Representação</span>
+        <span class="nav-grupo-ico" id="navg-ico-representacao">‹</span>
+      </div>
+      <div id="navg-items-representacao">
+        <button onclick="irPara('representacao', this)" id="btn-representacao"><span class="nav-icon">🤝</span><span class="nav-label">Representação</span></button>
+      </div>
+    </div>
+
     <!-- SISTEMA (admin/gerente) -->
     <div class="nav-grupo" id="navg-sistema" style="display:none">
       <div class="nav-grupo-header" onclick="toggleNavGrupo('sistema')">
@@ -1328,6 +1339,7 @@ select option { background: var(--surface); color: var(--text); }
           <option value="gerente">🏆 Gerente</option>
           <option value="vendedor">💼 Vendedor</option>
           <option value="tecnico">🔧 Técnico</option>
+          <option value="representante">🤝 Representante</option>
           <option value="user">👤 Usuário</option>
           <option value="admin">👑 Administrador</option>
         </select>
@@ -1338,6 +1350,33 @@ select option { background: var(--surface); color: var(--text); }
   </div>
   <div id="lista-usuarios"></div>
 </div>
+<div id="tela-representacao" class="tela">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700;margin:0">🤝 Representação</h2>
+    <button class="btn btn-branco" onclick="carregarRenderRep()" style="font-size:13px">🔄 Atualizar</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+    <div class="card" style="text-align:center;padding:12px">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Total</div>
+      <div id="rep-stat-total" style="font-size:24px;font-weight:700">—</div>
+    </div>
+    <div class="card" style="text-align:center;padding:12px">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Pendente</div>
+      <div id="rep-stat-pendente" style="font-size:24px;font-weight:700;color:var(--bronze-txt)">—</div>
+    </div>
+    <div class="card" style="text-align:center;padding:12px">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Visitado</div>
+      <div id="rep-stat-visitado" style="font-size:24px;font-weight:700;color:var(--mineral-txt)">—</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-preto" id="rep-filtro-todos" onclick="setRepFiltro('todos')">Todos</button>
+    <button class="btn btn-branco" id="rep-filtro-pendente" onclick="setRepFiltro('pendente')">Pendente</button>
+    <button class="btn btn-branco" id="rep-filtro-visitado" onclick="setRepFiltro('visitado')">Visitado</button>
+  </div>
+  <div id="rep-lista"></div>
+</div>
+
 </div><!-- container -->
 
 <!-- MODAL MINHA CONTA / TROCAR SENHA -->
@@ -1918,7 +1957,7 @@ function restaurarNavGrupos() {
   });
 }
 function atualizarVisibilidadeGrupos() {
-  ['comercial','tecnico','operacional','gestao','sistema'].forEach(id => {
+  ['comercial','tecnico','operacional','gestao','crm','representacao','sistema'].forEach(id => {
     const grupo = document.getElementById('navg-' + id);
     if (!grupo) return;
     const btns = grupo.querySelectorAll('button');
@@ -1946,6 +1985,7 @@ function irPara(tela, btn) {
   if (tela === 'visita') renderVisitas();
   if (tela === 'calendario') renderCalendario();
   if (tela === 'financeiro') { finCardsExpanded = new Set(); renderFinanceiro(); }
+  if (tela === 'representacao') carregarRenderRep();
   // fecha sidebar no mobile ao navegar
   if (window.innerWidth < 768) {
     document.getElementById('nav-principal').classList.remove('aberta');
@@ -3048,6 +3088,7 @@ function renderAprovacao() {
         '<button class="btn btn-branco" onclick="abrirEditarAprov(' + a.id + ',event)">✏️ Editar</button>' +
         '<button class="btn btn-vermelho" onclick="pedirExcluirAprov(' + a.id + ',event)">🗑 Excluir</button>' +
         (a.visita_id ? '<button class="btn btn-branco" onclick="event.stopPropagation();verVisitaDetalhe(' + a.visita_id + ')" style="border-color:var(--accent);color:var(--accent)">📅 Ver visita</button>' : '') +
+        (['admin','gerente'].includes(usuarioLogado?.role) ? '<button class="btn btn-branco" onclick="event.stopPropagation();toggleEnviarRep(' + a.id + ')" style="' + (a.rep_enviado ? 'border-color:#7c3aed;color:#7c3aed;' : '') + '">' + (a.rep_enviado ? '🤝 Na rep ✓' : '🤝 Enviar p/ rep') + '</button>' : '') +
         '</div></div>';
     }
     return '<div class="item-card">' +
@@ -3657,8 +3698,13 @@ async function carregarTudo() {
   if (de && !de.value) de.value = fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
   if (ate && !ate.value) ate.value = fmt(new Date(hoje.getFullYear(), hoje.getMonth()+1, 0));
   renderDashboard();
-  const btnDash = document.getElementById('btn-dashboard');
-  if (btnDash) irPara('dashboard', btnDash);
+  if (usuarioLogado && usuarioLogado.role === 'representante') {
+    const btnRep = document.getElementById('btn-representacao');
+    if (btnRep) irPara('representacao', btnRep);
+  } else {
+    const btnDash = document.getElementById('btn-dashboard');
+    if (btnDash) irPara('dashboard', btnDash);
+  }
 }
 async function carregarVisitas() {
   const r = await fetch('/api/visitas'); visitas = await r.json();
@@ -4725,15 +4771,16 @@ async function pedidoParaCompras(fonte, id) {
 
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
-  admin:    ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','kommo'],
-  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo'],
-  vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
-  tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
-  user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
+  admin:         ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','kommo','representacao'],
+  gerente:       ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo','representacao'],
+  vendedor:      ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
+  tecnico:       ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
+  user:          ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
+  representante: ['representacao'],
 };
-const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais', kommo:'Kommo' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo'];
+const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário', representante:'🤝 Representante' };
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais', kommo:'Kommo', representacao:'Representação' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao'];
 
 async function carregarPermissoes() {
   try {
@@ -4741,7 +4788,7 @@ async function carregarPermissoes() {
     const salvo = await r.json();
     // Aplica o que está salvo no banco — sem auto-salvar nunca
     // Páginas novas (não salvas ainda) ficam visíveis na tela de permissões para o admin configurar
-    for (const role of ['admin','gerente','vendedor','tecnico','user']) {
+    for (const role of ['admin','gerente','vendedor','tecnico','user','representante']) {
       if (salvo[role]) rolePages[role] = salvo[role];
     }
   } catch(e) {}
@@ -7227,6 +7274,136 @@ async function catExcluirMaterial(id) {
 }
 
 // ═══ INICIAR ═══
+// ═══ REPRESENTAÇÃO ═══
+let repPropostas = [];
+let repFiltro = 'todos';
+let repExpandido = null;
+
+async function carregarRenderRep() {
+  try {
+    const r = await fetch('/api/rep/propostas');
+    repPropostas = await r.json();
+  } catch(e) { repPropostas = []; }
+  renderRep();
+}
+
+function setRepFiltro(f) {
+  repFiltro = f;
+  ['todos','pendente','visitado'].forEach(k => {
+    const btn = document.getElementById('rep-filtro-' + k);
+    if (btn) btn.className = 'btn ' + (k === f ? 'btn-preto' : 'btn-branco');
+  });
+  renderRep();
+}
+
+function toggleRepCard(id) {
+  repExpandido = repExpandido === id ? null : id;
+  renderRep();
+}
+
+function renderRep() {
+  const total = repPropostas.length;
+  const pendentes = repPropostas.filter(p => p.rep_status !== 'visitado').length;
+  const visitados = repPropostas.filter(p => p.rep_status === 'visitado').length;
+  const _s = id => document.getElementById(id);
+  if (_s('rep-stat-total')) _s('rep-stat-total').textContent = total;
+  if (_s('rep-stat-pendente')) _s('rep-stat-pendente').textContent = pendentes;
+  if (_s('rep-stat-visitado')) _s('rep-stat-visitado').textContent = visitados;
+
+  const lista = document.getElementById('rep-lista');
+  if (!lista) return;
+
+  let filtradas = repFiltro === 'todos' ? repPropostas
+    : repFiltro === 'visitado' ? repPropostas.filter(p => p.rep_status === 'visitado')
+    : repPropostas.filter(p => p.rep_status !== 'visitado');
+
+  if (!filtradas.length) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">Nenhuma proposta' + (repFiltro !== 'todos' ? ' nesta categoria' : ' enviada para representação') + '.</p>';
+    return;
+  }
+
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtD = d => d ? d.slice(0,10).split('-').reverse().join('/') : '—';
+
+  lista.innerHTML = filtradas.map(p => {
+    const visitado = p.rep_status === 'visitado';
+    const scls = visitado ? 'badge-verde' : 'badge-amarelo';
+    const slabel = visitado ? '✓ Visitado' : 'Pendente';
+    const isExp = repExpandido === p.id;
+    const enviadoEm = fmtD(p.rep_enviado_em);
+    const endereco = [p.endereco, p.cep].filter(Boolean).join(' — ');
+    const tel = p.vis_cel || '';
+
+    let bodyHtml = '';
+    if (isExp) {
+      const dataVal = p.rep_data_visita || '';
+      const obsVal = (p.rep_obs || '').replace(/"/g,'&quot;');
+      bodyHtml = '<div class="item-body" onclick="event.stopPropagation()">' +
+        (p.temperatura_alvo ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">🌡️ Temperatura alvo:</span> <strong>' + p.temperatura_alvo + '°C</strong></div>' : '') +
+        (endereco ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📍 Endereço:</span> <strong>' + endereco + '</strong></div>' : '') +
+        (tel ? '<div style="font-size:13px;margin-bottom:10px"><span style="color:var(--text2)">📞 Contato:</span> <strong>' + tel + '</strong></div>' : '') +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+          '<div class="campo"><label>Data da visita</label><input type="date" id="rep-data-' + p.id + '" value="' + dataVal + '" style="font-size:13px"></div>' +
+          '<div class="campo"><label>Status</label><select id="rep-status-' + p.id + '" style="font-size:13px"><option value="pendente"' + (!visitado?'selected':'') + '>Pendente</option><option value="visitado"' + (visitado?'selected':'') + '>Visitado</option></select></div>' +
+        '</div>' +
+        '<div class="campo" style="margin-bottom:12px"><label>Observação / O que foi conversado</label><textarea id="rep-obs-' + p.id + '" rows="4" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit">' + (p.rep_obs || '') + '</textarea></div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
+        '</div>' +
+        (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
+      '</div>';
+    }
+
+    return '<div class="item-card">' +
+      '<div class="item-header" onclick="toggleRepCard(' + p.id + ')" style="cursor:pointer">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap">' +
+            '<span class="badge ' + scls + '">' + slabel + '</span>' +
+            '<span style="font-size:12px;color:var(--text2)">' + (p.vendedora || '') + ' · Enviado ' + enviadoEm + '</span>' +
+          '</div>' +
+          '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + p.cliente + '</p>' +
+          '<p style="font-size:13px;color:var(--text2);margin:0 0 4px">' + (p.equip || '') + '</p>' +
+          (endereco ? '<p style="font-size:12px;color:var(--text2);margin:0">📍 ' + endereco + '</p>' : '') +
+          (tel ? '<p style="font-size:12px;color:var(--text2);margin:2px 0 0">📞 ' + tel + '</p>' : '') +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<p style="font-size:15px;font-weight:600;margin:0 0 4px">' + fmtR(p.valor) + '</p>' +
+          (visitado && p.rep_obs ? '<p style="font-size:11px;color:var(--mineral-txt);margin:0">✓ Com obs.</p>' : '') +
+        '</div>' +
+      '</div>' + bodyHtml +
+    '</div>';
+  }).join('');
+}
+
+async function salvarRepVisita(id) {
+  const rep_status = document.getElementById('rep-status-' + id)?.value || 'pendente';
+  const rep_data_visita = document.getElementById('rep-data-' + id)?.value || null;
+  const rep_obs = document.getElementById('rep-obs-' + id)?.value || null;
+  try {
+    const r = await fetch('/api/rep/propostas/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ rep_status, rep_data_visita, rep_obs }) });
+    const d = await r.json();
+    if (!d.sucesso) { alert('Erro ao salvar: ' + (d.erro || 'Tente novamente.')); return; }
+    const p = repPropostas.find(x => x.id === id);
+    if (p) { p.rep_status = rep_status; p.rep_data_visita = rep_data_visita; p.rep_obs = rep_obs; }
+    repExpandido = null;
+    renderRep();
+  } catch(e) { alert('Erro de conexão.'); }
+}
+
+async function toggleEnviarRep(id) {
+  const a = aprovacoes.find(x => x.id === id);
+  if (!a) return;
+  const jaEnviado = !!a.rep_enviado;
+  const method = jaEnviado ? 'DELETE' : 'POST';
+  try {
+    const r = await fetch('/api/aprovacoes/' + id + '/enviar-rep', { method });
+    const d = await r.json();
+    if (!d.sucesso) { alert('Erro: ' + (d.erro || 'Tente novamente.')); return; }
+    a.rep_enviado = jaEnviado ? 0 : 1;
+    renderAprovacao();
+  } catch(e) { alert('Erro de conexão.'); }
+}
+
 window.addEventListener('DOMContentLoaded', verificarSessao);
 
 </script>

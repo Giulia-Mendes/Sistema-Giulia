@@ -375,14 +375,15 @@ app.get('/api/me', (req, res) => {
 
 // ── PERMISSÕES POR PERFIL ──
 // Todas as páginas conhecidas pelo sistema
-const ALL_SYSTEM_PAGES = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo'];
+const ALL_SYSTEM_PAGES = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao'];
 
 const DEFAULT_ROLE_PAGES = {
   admin:    [...ALL_SYSTEM_PAGES],
-  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo'],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo','representacao'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
+  representante: ['representacao'],
 };
 
 // Páginas obrigatórias para admin (não podem ser removidas)
@@ -622,6 +623,51 @@ app.delete('/api/aprovacoes/:id', auth, (req, res) => {
   db.prepare('DELETE FROM aprovacoes WHERE id=?').run(req.params.id);
   audit(req, 'EXCLUIR_PROPOSTA', 'aprovacoes', req.params.id, antes, null);
   res.json({ sucesso: true });
+});
+
+// ── REPRESENTANTE ──
+function authRep(req, res, next) {
+  if (!req.session.u || !['admin','gerente','representante'].includes(req.session.u.role)) return res.status(403).json({ erro: 'Acesso negado' });
+  next();
+}
+app.post('/api/aprovacoes/:id/enviar-rep', adminOnly, (req, res) => {
+  try {
+    db.prepare("UPDATE aprovacoes SET rep_enviado=1, rep_enviado_em=datetime('now','localtime'), rep_status='pendente' WHERE id=?").run(req.params.id);
+    audit(req, 'ENVIAR_PARA_REP', 'aprovacoes', req.params.id, null, null);
+    res.json({ sucesso: true });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+app.delete('/api/aprovacoes/:id/enviar-rep', adminOnly, (req, res) => {
+  try {
+    db.prepare("UPDATE aprovacoes SET rep_enviado=0, rep_enviado_em=NULL, rep_status=NULL, rep_data_visita=NULL, rep_obs=NULL WHERE id=?").run(req.params.id);
+    audit(req, 'REMOVER_DA_REP', 'aprovacoes', req.params.id, null, null);
+    res.json({ sucesso: true });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+app.get('/api/rep/propostas', authRep, (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT a.id, a.cliente, a.equip, a.valor, a.pag, a.status, a.temperatura_alvo,
+             a.visita_id, a.vendedora, a.criado_em, a.rep_enviado_em,
+             a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id,
+             v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome, v.data AS vis_data
+      FROM aprovacoes a
+      LEFT JOIN visitas v ON v.id = a.visita_id
+      WHERE a.rep_enviado = 1
+      ORDER BY a.rep_enviado_em DESC
+    `).all();
+    res.json(rows);
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+app.put('/api/rep/propostas/:id', authRep, (req, res) => {
+  try {
+    const { rep_status, rep_data_visita, rep_obs } = req.body;
+    const antes = db.prepare('SELECT rep_status, rep_data_visita, rep_obs FROM aprovacoes WHERE id=?').get(req.params.id);
+    db.prepare('UPDATE aprovacoes SET rep_status=?, rep_data_visita=?, rep_obs=? WHERE id=?')
+      .run(rep_status || 'pendente', rep_data_visita || null, rep_obs || null, req.params.id);
+    audit(req, 'ATUALIZAR_REP', 'aprovacoes', req.params.id, antes, { rep_status, rep_data_visita, rep_obs });
+    res.json({ sucesso: true });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 
 // ── INSTALAÇÕES ──
@@ -883,6 +929,11 @@ try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN visita_id INTEGER DEFAULT NU
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN orcmat_id INTEGER DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE materiais_catalogo ADD COLUMN preco_custo REAL DEFAULT 0').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE visitas ADD COLUMN kommo_task_id TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_enviado INTEGER DEFAULT 0').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_enviado_em TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_status TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_data_visita TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_obs TEXT DEFAULT NULL').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──
 db.exec(`
