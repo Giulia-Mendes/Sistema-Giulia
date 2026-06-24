@@ -393,18 +393,12 @@ app.get('/api/role-permissions', auth, (req, res) => {
   try {
     const row = db.prepare("SELECT valor FROM config WHERE chave='role_permissions'").get();
     const saved = row ? JSON.parse(row.valor) : {};
-    // Mescla: respeita o que foi salvo, mas garante que páginas novas tenham defaults
+    // Respeita exatamente o que foi salvo. Novas páginas NÃO são adicionadas automaticamente.
+    // Roles sem config salva usam os defaults.
     const result = {};
     for (const role of Object.keys(DEFAULT_ROLE_PAGES)) {
-      if (saved[role]) {
-        // Adiciona páginas novas que ainda não estão no banco (ex: kommo adicionado depois)
-        const savedSet = new Set(saved[role]);
-        const novaspags = DEFAULT_ROLE_PAGES[role].filter(p => !ALL_SYSTEM_PAGES.slice(0, ALL_SYSTEM_PAGES.indexOf('kommo')).includes(p) && !savedSet.has(p));
-        result[role] = ALL_SYSTEM_PAGES.filter(p => savedSet.has(p) || novaspags.includes(p));
-      } else {
-        result[role] = DEFAULT_ROLE_PAGES[role];
-      }
-      // Admin sempre tem as páginas bloqueadas
+      result[role] = saved[role] ? [...saved[role]] : [...DEFAULT_ROLE_PAGES[role]];
+      // Admin sempre tem as páginas obrigatórias (dashboard, parâmetros, usuários, auditoria)
       if (role === 'admin') {
         for (const p of ADMIN_LOCKED) { if (!result[role].includes(p)) result[role].push(p); }
       }
