@@ -8053,30 +8053,34 @@ async function sincronizarMarketplace(btn) {
   const msg = document.getElementById('mkt-sync-msg');
   if (!de || !ate) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Informe o período.'; return; }
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sincronizando...';
-  msg.style.display = 'none';
+  msg.style.cssText = 'display:block;color:var(--text2)'; msg.textContent = 'Iniciando...';
   try {
     const r = await fetch('/api/tiny/sincronizar-marketplace', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataInicial: de, dataFinal: ate }) });
     const d = await r.json();
-    if (d.sucesso) {
-      msg.style.cssText = 'display:block;color:var(--mineral-txt)';
-      let debugTxt = '';
-      if (d.debug && d.debug.length > 0) {
-        debugTxt = '\n\nAmostra (primeiros pedidos):\n' + d.debug.map(x =>
-          `numEc=${x.numEc} | nomeEc="${x.nomeEc}" | forma_envio="${x.formaEnvio}" | rastreamento="${x.codRastreamento}" | tags=[${x.tags.join(',')}] → ${x.canal}\n  [campos:${x.pedKeys}]`
-        ).join('\n');
-      }
-      let bkTxt = '';
-      if (d.breakdown) bkTxt = '\n\nPor canal: ' + d.breakdown.map(b => `${b.canal}=${b.cnt}`).join(', ');
-      msg.style.whiteSpace = 'pre-wrap';
-      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.${bkTxt}${debugTxt}`;
-      await carregarComissionamento();
-      renderComissionamento();
-    } else {
-      msg.style.cssText = 'display:block;color:var(--terra-txt)';
-      msg.textContent = d.erro || 'Erro ao sincronizar.';
-    }
-  } catch(e) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Erro: '+e.message; }
-  btn.disabled = false; btn.textContent = orig;
+    if (d.erro) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent=d.erro; btn.disabled=false; btn.textContent=orig; return; }
+    const jobId = d.jobId;
+    const poll = async () => {
+      try {
+        const rs = await fetch(`/api/sync-status/${jobId}`);
+        const s = await rs.json();
+        if (s.status === 'running') {
+          msg.textContent = `Sincronizando... ${s.progresso || 0}/${s.total || '?'} pedidos`;
+          setTimeout(poll, 2000);
+        } else if (s.status === 'done') {
+          msg.style.cssText = 'display:block;color:var(--mineral-txt)';
+          const bkTxt = s.breakdown ? '\nPor canal: ' + s.breakdown.map(b => `${b.canal}=${b.cnt}`).join(', ') : '';
+          msg.style.whiteSpace = 'pre-wrap';
+          msg.textContent = `✓ ${s.total} pedido(s) importado(s).${bkTxt}`;
+          btn.disabled = false; btn.textContent = orig;
+          await carregarComissionamento(); renderComissionamento();
+        } else {
+          msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent = s.erro || 'Erro ao sincronizar.';
+          btn.disabled = false; btn.textContent = orig;
+        }
+      } catch(e) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Erro: '+e.message; btn.disabled=false; btn.textContent=orig; }
+    };
+    setTimeout(poll, 2000);
+  } catch(e) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Erro: '+e.message; btn.disabled=false; btn.textContent=orig; }
 }
 
 function toggleComissConfig() {

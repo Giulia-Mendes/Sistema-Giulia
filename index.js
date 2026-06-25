@@ -209,6 +209,7 @@ const DB_PATH = process.env.NODE_ENV === 'production'
   ? path.join(DATA_DIR, 'capellato.db')
   : 'capellato.db';
 const db = new Database(DB_PATH);
+const syncJobs = {};
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS usuarios (
@@ -1305,11 +1306,22 @@ db.exec(`
   );
 `);
 
+app.get('/api/sync-status/:jobId', auth, (req, res) => {
+  const job = syncJobs[req.params.jobId];
+  if (!job) return res.status(404).json({ erro: 'Job não encontrado.' });
+  res.json(job);
+});
+
 app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
   if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
   const { dataInicial, dataFinal } = req.body;
   if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
+  const jobId = Date.now().toString();
+  syncJobs[jobId] = { status: 'running', progresso: 0, total: 0 };
+  res.json({ jobId });
+  // run async in background — no await, response already sent
+  (async () => { try {
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc) => {
@@ -1359,7 +1371,9 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       }
       return null;
     };
+    syncJobs[jobId].total = candidatos.length;
     for (let i = 0; i < candidatos.length; i++) {
+      syncJobs[jobId].progresso = i + 1;
       const listItem = candidatos[i];
       const d = await fetchDetalhe(listItem.id);
       const ped = d?.retorno?.pedido;
@@ -1388,8 +1402,9 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    res.json({ sucesso: true, total, breakdown, debug: debugAmostras });
-  } catch(e) { res.status(500).json({ erro: 'Erro: ' + e.message }); }
+    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, debug: debugAmostras };
+  } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
+  })();
 });
 
 app.get('/api/ecommerce/pedidos', auth, (req, res) => {
