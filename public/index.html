@@ -984,11 +984,16 @@ select option { background: var(--surface); color: var(--text); }
         <option value="">Todos</option>
         <option value="loja_fisica">Loja Física</option>
         <option value="mercado_livre">Mercado Livre</option>
+        <option value="mercado_livre_fulfillment">ML Fulfillment</option>
         <option value="shopee">Shopee</option>
       </select>
     </div>
     <div class="campo" style="margin:0"><label>Vendedora</label>
       <div id="comiss-vend-chips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:2px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+      <input type="checkbox" id="comiss-show-cancelados" onchange="renderComissionamento()" style="width:15px;height:15px;cursor:pointer">
+      <label for="comiss-show-cancelados" style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Mostrar cancelados</label>
     </div>
     <button class="btn btn-branco" style="font-size:12px;padding:5px 12px;margin-bottom:2px" onclick="abrirSyncMarketplace()">↓ Sincronizar ML/Shopee</button>
   </div>
@@ -8068,6 +8073,7 @@ function renderComissConfigTable() {
   const canais = [
     { key: 'loja_fisica', label: '🏪 Loja Física' },
     { key: 'mercado_livre', label: '🛍️ Mercado Livre' },
+    { key: 'mercado_livre_fulfillment', label: '📦 ML Fulfillment' },
     { key: 'shopee', label: '🛒 Shopee' }
   ];
   if (!vends.length) { wrap.innerHTML = '<p style="color:var(--text2);font-size:13px">Nenhuma vendedora cadastrada.</p>'; return; }
@@ -8130,8 +8136,11 @@ function renderComissionamento() {
       : '');
   }
 
-  // Filtra por canal e vendedora
+  const showCancelados = document.getElementById('comiss-show-cancelados')?.checked || false;
+
+  // Filtra por canal, vendedora e cancelados
   const lista = todos.filter(p => {
+    if (!showCancelados && p.situacao && /cancelad/i.test(p.situacao)) return false;
     if (canalFiltro && p.canal !== canalFiltro) return false;
     if (p.vendedora && comissVendExcl.has(p.vendedora)) return false;
     if (!p.vendedora && comissVendExcl.has('__sem__')) return false;
@@ -8142,6 +8151,7 @@ function renderComissionamento() {
   const canaisInfo = [
     { key: 'loja_fisica', label: 'Loja Física', icon: '🏪', color: '#1565c0', bg: '#e8f4fd' },
     { key: 'mercado_livre', label: 'Mercado Livre', icon: '🛍️', color: '#e65100', bg: '#fff3e0' },
+    { key: 'mercado_livre_fulfillment', label: 'ML Fulfillment', icon: '📦', color: '#6a1b9a', bg: '#f3e5f5' },
     { key: 'shopee', label: 'Shopee', icon: '🛒', color: '#c62828', bg: '#ffebee' }
   ];
   const resumoEl = document.getElementById('comiss-resumo-canais');
@@ -8169,7 +8179,7 @@ function renderComissionamento() {
     const vendMap = {};
     lista.forEach(p => {
       const v = p.vendedora || '—';
-      if (!vendMap[v]) vendMap[v] = { loja_fisica:0, mercado_livre:0, shopee:0, comiss:0, qtd:0 };
+      if (!vendMap[v]) vendMap[v] = { loja_fisica:0, mercado_livre:0, mercado_livre_fulfillment:0, shopee:0, comiss:0, qtd:0 };
       vendMap[v][p.canal] = (vendMap[v][p.canal]||0) + (p.valor||0);
       vendMap[v].comiss += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
       vendMap[v].qtd++;
@@ -8185,16 +8195,18 @@ function renderComissionamento() {
             <th style="text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">🏪 Loja Física</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">🛍️ Mercado Livre</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#6a1b9a;white-space:nowrap">📦 ML Fulfillment</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#c62828;white-space:nowrap">🛒 Shopee</th>
             <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Total vendas</th>
             <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2)">Total comissão</th>
           </tr></thead>
           <tbody>${vends.map(([v,d]) => {
-            const totalV = d.loja_fisica + d.mercado_livre + d.shopee;
+            const totalV = d.loja_fisica + d.mercado_livre + d.mercado_livre_fulfillment + d.shopee;
             return `<tr>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.mercado_livre ? fmtR(d.mercado_livre) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.mercado_livre_fulfillment ? fmtR(d.mercado_livre_fulfillment) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.shopee ? fmtR(d.shopee) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:500">${fmtR(totalV)}</td>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${fmtR(d.comiss)}</td>
@@ -8208,7 +8220,7 @@ function renderComissionamento() {
   const listaEl = document.getElementById('comiss-lista');
   if (!listaEl) return;
   if (!lista.length) { listaEl.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum pedido no período.</p>'; return; }
-  const canalStyle = { loja_fisica: { bg:'#e8f4fd', color:'#1565c0', label:'🏪 Loja Física' }, mercado_livre: { bg:'#fff3e0', color:'#e65100', label:'🛍️ Mercado Livre' }, shopee: { bg:'#ffebee', color:'#c62828', label:'🛒 Shopee' } };
+  const canalStyle = { loja_fisica: { bg:'#e8f4fd', color:'#1565c0', label:'🏪 Loja Física' }, mercado_livre: { bg:'#fff3e0', color:'#e65100', label:'🛍️ Mercado Livre' }, mercado_livre_fulfillment: { bg:'#f3e5f5', color:'#6a1b9a', label:'📦 ML Fulfillment' }, shopee: { bg:'#ffebee', color:'#c62828', label:'🛒 Shopee' } };
   listaEl.innerHTML = lista.map(p => {
     const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
     const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
@@ -8220,6 +8232,7 @@ function renderComissionamento() {
         <div style="flex:1;min-width:0">
           <div style="display:flex;gap:6px;margin-bottom:5px;flex-wrap:wrap">
             <span class="badge" style="background:${cs.bg};color:${cs.color};font-size:11px">${cs.label}</span>
+            ${p.situacao && /cancelad/i.test(p.situacao) ? '<span class="badge" style="background:#ffebee;color:#c62828;font-size:11px">❌ Cancelado</span>' : ''}
             <span style="font-size:12px;color:#888780">${dataFmt}${p.numero ? ' · Nº ' + p.numero : ''}</span>
           </div>
           <p style="font-size:15px;font-weight:500;margin:0 0 2px">${p.cliente || '—'}</p>
@@ -8232,6 +8245,7 @@ function renderComissionamento() {
             ${isEcomm ? `<span style="font-size:12px;color:var(--text2)">Canal:</span>
             <select onchange="salvarCanalEcomm(${p.id}, this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
               <option value="mercado_livre"${p.canal==='mercado_livre'?' selected':''}>Mercado Livre</option>
+              <option value="mercado_livre_fulfillment"${p.canal==='mercado_livre_fulfillment'?' selected':''}>ML Fulfillment</option>
               <option value="shopee"${p.canal==='shopee'?' selected':''}>Shopee</option>
             </select>` : ''}
           </div>

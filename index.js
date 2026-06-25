@@ -1307,6 +1307,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const detectCanal = (numEc, tags) => {
     if (tags.some(t => normS(t).includes('shopee'))) return 'shopee';
+    if (tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('full'))) return 'mercado_livre_fulfillment';
     if (tags.some(t => normS(t).includes('mercado') || normS(t).includes('meli') || /mlb/i.test(t))) return 'mercado_livre';
     if (/^MLB/i.test(numEc)) return 'mercado_livre';
     if (/^\d{13,}$/.test(numEc)) return 'shopee';
