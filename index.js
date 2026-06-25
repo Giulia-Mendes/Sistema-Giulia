@@ -1345,43 +1345,39 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       pagina++;
       if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
     }
-    const BATCH = 5;
     let total = 0;
     const debugAmostras = [];
-    for (let i = 0; i < candidatos.length; i += BATCH) {
-      const batch = candidatos.slice(i, i + BATCH);
-      const fetchDetalhe = async (id) => {
-        const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
-        for (let tentativa = 0; tentativa < 3; tentativa++) {
-          try {
-            const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
-            const d = await r.json();
-            if (d?.retorno?.pedido) return d;
-            if (tentativa < 2) await new Promise(r => setTimeout(r, 800));
-          } catch(e) { if (tentativa < 2) await new Promise(r => setTimeout(r, 800)); }
-        }
-        return null;
-      };
-      const detalhes = await Promise.all(batch.map(item => fetchDetalhe(item.id)));
-      detalhes.forEach((d, idx) => {
-        const listItem = batch[idx];
-        const ped = d?.retorno?.pedido;
-        let tags = [];
-        if (ped) {
-          if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
-          else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
-        }
-        const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
-        const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
-        const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc);
-        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal, pedKeys: Object.keys(ped || {}).join(','), formaFrete: ped?.forma_frete, codRastreamento: ped?.cod_rastreamento });
-        let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
-        if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
-        const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
-        const tinyId = String(listItem.id || '');
-        if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
-      });
-      if (i + BATCH < candidatos.length) await new Promise(r => setTimeout(r, 500));
+    const fetchDetalhe = async (id) => {
+      const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
+      for (let tentativa = 0; tentativa < 3; tentativa++) {
+        try {
+          const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+          const d = await r.json();
+          if (d?.retorno?.pedido) return d;
+          if (tentativa < 2) await new Promise(r => setTimeout(r, 1000));
+        } catch(e) { if (tentativa < 2) await new Promise(r => setTimeout(r, 1000)); }
+      }
+      return null;
+    };
+    for (let i = 0; i < candidatos.length; i++) {
+      const listItem = candidatos[i];
+      const d = await fetchDetalhe(listItem.id);
+      const ped = d?.retorno?.pedido;
+      let tags = [];
+      if (ped) {
+        if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
+        else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
+      }
+      const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
+      const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
+      const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc);
+      if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal });
+      let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
+      if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
+      const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
+      const tinyId = String(listItem.id || '');
+      if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
+      await new Promise(r => setTimeout(r, 500));
     }
     const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
     if (tinyIdsAtivos.length > 0) {
