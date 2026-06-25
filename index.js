@@ -1382,25 +1382,28 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     let total = 0, nullPedCount = 0;
     const ecIdContagem = {};
     const debugAmostras = [];
+    const debugNullPeds = [];
     const fetchDetalhe = async (id) => {
       const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
+      let lastErr = '';
       for (let tentativa = 0; tentativa < 3; tentativa++) {
         try {
           const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
           const d = await r.json();
-          if (d?.retorno?.pedido) return d;
+          if (d?.retorno?.pedido) return { ped: d, err: null };
+          lastErr = JSON.stringify(d?.retorno || d).slice(0, 300);
           if (tentativa < 2) await new Promise(r => setTimeout(r, 1000));
-        } catch(e) { if (tentativa < 2) await new Promise(r => setTimeout(r, 1000)); }
+        } catch(e) { lastErr = 'CATCH:' + e.message; if (tentativa < 2) await new Promise(r => setTimeout(r, 1000)); }
       }
-      return null;
+      return { ped: null, err: lastErr };
     };
     syncJobs[jobId].total = candidatos.length;
     for (let i = 0; i < candidatos.length; i++) {
       syncJobs[jobId].progresso = i + 1;
       const listItem = candidatos[i];
-      const d = await fetchDetalhe(listItem.id);
-      const ped = d?.retorno?.pedido;
-      if (!ped) nullPedCount++;
+      const { ped: dResult, err: dErr } = await fetchDetalhe(listItem.id);
+      const ped = dResult?.retorno?.pedido;
+      if (!ped) { nullPedCount++; if (debugNullPeds.length < 5) debugNullPeds.push({ id: listItem.id, numEc: listItem.numEc, err: dErr }); }
       let tags = [];
       if (ped) {
         if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
@@ -1429,7 +1432,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, ecIdContagem, debug: debugAmostras, debugLojas };
+    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, ecIdContagem, debug: debugAmostras, debugNullPeds, debugLojas };
   } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
   })();
 });
