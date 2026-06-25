@@ -1326,21 +1326,23 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   // Pre-fetch ecommerce store IDs from Tiny to reliably detect ML Fulfillment
   let mlFullIds = new Set(), shopeeIds = new Set();
+  let debugLojas = { raw: null, mlFullIds: [], shopeeIds: [] };
   try {
     const esb = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON' }).toString();
     const esr = await fetch('https://api.tiny.com.br/api2/ecommerce.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: esb });
     const esd = await esr.json();
+    debugLojas.raw = JSON.stringify(esd).slice(0, 3000);
     const lojas = esd?.retorno?.ecommerces || esd?.retorno?.lojas || [];
     (Array.isArray(lojas) ? lojas : []).forEach(l => {
       const loja = l.loja || l.ecommerce || l;
-      const nome = normS(String(loja.nome || loja.descricao || ''));
+      const nome = normS(String(loja.nome || loja.descricao || loja.nomeEcommerce || ''));
       const id = String(loja.id || '');
       if (id) {
-        if (nome.includes('fulfillment') || nome.includes('fulfilment') || nome.includes('livre full')) mlFullIds.add(id);
-        else if (nome.includes('shopee')) shopeeIds.add(id);
+        if (nome.includes('fulfillment') || nome.includes('fulfilment') || nome.includes('livre full')) { mlFullIds.add(id); debugLojas.mlFullIds.push({ id, nome }); }
+        else if (nome.includes('shopee')) { shopeeIds.add(id); debugLojas.shopeeIds.push({ id, nome }); }
       }
     });
-  } catch(e) { /* continua sem IDs de lojas */ }
+  } catch(e) { debugLojas.raw = 'ERRO: ' + e.message; }
   const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc, ecId) => {
     const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
     const ne = nomeEc || '';
@@ -1403,7 +1405,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
       const ecId = pedEcArr.map(e => typeof e === 'object' && e ? String(e.id || '') : '').filter(Boolean).join(' ');
       const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc, ecId);
-      if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal });
+      if (debugAmostras.length < 15) debugAmostras.push({ numEc: listItem.numEc, nomeEc, ecId, formaEnvio: ped?.forma_envio, tags, canal });
       let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
       if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
       const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
@@ -1420,7 +1422,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, debug: debugAmostras };
+    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, debug: debugAmostras, debugLojas };
   } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
   })();
 });
