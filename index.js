@@ -1350,10 +1350,19 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     const debugAmostras = [];
     for (let i = 0; i < candidatos.length; i += BATCH) {
       const batch = candidatos.slice(i, i + BATCH);
-      const detalhes = await Promise.all(batch.map(item => {
-        const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(item.id) }).toString();
-        return fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b }).then(r => r.json()).catch(() => null);
-      }));
+      const fetchDetalhe = async (id) => {
+        const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
+        for (let tentativa = 0; tentativa < 3; tentativa++) {
+          try {
+            const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+            const d = await r.json();
+            if (d?.retorno?.pedido) return d;
+            if (tentativa < 2) await new Promise(r => setTimeout(r, 800));
+          } catch(e) { if (tentativa < 2) await new Promise(r => setTimeout(r, 800)); }
+        }
+        return null;
+      };
+      const detalhes = await Promise.all(batch.map(item => fetchDetalhe(item.id)));
       detalhes.forEach((d, idx) => {
         const listItem = batch[idx];
         const ped = d?.retorno?.pedido;
