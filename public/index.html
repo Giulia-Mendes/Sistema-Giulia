@@ -8304,9 +8304,11 @@ function renderComissionamento() {
       const isGerente = gerenteNomes.has(v);
       const lojaFiltrada = isGerente ? lojaFisicaLista : lojaFisicaLista.filter(p => p.vendedora === v);
       const lojaValor    = lojaFiltrada.reduce((s,p) => s+(p.valor||0), 0);
-      const mktComiss    = metaAtingidaMarket ? totalMarketplace * (getComissaoPct(v, 'mercado_livre') / 100) : 0;
-      const lojaComiss   = metaAtingidaLojaF  ? lojaValor        * (getComissaoPct(v, 'loja_fisica')   / 100) : 0;
-      vendMap[v] = { marketplace: totalMarketplace, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss };
+      const mktPct       = getComissaoPct(v, 'mercado_livre');
+      const mktBase      = mktPct > 0 ? totalMarketplace : 0; // só participa quem tem % configurado
+      const mktComiss    = metaAtingidaMarket ? mktBase * (mktPct / 100) : 0;
+      const lojaComiss   = metaAtingidaLojaF  ? lojaValor * (getComissaoPct(v, 'loja_fisica') / 100) : 0;
+      vendMap[v] = { marketplace: mktBase, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss };
     });
     const vendsOrdenados = Object.entries(vendMap)
       .filter(([,d]) => d.marketplace > 0 || d.loja_fisica > 0)
