@@ -8059,7 +8059,14 @@ async function sincronizarMarketplace(btn) {
     const d = await r.json();
     if (d.sucesso) {
       msg.style.cssText = 'display:block;color:var(--mineral-txt)';
-      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.`;
+      let debugTxt = '';
+      if (d.debug && d.debug.length > 0) {
+        debugTxt = '\n\nAmostra (primeiros pedidos):\n' + d.debug.map(x =>
+          `numEc=${x.numEc} | ec_lista="${x.ecList}" | ec_detalhe="${x.ecDetalhe}" | forma_envio="${x.formaEnvio}" | tags=[${x.tags.join(',')}] → ${x.canal}`
+        ).join('\n');
+      }
+      msg.style.whiteSpace = 'pre-wrap';
+      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.${debugTxt}`;
       await carregarComissionamento();
       renderComissionamento();
     } else {

@@ -1312,12 +1312,15 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const detectCanal = (numEc, tags, ec) => {
-    const ecN = (ec || '').toLowerCase().replace(/[\s_-]/g, '');
-    if (ecN === 'shopee' || tags.some(t => normS(t).includes('shopee'))) return 'shopee';
-    if (ecN === 'mercadolivrefull' || ecN === 'mercadolivrefullfilment' || ecN.includes('mercadolivrefull')) return 'mercado_livre_fulfillment';
-    if (tags.some(t => normS(t).includes('fulfillment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
+  const detectCanal = (numEc, tags, ec, formaEnvio) => {
+    const ecN = normS(ec || '').replace(/[\s_-]/g, '');
+    const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
+    if (ecN.includes('shopee') || tags.some(t => normS(t).includes('shopee'))) return 'shopee';
+    if (feN.includes('full') || feN.includes('fulfillment') || feN.includes('fulfilment')) return 'mercado_livre_fulfillment';
+    if (ecN.includes('mercadolivrefull') || ecN.includes('mercadolivrefull')) return 'mercado_livre_fulfillment';
+    if (tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
     if (ecN.includes('mercadolivre') || tags.some(t => normS(t).includes('mercado') || normS(t).includes('meli') || /mlb/i.test(t)) || /^MLB/i.test(numEc)) return 'mercado_livre';
+    if (ecN.includes('shopee')) return 'shopee';
     return 'mercado_livre';
   };
   const stmt = db.prepare(`INSERT INTO ecommerce_pedidos (tiny_id,numero,numero_ecommerce,canal,cliente,valor,data,vendedora,situacao)
@@ -1345,6 +1348,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const BATCH = 5;
     let total = 0;
+    const debugAmostras = [];
     for (let i = 0; i < candidatos.length; i += BATCH) {
       const batch = candidatos.slice(i, i + BATCH);
       const detalhes = await Promise.all(batch.map(item => {
@@ -1359,7 +1363,8 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
           if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
           else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
         }
-        const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce);
+        const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio);
+        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, ecList: listItem.ecommerce, ecDetalhe: ped?.ecommerce, formaEnvio: ped?.forma_envio, tags, canal });
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
         if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
         const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
@@ -1376,7 +1381,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       db.prepare('DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
     }
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    res.json({ sucesso: true, total });
+    res.json({ sucesso: true, total, debug: debugAmostras });
   } catch(e) { res.status(500).json({ erro: 'Erro: ' + e.message }); }
 });
 
