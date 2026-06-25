@@ -983,9 +983,10 @@ select option { background: var(--surface); color: var(--text); }
       <select id="comiss-canal" onchange="renderComissionamento()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
         <option value="">Todos</option>
         <option value="loja_fisica">Loja Física</option>
-        <option value="mercado_livre">Mercado Livre</option>
-        <option value="mercado_livre_fulfillment">ML Fulfillment</option>
-        <option value="shopee">Shopee</option>
+        <option value="marketplace">Marketplace (todos)</option>
+        <option value="mercado_livre">↳ Mercado Livre</option>
+        <option value="mercado_livre_fulfillment">↳ ML Fulfillment</option>
+        <option value="shopee">↳ Shopee</option>
       </select>
     </div>
     <div class="campo" style="margin:0"><label>Vendedora</label>
@@ -1012,7 +1013,10 @@ select option { background: var(--surface); color: var(--text); }
     <p id="mkt-sync-msg" style="font-size:13px;margin-top:8px;display:none"></p>
   </div>
 
-  <!-- Resumo por canal -->
+  <!-- Resumo geral: metas marketplace e loja física -->
+  <div id="comiss-resumo-geral" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
+
+  <!-- Resumo por canal (breakdown individual) -->
   <div id="comiss-resumo-canais" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
 
   <!-- Resumo por vendedora -->
@@ -1022,11 +1026,10 @@ select option { background: var(--surface); color: var(--text); }
   <div id="comiss-config-wrap" style="margin-bottom:8px;display:none">
     <div class="card" style="padding:0;overflow:hidden">
       <div onclick="toggleComissConfig()" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2,#f5f0eb)">
-        <span style="font-weight:600;font-size:14px">⚙️ Configurar percentuais de comissão</span>
+        <span style="font-weight:600;font-size:14px">⚙️ Configurar metas e percentuais</span>
         <span id="comiss-config-toggle" style="font-size:12px;color:var(--text2)">▼</span>
       </div>
       <div id="comiss-config-body" style="display:none;padding:14px 16px">
-        <p style="font-size:12px;color:var(--text2);margin:0 0 12px">Defina o % de comissão para cada vendedora em cada canal.</p>
         <div id="comiss-config-table"></div>
       </div>
     </div>
@@ -7985,23 +7988,33 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 <script>
 let ecommercePedidos = [];
 let comissaoConfig = [];
+let comissaoMetas = [];
+let comissaoNomesConfig = [];
 let comissVendExcl = new Set();
+
+const isMarketCanal = c => ['mercado_livre','mercado_livre_fulfillment','shopee'].includes(c);
 
 async function carregarComissionamento() {
   try {
-    const [r1, r2] = await Promise.all([
+    const [r1, r2, r3, r4] = await Promise.all([
       fetch('/api/ecommerce/pedidos').then(r => r.json()),
-      fetch('/api/comissao/config').then(r => r.json())
+      fetch('/api/comissao/config').then(r => r.json()),
+      fetch('/api/comissao/metas').then(r => r.json()),
+      fetch('/api/usuarios').then(r => r.json())
     ]);
     ecommercePedidos = r1;
     comissaoConfig = r2;
-  } catch(e) { ecommercePedidos = []; comissaoConfig = []; }
+    comissaoMetas = r3;
+    const admins = (r4 || []).filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome);
+    comissaoNomesConfig = [...new Set([...getVendedoras(), ...admins])].sort();
+  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; comissaoNomesConfig = []; }
 }
 
 function getComissaoPct(vendedora, canal) {
   if (!vendedora) return 0;
-  const cfg = comissaoConfig.find(c => c.vendedora === vendedora && c.canal === canal);
-  return cfg ? cfg.percentual : 0;
+  const tipo = isMarketCanal(canal) ? 'marketplace' : 'loja_fisica';
+  const cfg = comissaoConfig.find(c => c.vendedora === vendedora && c.canal === tipo);
+  return cfg ? (cfg.percentual || 0) : 0;
 }
 
 function todosComissOrders(de, ate) {
@@ -8069,37 +8082,79 @@ function toggleComissConfig() {
 function renderComissConfigTable() {
   const wrap = document.getElementById('comiss-config-table');
   if (!wrap) return;
-  const vends = getVendedoras();
-  const canais = [
-    { key: 'loja_fisica', label: '🏪 Loja Física' },
-    { key: 'mercado_livre', label: '🛍️ Mercado Livre' },
-    { key: 'mercado_livre_fulfillment', label: '📦 ML Fulfillment' },
-    { key: 'shopee', label: '🛒 Shopee' }
-  ];
-  if (!vends.length) { wrap.innerHTML = '<p style="color:var(--text2);font-size:13px">Nenhuma vendedora cadastrada.</p>'; return; }
-  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
-  html += '<thead><tr><th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>';
-  canais.forEach(c => { html += `<th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${c.label}</th>`; });
-  html += '</tr></thead><tbody>';
-  vends.forEach(v => {
-    html += `<tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>`;
-    canais.forEach(c => {
-      const cfg = comissaoConfig.find(x => x.vendedora === v && x.canal === c.key);
-      const pct = cfg ? cfg.percentual : 0;
-      html += `<td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-          <input type="number" min="0" max="100" step="0.1" value="${pct}"
-            id="cpct-${v.replace(/\s/g,'_')}-${c.key}"
-            style="width:60px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
-          <span style="font-size:12px;color:var(--text2)">%</span>
-          <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoPct('${v}','${c.key}')">✓</button>
-        </div>
-      </td>`;
+  const mes = document.getElementById('comiss-de')?.value?.slice(0,7) || new Date().toISOString().slice(0,7);
+  const mesLabel = mes ? new Date(mes + '-02').toLocaleDateString('pt-BR', {month:'long', year:'numeric'}) : '';
+  const metaMarket = comissaoMetas.find(m => m.tipo === 'marketplace' && m.mes === mes)?.valor || 0;
+  const metaLojaF  = comissaoMetas.find(m => m.tipo === 'loja_fisica'  && m.mes === mes)?.valor || 0;
+  const vends = comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras();
+
+  let html = `<div style="margin-bottom:20px">
+    <p style="font-size:13px;font-weight:600;margin:0 0 10px">Meta do mês — ${mesLabel}</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="campo" style="margin:0">
+        <label style="font-size:12px">🛍️ Meta Marketplace (R$)</label>
+        <input type="number" min="0" step="100" value="${metaMarket||''}" id="comiss-meta-marketplace"
+          placeholder="0,00" style="font-size:13px;padding:5px 8px;width:160px"
+          onchange="salvarComissaoMeta('marketplace','${mes}',this.value)">
+      </div>
+      <div class="campo" style="margin:0">
+        <label style="font-size:12px">🏪 Meta Loja Física (R$)</label>
+        <input type="number" min="0" step="100" value="${metaLojaF||''}" id="comiss-meta-loja"
+          placeholder="0,00" style="font-size:13px;padding:5px 8px;width:160px"
+          onchange="salvarComissaoMeta('loja_fisica','${mes}',this.value)">
+      </div>
+    </div>
+  </div>
+  <p style="font-size:13px;font-weight:600;margin:0 0 4px">% de comissão por vendedora</p>
+  <p style="font-size:12px;color:var(--text2);margin:0 0 12px">A comissão só é paga quando a meta do respectivo canal for atingida no mês.</p>`;
+
+  if (!vends.length) {
+    html += '<p style="color:var(--text2);font-size:13px">Nenhuma vendedora cadastrada.</p>';
+  } else {
+    html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
+        <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#e65100">% Marketplace</th>
+        <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#1565c0">% Loja Física</th>
+      </tr></thead><tbody>`;
+    vends.forEach(v => {
+      const vk = v.replace(/\s/g,'_');
+      const pctM = comissaoConfig.find(x => x.vendedora === v && x.canal === 'marketplace')?.percentual || 0;
+      const pctL = comissaoConfig.find(x => x.vendedora === v && x.canal === 'loja_fisica')?.percentual  || 0;
+      html += `<tr>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            <input type="number" min="0" max="100" step="0.1" value="${pctM}" id="cpct-${vk}-marketplace"
+              style="width:60px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+            <span style="font-size:12px;color:var(--text2)">%</span>
+            <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoPct('${v}','marketplace')">✓</button>
+          </div>
+        </td>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            <input type="number" min="0" max="100" step="0.1" value="${pctL}" id="cpct-${vk}-loja_fisica"
+              style="width:60px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+            <span style="font-size:12px;color:var(--text2)">%</span>
+            <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoPct('${v}','loja_fisica')">✓</button>
+          </div>
+        </td>
+      </tr>`;
     });
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
+    html += '</tbody></table></div>';
+  }
   wrap.innerHTML = html;
+}
+
+async function salvarComissaoMeta(tipo, mes, valor) {
+  const r = await fetch('/api/comissao/metas', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tipo, mes, valor: parseFloat(valor)||0 }) });
+  const d = await r.json();
+  if (d.sucesso) {
+    const idx = comissaoMetas.findIndex(m => m.tipo === tipo && m.mes === mes);
+    const nova = { tipo, mes, valor: parseFloat(valor)||0 };
+    if (idx >= 0) comissaoMetas[idx] = nova; else comissaoMetas.push(nova);
+    renderComissionamento();
+  }
 }
 
 async function salvarComissaoPct(vendedora, canal) {
@@ -8123,9 +8178,11 @@ function renderComissionamento() {
   const de = document.getElementById('comiss-de')?.value || '';
   const ate = document.getElementById('comiss-ate')?.value || '';
   const canalFiltro = document.getElementById('comiss-canal')?.value || '';
+  const showCancelados = document.getElementById('comiss-show-cancelados')?.checked || false;
+  const mes = (de || new Date().toISOString().slice(0,7)).slice(0,7);
   const todos = todosComissOrders(de, ate);
 
-  // Atualiza chips vendedora
+  // Chips vendedora
   const chips = document.getElementById('comiss-vend-chips');
   if (chips) {
     const todasVends = [...new Set(todos.map(p => p.vendedora).filter(Boolean))].sort();
@@ -8136,80 +8193,125 @@ function renderComissionamento() {
       : '');
   }
 
-  const showCancelados = document.getElementById('comiss-show-cancelados')?.checked || false;
+  // Metas do mês
+  const metaMarket = comissaoMetas.find(m => m.tipo === 'marketplace' && m.mes === mes)?.valor || 0;
+  const metaLojaF  = comissaoMetas.find(m => m.tipo === 'loja_fisica'  && m.mes === mes)?.valor || 0;
 
-  // Filtra por canal, vendedora e cancelados
+  // Totais globais para comparar com meta (sem filtro de vendedora/canal)
+  const semCancelados = p => showCancelados || !/cancelad/i.test(p.situacao||'');
+  const totalMarketGlobal = todos.filter(p => semCancelados(p) && isMarketCanal(p.canal)).reduce((s,p) => s+(p.valor||0), 0);
+  const totalLojaFGlobal  = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica').reduce((s,p) => s+(p.valor||0), 0);
+  const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
+  const metaAtingidaLojaF  = metaLojaF  > 0 && totalLojaFGlobal  >= metaLojaF;
+
+  // ── Cards de meta (marketplace + loja física) ──
+  const geralEl = document.getElementById('comiss-resumo-geral');
+  if (geralEl) {
+    const fmtBar = (total, meta) => {
+      if (!meta) return '<p style="font-size:12px;color:var(--text2);margin:6px 0 0">Meta não configurada</p>';
+      const pct = Math.min(100, (total/meta)*100);
+      const cor = pct >= 100 ? '#2e7d32' : pct >= 70 ? '#f57c00' : '#c62828';
+      return `<div style="margin-top:8px">
+        <div style="background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden">
+          <div style="width:${pct.toFixed(1)}%;height:100%;background:${cor}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:11px;color:var(--text2)">${fmtR(total)} de ${fmtR(meta)}</span>
+          <span style="font-size:11px;font-weight:700;color:${cor}">${pct.toFixed(1)}%</span>
+        </div>
+      </div>`;
+    };
+    geralEl.innerHTML = [
+      { label:'🛍️ Marketplace', total:totalMarketGlobal, meta:metaMarket, atingida:metaAtingidaMarket, color:'#e65100' },
+      { label:'🏪 Loja Física',  total:totalLojaFGlobal,  meta:metaLojaF,  atingida:metaAtingidaLojaF,  color:'#1565c0' }
+    ].map(c => `<div class="card" style="flex:1;min-width:240px;padding:16px;border-top:3px solid ${c.color}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
+        <span style="font-size:14px;font-weight:700;color:${c.color}">${c.label}</span>
+        ${c.meta > 0 ? `<span class="badge" style="background:${c.atingida?'#e8f5e9':'#fff3e0'};color:${c.atingida?'#2e7d32':'#e65100'}">${c.atingida?'✅ Meta atingida':'⏳ Em andamento'}</span>` : ''}
+      </div>
+      <p style="font-size:26px;font-weight:700;margin:4px 0">${fmtR(c.total)}</p>
+      ${fmtBar(c.total, c.meta)}
+      ${c.atingida ? '<p style="font-size:12px;color:#2e7d32;margin:6px 0 0;font-weight:600">🎉 Comissões liberadas!</p>' : ''}
+    </div>`).join('');
+  }
+
+  // Filtro para lista detalhada
   const lista = todos.filter(p => {
-    if (!showCancelados && p.situacao && /cancelad/i.test(p.situacao)) return false;
-    if (canalFiltro && p.canal !== canalFiltro) return false;
+    if (!showCancelados && /cancelad/i.test(p.situacao||'')) return false;
+    if (canalFiltro === 'marketplace' && !isMarketCanal(p.canal)) return false;
+    if (canalFiltro === 'loja_fisica' && p.canal !== 'loja_fisica') return false;
+    if (canalFiltro && !['marketplace','loja_fisica'].includes(canalFiltro) && p.canal !== canalFiltro) return false;
     if (p.vendedora && comissVendExcl.has(p.vendedora)) return false;
-    if (!p.vendedora && comissVendExcl.has('__sem__')) return false;
     return true;
   });
 
-  // ── Resumo por canal ──
+  // ── Breakdown por canal (cards menores) ──
   const canaisInfo = [
-    { key: 'loja_fisica', label: 'Loja Física', icon: '🏪', color: '#1565c0', bg: '#e8f4fd' },
-    { key: 'mercado_livre', label: 'Mercado Livre', icon: '🛍️', color: '#e65100', bg: '#fff3e0' },
-    { key: 'mercado_livre_fulfillment', label: 'ML Fulfillment', icon: '📦', color: '#6a1b9a', bg: '#f3e5f5' },
-    { key: 'shopee', label: 'Shopee', icon: '🛒', color: '#c62828', bg: '#ffebee' }
+    { key:'loja_fisica', label:'Loja Física', icon:'🏪', color:'#1565c0', bg:'#e8f4fd' },
+    { key:'mercado_livre', label:'Mercado Livre', icon:'🛍️', color:'#e65100', bg:'#fff3e0' },
+    { key:'mercado_livre_fulfillment', label:'ML Fulfillment', icon:'📦', color:'#6a1b9a', bg:'#f3e5f5' },
+    { key:'shopee', label:'Shopee', icon:'🛒', color:'#c62828', bg:'#ffebee' }
   ];
   const resumoEl = document.getElementById('comiss-resumo-canais');
   if (resumoEl) {
     resumoEl.innerHTML = canaisInfo.map(c => {
-      if (canalFiltro && canalFiltro !== c.key) return '';
-      const pedidosCanal = lista.filter(p => p.canal === c.key);
-      const totalVendas = pedidosCanal.reduce((s,p) => s + (p.valor||0), 0);
-      const totalComiss = pedidosCanal.reduce((s,p) => s + (p.valor||0) * (getComissaoPct(p.vendedora, c.key)/100), 0);
-      return `<div class="card" style="flex:1;min-width:180px;padding:14px 16px;border-top:3px solid ${c.color}">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <span style="font-size:16px">${c.icon}</span>
-          <span style="font-size:13px;font-weight:600;color:${c.color}">${c.label}</span>
+      const showCard = !canalFiltro || canalFiltro === c.key || (canalFiltro === 'marketplace' && isMarketCanal(c.key));
+      if (!showCard) return '';
+      const peds = lista.filter(p => p.canal === c.key);
+      const tot = peds.reduce((s,p) => s+(p.valor||0), 0);
+      if (!tot && canalFiltro !== c.key) return '';
+      return `<div class="card" style="flex:1;min-width:150px;padding:12px 14px;border-top:3px solid ${c.color}">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+          <span style="font-size:14px">${c.icon}</span>
+          <span style="font-size:12px;font-weight:600;color:${c.color}">${c.label}</span>
         </div>
-        <p style="font-size:22px;font-weight:700;margin:0 0 2px">${fmtR(totalVendas)}</p>
-        <p style="font-size:12px;color:var(--text2);margin:0">${pedidosCanal.length} pedido(s)</p>
-        <p style="font-size:13px;font-weight:600;color:${c.color};margin:6px 0 0">Comissão: ${fmtR(totalComiss)}</p>
+        <p style="font-size:18px;font-weight:700;margin:0 0 2px">${fmtR(tot)}</p>
+        <p style="font-size:11px;color:var(--text2);margin:0">${peds.length} pedido(s)</p>
       </div>`;
     }).join('');
   }
 
-  // ── Resumo por vendedora ──
+  // ── Comissão por vendedora ──
   const vendEl = document.getElementById('comiss-resumo-vend');
   if (vendEl) {
     const vendMap = {};
     lista.forEach(p => {
       const v = p.vendedora || '—';
-      if (!vendMap[v]) vendMap[v] = { loja_fisica:0, mercado_livre:0, mercado_livre_fulfillment:0, shopee:0, comiss:0, qtd:0 };
-      vendMap[v][p.canal] = (vendMap[v][p.canal]||0) + (p.valor||0);
-      vendMap[v].comiss += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
+      if (!vendMap[v]) vendMap[v] = { marketplace:0, loja_fisica:0, comissMarket:0, comissLoja:0, qtd:0 };
+      if (isMarketCanal(p.canal)) {
+        vendMap[v].marketplace += (p.valor||0);
+        if (metaAtingidaMarket && p.vendedora) vendMap[v].comissMarket += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
+      } else {
+        vendMap[v].loja_fisica += (p.valor||0);
+        if (metaAtingidaLojaF && p.vendedora) vendMap[v].comissLoja += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
+      }
       vendMap[v].qtd++;
     });
-    const vends = Object.entries(vendMap).sort((a,b) => (b[1].comiss - a[1].comiss));
+    const vends = Object.entries(vendMap).sort((a,b) => (b[1].comissMarket+b[1].comissLoja) - (a[1].comissMarket+a[1].comissLoja));
     if (!vends.length) { vendEl.innerHTML = ''; }
     else {
-      vendEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:2px">
+      vendEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
         <div style="padding:10px 16px;background:var(--surface2,#f5f0eb);font-weight:600;font-size:13px">Comissão por Vendedora</div>
-        <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr>
             <th style="text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">🛍️ Marketplace</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">Comissão MKT</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">🏪 Loja Física</th>
-            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">🛍️ Mercado Livre</th>
-            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#6a1b9a;white-space:nowrap">📦 ML Fulfillment</th>
-            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#c62828;white-space:nowrap">🛒 Shopee</th>
-            <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Total vendas</th>
-            <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2)">Total comissão</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">Comissão LF</th>
+            <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2);white-space:nowrap">Total comissão</th>
           </tr></thead>
           <tbody>${vends.map(([v,d]) => {
-            const totalV = d.loja_fisica + d.mercado_livre + d.mercado_livre_fulfillment + d.shopee;
+            const totalComiss = d.comissMarket + d.comissLoja;
+            const semMktMeta = !metaAtingidaMarket && d.marketplace > 0;
+            const semLFMeta  = !metaAtingidaLojaF  && d.loja_fisica > 0;
             return `<tr>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.marketplace ? fmtR(d.marketplace) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${semMktMeta ? '<span style="color:var(--text2);font-size:11px">meta não atingida</span>' : d.comissMarket ? fmtR(d.comissMarket) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.mercado_livre ? fmtR(d.mercado_livre) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.mercado_livre_fulfillment ? fmtR(d.mercado_livre_fulfillment) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.shopee ? fmtR(d.shopee) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:500">${fmtR(totalV)}</td>
-              <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${fmtR(d.comiss)}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${semLFMeta ? '<span style="color:var(--text2);font-size:11px">meta não atingida</span>' : d.comissLoja ? fmtR(d.comissLoja) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${totalComiss ? fmtR(totalComiss) : '<span style="color:var(--text2)">—</span>'}</td>
             </tr>`;
           }).join('')}</tbody>
         </table></div></div>`;
@@ -8220,12 +8322,13 @@ function renderComissionamento() {
   const listaEl = document.getElementById('comiss-lista');
   if (!listaEl) return;
   if (!lista.length) { listaEl.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum pedido no período.</p>'; return; }
-  const canalStyle = { loja_fisica: { bg:'#e8f4fd', color:'#1565c0', label:'🏪 Loja Física' }, mercado_livre: { bg:'#fff3e0', color:'#e65100', label:'🛍️ Mercado Livre' }, mercado_livre_fulfillment: { bg:'#f3e5f5', color:'#6a1b9a', label:'📦 ML Fulfillment' }, shopee: { bg:'#ffebee', color:'#c62828', label:'🛒 Shopee' } };
+  const canalStyle = { loja_fisica:{bg:'#e8f4fd',color:'#1565c0',label:'🏪 Loja Física'}, mercado_livre:{bg:'#fff3e0',color:'#e65100',label:'🛍️ Mercado Livre'}, mercado_livre_fulfillment:{bg:'#f3e5f5',color:'#6a1b9a',label:'📦 ML Fulfillment'}, shopee:{bg:'#ffebee',color:'#c62828',label:'🛒 Shopee'} };
   listaEl.innerHTML = lista.map(p => {
     const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
     const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
     const pct = getComissaoPct(p.vendedora, p.canal);
-    const comissVal = (p.valor||0) * (pct/100);
+    const metaOk = isMarketCanal(p.canal) ? metaAtingidaMarket : metaAtingidaLojaF;
+    const comissVal = metaOk ? (p.valor||0) * (pct/100) : 0;
     const isEcomm = p.canal !== 'loja_fisica';
     return `<div class="card" style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
@@ -8252,7 +8355,10 @@ function renderComissionamento() {
         </div>
         <div style="text-align:right;flex-shrink:0">
           <p style="font-size:20px;font-weight:600;margin:0">${fmtR(p.valor||0)}</p>
-          <p style="font-size:13px;font-weight:600;color:var(--accent2);margin:2px 0 0">Comissão (${pct}%): ${fmtR(comissVal)}</p>
+          ${pct > 0 ? (metaOk
+            ? `<p style="font-size:13px;font-weight:600;color:var(--accent2);margin:2px 0 0">Comissão (${pct}%): ${fmtR(comissVal)}</p>`
+            : `<p style="font-size:11px;color:var(--text2);margin:2px 0 0">${pct}% — meta não atingida</p>`)
+            : ''}
           ${isEcomm && usuarioLogado && usuarioLogado.role === 'admin' ? `<button class="btn btn-vermelho" style="font-size:11px;padding:2px 8px;margin-top:4px" onclick="removerPedidoEcomm(${p.id})">Remover</button>` : ''}
         </div>
       </div>

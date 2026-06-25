@@ -1296,6 +1296,13 @@ db.exec(`
     percentual REAL DEFAULT 0,
     UNIQUE(vendedora, canal)
   );
+  CREATE TABLE IF NOT EXISTS comissao_metas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,
+    mes TEXT NOT NULL,
+    valor REAL DEFAULT 0,
+    UNIQUE(tipo, mes)
+  );
 `);
 
 app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
@@ -1402,6 +1409,21 @@ app.put('/api/comissao/config', auth, async (req, res) => {
   db.prepare('INSERT INTO comissao_config (vendedora,canal,percentual) VALUES (?,?,?) ON CONFLICT(vendedora,canal) DO UPDATE SET percentual=excluded.percentual')
     .run(vendedora, canal, parseFloat(percentual) || 0);
   audit(req, 'ATUALIZAR_COMISSAO', 'comissao_config', 0, null, { vendedora, canal, percentual });
+  res.json({ sucesso: true });
+});
+
+app.get('/api/comissao/metas', auth, (req, res) => {
+  const { mes } = req.query;
+  const rows = mes
+    ? db.prepare('SELECT * FROM comissao_metas WHERE mes = ?').all(mes)
+    : db.prepare('SELECT * FROM comissao_metas ORDER BY mes DESC').all();
+  res.json(rows);
+});
+app.put('/api/comissao/metas', auth, (req, res) => {
+  const { tipo, mes, valor } = req.body;
+  if (!tipo || !mes) return res.status(400).json({ erro: 'tipo e mes obrigatórios.' });
+  db.prepare('INSERT INTO comissao_metas (tipo, mes, valor) VALUES (?,?,?) ON CONFLICT(tipo, mes) DO UPDATE SET valor=excluded.valor')
+    .run(tipo, mes, parseFloat(valor) || 0);
   res.json({ sucesso: true });
 });
 
