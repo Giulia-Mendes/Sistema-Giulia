@@ -1312,12 +1312,14 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const detectCanal = (numEc, tags, ec, formaEnvio) => {
+  const detectCanal = (numEc, tags, ec, formaEnvio, ecDetalhe) => {
     const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
-    // Shopee: numero tem letras (ex: 2606010QBJ4GW5) OU forma_envio menciona shopee
-    if (/[a-z]/i.test(numEc) || feN.includes('shopee')) return 'shopee';
-    // ML Fulfillment: tags contém fulfillment/full
-    if (feN.includes('full') || tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
+    const ecD = (ecDetalhe || '').toLowerCase();
+    // Shopee: numero tem letras (ex: 2606010QBJ4GW5) OU forma_envio/ecommerce menciona shopee
+    if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ecD.includes('shopee')) return 'shopee';
+    // ML Fulfillment: objeto ecommerce contém "fulfillment"/"livre full" OU tags contém "fulfillment"
+    if (ecD.includes('fulfillment') || ecD.includes('fulfilment') || ecD.includes('livre full') ||
+        tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
     return 'mercado_livre';
   };
   const stmt = db.prepare(`INSERT INTO ecommerce_pedidos (tiny_id,numero,numero_ecommerce,canal,cliente,valor,data,vendedora,situacao)
@@ -1360,7 +1362,8 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
           if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
           else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
         }
-        const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio);
+        const ecDetalheStr = JSON.stringify(ped?.ecommerce || '').toLowerCase();
+        const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, ecDetalheStr);
         if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, ecList: listItem.ecommerce, ecDetalhe: JSON.stringify(ped?.ecommerce), formaEnvio: ped?.forma_envio, tipoFrete: ped?.tipo_frete, rastreamento: ped?.cod_rastreamento, tags, canal });
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
         if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
