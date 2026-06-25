@@ -571,7 +571,7 @@ app.post('/api/proposta/numero', auth, (req, res) => {
 // ── APROVAÇÕES ──
 app.get('/api/aprovacoes', auth, (req, res) => {
   // Não retorna o campo 'anexos' (base64 pesado) na listagem — carregado sob demanda
-  const rows = db.prepare('SELECT id,cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,motivo_recusa,temperatura_alvo,mat_prop,custo_mat,custo_prod,lead_id,visita_id,orcmat_id,criado_por_id,criado_por_nome,criado_em,aprovado_em FROM aprovacoes ORDER BY criado_em DESC').all();
+  const rows = db.prepare('SELECT id,cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,motivo_recusa,temperatura_alvo,mat_prop,custo_mat,custo_prod,lead_id,visita_id,orcmat_id,criado_por_id,criado_por_nome,criado_em,aprovado_em,rep_enviado,rep_enviado_em,rep_status,rep_data_visita,rep_obs FROM aprovacoes ORDER BY criado_em DESC').all();
   rows.forEach(r => { r.anexos = []; r._tem_anexos = false; });
   // Marca quais têm anexos sem carregar os dados
   const comAnexos = db.prepare("SELECT id FROM aprovacoes WHERE anexos IS NOT NULL AND anexos != '[]' AND anexos != ''").all().map(r => r.id);
