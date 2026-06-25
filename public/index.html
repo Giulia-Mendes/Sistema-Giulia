@@ -8401,7 +8401,7 @@ function renderComissionamento() {
     const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
     const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
     const pct = getComissaoPct(p.vendedora, p.canal);
-    const metaOk = isMarketCanal(p.canal) ? metaAtingidaMarket : metaAtingidaLojaF;
+    const metaOk = isMarketCanal(p.canal) ? metaAtingidaMarket : (metaAtingidaLFPorVend[p.vendedora] || false);
     const comissVal = metaOk ? (p.valor||0) * (pct/100) : 0;
     const isEcomm = p.canal !== 'loja_fisica';
     return `<div class="card" style="margin-bottom:8px">
