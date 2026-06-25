@@ -470,6 +470,7 @@ select option { background: var(--surface); color: var(--text); }
       </div>
       <div id="navg-items-operacional">
         <button onclick="irPara('pedidos', this)" id="btn-pedidos"><span class="nav-icon">🛒</span><span class="nav-label">Pedidos</span></button>
+        <button onclick="irPara('comissionamento', this)" id="btn-comissionamento"><span class="nav-icon">💰</span><span class="nav-label">Comissões</span></button>
         <button onclick="irPara('instalacao', this)" id="btn-instalacao"><span class="nav-icon">🔧</span><span class="nav-label">Instalações</span></button>
         <button onclick="irPara('financeiro', this)" id="btn-financeiro"><span class="nav-icon">🚚</span><span class="nav-label">Compras</span></button>
       </div>
@@ -971,6 +972,63 @@ select option { background: var(--surface); color: var(--text); }
   </div>
   <div id="ped-resumo" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
   <div id="lista-pedidos"></div>
+</div>
+
+<!-- ═══════════ COMISSIONAMENTO ═══════════ -->
+<div id="tela-comissionamento" class="tela">
+  <div class="card" style="margin-bottom:8px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+    <div class="campo" style="margin:0"><label>De</label><input type="date" id="comiss-de" onchange="renderComissionamento()"></div>
+    <div class="campo" style="margin:0"><label>Até</label><input type="date" id="comiss-ate" onchange="renderComissionamento()"></div>
+    <div class="campo" style="margin:0"><label>Canal</label>
+      <select id="comiss-canal" onchange="renderComissionamento()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+        <option value="">Todos</option>
+        <option value="loja_fisica">Loja Física</option>
+        <option value="mercado_livre">Mercado Livre</option>
+        <option value="shopee">Shopee</option>
+      </select>
+    </div>
+    <div class="campo" style="margin:0"><label>Vendedora</label>
+      <div id="comiss-vend-chips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:2px"></div>
+    </div>
+    <button class="btn btn-branco" style="font-size:12px;padding:5px 12px;margin-bottom:2px" onclick="abrirSyncMarketplace()">↓ Sincronizar ML/Shopee</button>
+  </div>
+
+  <!-- Modal sync marketplace -->
+  <div id="comiss-sync-panel" class="card" style="display:none;margin-bottom:8px;padding:14px;max-width:440px">
+    <p style="font-size:14px;font-weight:600;margin:0 0 10px">Sincronizar Marketplace (ML / Shopee)</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="campo" style="margin:0;flex:1;min-width:120px"><label>De</label><input type="date" id="mkt-sync-de"></div>
+      <div class="campo" style="margin:0;flex:1;min-width:120px"><label>Até</label><input type="date" id="mkt-sync-ate"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-preto" style="flex:1" onclick="sincronizarMarketplace(this)">↓ Sincronizar</button>
+      <button class="btn btn-branco" onclick="document.getElementById('comiss-sync-panel').style.display='none'">Fechar</button>
+    </div>
+    <p id="mkt-sync-msg" style="font-size:13px;margin-top:8px;display:none"></p>
+  </div>
+
+  <!-- Resumo por canal -->
+  <div id="comiss-resumo-canais" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
+
+  <!-- Resumo por vendedora -->
+  <div id="comiss-resumo-vend" style="margin-bottom:8px"></div>
+
+  <!-- Configurar percentuais (admin/gerente) -->
+  <div id="comiss-config-wrap" style="margin-bottom:8px;display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div onclick="toggleComissConfig()" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2,#f5f0eb)">
+        <span style="font-weight:600;font-size:14px">⚙️ Configurar percentuais de comissão</span>
+        <span id="comiss-config-toggle" style="font-size:12px;color:var(--text2)">▼</span>
+      </div>
+      <div id="comiss-config-body" style="display:none;padding:14px 16px">
+        <p style="font-size:12px;color:var(--text2);margin:0 0 12px">Defina o % de comissão para cada vendedora em cada canal.</p>
+        <div id="comiss-config-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista detalhada -->
+  <div id="comiss-lista"></div>
 </div>
 
 <!-- ═══════════ INSTALAÇÕES ═══════════ -->
@@ -1757,7 +1815,8 @@ function _construirHtmlProposta(numProposta) {
   const descontoVal = parseMoeda(document.getElementById('p-desc-val').value) || 0;
   const subtotalBruto = produtosAdicionais.reduce((s, p) => s + (p.qtd * p.precoUn), 0) + matProp;
   const descontoAmt = descontoVal > 0 ? (descontoTipo === 'pct' ? subtotalBruto * (descontoVal / 100) : descontoVal) : 0;
-  const validade = document.getElementById('p-validade').value.trim() || '';
+  const validadeRaw = document.getElementById('p-validade').value.trim() || '';
+  const validade = /^\d+$/.test(validadeRaw) ? validadeRaw + ' dias' : validadeRaw;
   const hoje = new Date().toLocaleDateString('pt-BR');
   const tempAlvo = (document.getElementById('p-temp')?.value || '').trim();
   const anexosHtml = propAnexos.length ? (() => {
@@ -1887,7 +1946,7 @@ function _construirHtmlProposta(numProposta) {
 
 <div class="sec-label">Outros itens ou serviços</div>
 <div class="outros-box">
-  <pre style="white-space:pre-wrap;font-family:inherit;font-size:11px;margin:0;line-height:1.7">${getTextoFinal().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+  <pre style="white-space:pre-wrap;font-family:inherit;font-size:11px;margin:0;line-height:1.7">${(propModoEdit ? document.getElementById('prop-edit').value : (montarTexto() || getTextoFinal())).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
 </div>
 
 <table class="tbl-data">
@@ -2958,7 +3017,9 @@ function montarTexto() {
   const dAmt = dVal > 0 ? (dTipo === 'pct' ? subtotalMT * (dVal / 100) : dVal) : 0;
   const descLinha = dAmt > 0 ? '\n• Desconto' + (dTipo === 'pct' ? ' (' + dVal + '%)' : '') + ': - R$ ' + dAmt.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
   const temp = (document.getElementById('p-temp')?.value || '').trim();
-  return 'Para\n' + cliente + '\n\nItens da proposta:\n' + itens + descLinha + '\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + (temp ? '\n• Temperatura alvo do aquecimento: ' + temp + '°C' : '') + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n\nValidade da proposta: ' + (document.getElementById('p-validade').value || '') + '. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
+  const validadeRawMT = (document.getElementById('p-validade').value || '').trim();
+  const validadeMT = /^\d+$/.test(validadeRawMT) ? validadeRawMT + ' dias' : validadeRawMT;
+  return 'Para\n' + cliente + '\n\nItens da proposta:\n' + itens + descLinha + '\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + (temp ? '\n• Temperatura alvo do aquecimento: ' + temp + '°C' : '') + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n\nValidade da proposta: ' + validadeMT + '. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
 }
 function gerarProposta() { if (propModoEdit) return; const t = montarTexto(); document.getElementById('prop-preview').textContent = t || 'Preencha os dados acima para gerar a proposta.'; }
 function syncProp() { document.getElementById('prop-preview').textContent = document.getElementById('prop-edit').value; }
@@ -3801,7 +3862,7 @@ async function carregarPedidos() {
   try { const r = await fetch('/api/pedidos'); pedidos = await r.json(); } catch(e) { pedidos = []; }
 }
 async function carregarTudo() {
-  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTinyPedidos(), carregarPedidos(), carregarOrcamentos()]);
+  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTinyPedidos(), carregarPedidos(), carregarOrcamentos(), carregarComissionamento()]);
   renderVisitas(); renderAprovacao(); renderResumoInst(); renderInstalacoes();
   const hoje = new Date();
   const de = document.getElementById('dash-de'), ate = document.getElementById('dash-ate');
@@ -4893,16 +4954,16 @@ async function pedidoParaCompras(fonte, id) {
 
 // ═══ ROLES / PERMISSÕES ═══
 let rolePages = {
-  admin:         ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','kommo','representacao'],
-  gerente:       ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo','representacao'],
+  admin:         ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','kommo','representacao','comissionamento'],
+  gerente:       ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo','representacao','comissionamento'],
   vendedor:      ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:       ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:          ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
   representante: ['representacao'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário', representante:'🤝 Representante' };
-const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais', kommo:'Kommo', representacao:'Representação' };
-const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao'];
+const PAGE_LABEL  = { dashboard:'Dashboard', visita:'Visitas', calendario:'Calendário', proposta:'Proposta', aprovacao:'Aprovação', pedidos:'Pedidos', instalacao:'Instalações', financeiro:'Compras', fechamentos:'Fechamentos', meta:'Metas', calculadora:'Calculadora', sincronizar:'Sincronizar', auditoria:'Auditoria', parametros:'Parâmetros', usuarios:'Usuários', orcmat:'Orç. Materiais', kommo:'Kommo', representacao:'Representação', comissionamento:'Comissões' };
+const ALL_PAGES   = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao','comissionamento'];
 
 async function carregarPermissoes() {
   try {
@@ -6443,6 +6504,7 @@ function irPara(tela, btn) {
   if (tela === 'orcmat') initOrcmat();
   if (tela === 'kommo') carregarKommo();
   if (tela === 'sincronizar') initSincronizar();
+  if (tela === 'comissionamento') initComissionamento();
   if (tela === 'auditoria') carregarAuditoria();
   if (tela === 'parametros') initParametros();
   if (tela === 'usuarios') carregarListaUsuarios();
@@ -7286,19 +7348,33 @@ function orcmatImprimir(tipo) {
   const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const dataFmt = (o.criado_em||'').slice(0,10).split('-').reverse().join('/');
   const cliente = o.cliente || '—';
+  const interno = tipo === 'interno';
+
+  // Para versão cliente: aplica a mesma fórmula do material na proposta
+  const margemMat  = _params.margem_mat  ?? 0;
+  const impostoMat = _params.imposto_mat ?? 8;
+  const denom = 1 - (margemMat + impostoMat) / 100;
+  const calcVenda = custo => denom > 0.01 ? custo / denom : custo;
+
   const linhasHtml = (o.itens||[]).map(it => {
-    const interno = tipo === 'interno';
+    const precoUnit  = interno ? it.preco_unit  : calcVenda(it.preco_unit);
+    const precoTotal = interno ? it.preco_total : calcVenda(it.preco_unit) * (it.quantidade || 1);
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:13px">${it.nome}${it.sku ? `<br><span style="font-size:11px;color:#888">SKU: ${it.sku}</span>` : ''}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.unidade||'UN'}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.quantidade}</td>
-      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px">${fmtR(it.preco_unit)}</td>` : ''}
-      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px;font-weight:600">${fmtR(it.preco_total)}</td>
+      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px">${fmtR(precoUnit)}</td>` : ''}
+      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px;font-weight:600">${fmtR(precoTotal)}</td>
       ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:12px;color:#888">${it.estoque_tiny||'—'}</td>` : ''}
       ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:12px;color:#888">${it.obs||''}</td>` : ''}
     </tr>`;
   }).join('');
-  const thInterno = tipo==='interno' ? '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Preço unit.</th><th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Estoque</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Obs</th>' : '';
+
+  const totalMostrado = interno
+    ? o.valor_total
+    : (o.itens||[]).reduce((s, it) => s + calcVenda(it.preco_unit) * (it.quantidade || 1), 0);
+
+  const thInterno = interno ? '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Preço unit.</th><th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Estoque</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Obs</th>' : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento de Materiais — ${cliente}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:30px;color:#1a1a1a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse}@media print{@page{margin:20mm}button{display:none!important}}</style>
   </head><body>
@@ -7314,7 +7390,7 @@ function orcmatImprimir(tipo) {
     ${thInterno}
     <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Total</th>
   </tr></thead><tbody>${linhasHtml}</tbody></table>
-  <div style="text-align:right;padding:14px 10px 0;font-size:20px;font-weight:700">Total: ${fmtR(o.valor_total)}</div>
+  <div style="text-align:right;padding:14px 10px 0;font-size:20px;font-weight:700">Total: ${fmtR(totalMostrado)}</div>
   <script>window.print();<\/script></body></html>`;
   const w = window.open('', '_blank');
   w.document.write(html);
@@ -7898,6 +7974,311 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
     <div id="modal-busca-mat-resultados" style="min-height:60px;max-height:50vh;overflow-y:auto"></div>
   </div>
 </div>
+
+<!-- ═══════════ COMISSIONAMENTO JS ═══════════ -->
+<script>
+let ecommercePedidos = [];
+let comissaoConfig = [];
+let comissVendExcl = new Set();
+
+async function carregarComissionamento() {
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch('/api/ecommerce/pedidos').then(r => r.json()),
+      fetch('/api/comissao/config').then(r => r.json())
+    ]);
+    ecommercePedidos = r1;
+    comissaoConfig = r2;
+  } catch(e) { ecommercePedidos = []; comissaoConfig = []; }
+}
+
+function getComissaoPct(vendedora, canal) {
+  if (!vendedora) return 0;
+  const cfg = comissaoConfig.find(c => c.vendedora === vendedora && c.canal === canal);
+  return cfg ? cfg.percentual : 0;
+}
+
+function todosComissOrders(de, ate) {
+  const lojaFisica = tinyPedidos
+    .filter(p => { const d = (p.data||'').slice(0,10); return !de || !ate || (d >= de && d <= ate); })
+    .map(p => ({ ...p, canal: 'loja_fisica', fonte: 'tiny' }));
+  const ecomm = ecommercePedidos
+    .filter(p => { const d = (p.data||'').slice(0,10); return !de || !ate || (d >= de && d <= ate); });
+  return [...lojaFisica, ...ecomm];
+}
+
+function initComissionamento() {
+  const hoje = new Date();
+  const de = document.getElementById('comiss-de'), ate = document.getElementById('comiss-ate');
+  if (de && !de.value) de.value = fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  if (ate && !ate.value) ate.value = fmt(new Date(hoje.getFullYear(), hoje.getMonth()+1, 0));
+  // Painel sync marketplace
+  const sp = document.getElementById('comiss-sync-panel');
+  const mde = document.getElementById('mkt-sync-de'), mate = document.getElementById('mkt-sync-ate');
+  if (mde && !mde.value) mde.value = de?.value || fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  if (mate && !mate.value) mate.value = ate?.value || fmt(new Date(hoje.getFullYear(), hoje.getMonth()+1, 0));
+  // Mostrar config apenas para admin/gerente
+  const adminWrap = document.getElementById('comiss-config-wrap');
+  if (adminWrap && usuarioLogado && ['admin','gerente'].includes(usuarioLogado.role)) adminWrap.style.display = 'block';
+  carregarComissionamento().then(() => renderComissionamento());
+}
+
+function abrirSyncMarketplace() {
+  const sp = document.getElementById('comiss-sync-panel');
+  if (sp) sp.style.display = sp.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sincronizarMarketplace(btn) {
+  const de = document.getElementById('mkt-sync-de')?.value;
+  const ate = document.getElementById('mkt-sync-ate')?.value;
+  const msg = document.getElementById('mkt-sync-msg');
+  if (!de || !ate) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Informe o período.'; return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sincronizando...';
+  msg.style.display = 'none';
+  try {
+    const r = await fetch('/api/tiny/sincronizar-marketplace', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataInicial: de, dataFinal: ate }) });
+    const d = await r.json();
+    if (d.sucesso) {
+      msg.style.cssText = 'display:block;color:var(--mineral-txt)';
+      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.`;
+      await carregarComissionamento();
+      renderComissionamento();
+    } else {
+      msg.style.cssText = 'display:block;color:var(--terra-txt)';
+      msg.textContent = d.erro || 'Erro ao sincronizar.';
+    }
+  } catch(e) { msg.style.cssText='display:block;color:var(--terra-txt)'; msg.textContent='Erro: '+e.message; }
+  btn.disabled = false; btn.textContent = orig;
+}
+
+function toggleComissConfig() {
+  const body = document.getElementById('comiss-config-body');
+  const tog = document.getElementById('comiss-config-toggle');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  tog.textContent = open ? '▼' : '▲';
+  if (!open) renderComissConfigTable();
+}
+
+function renderComissConfigTable() {
+  const wrap = document.getElementById('comiss-config-table');
+  if (!wrap) return;
+  const vends = getVendedoras();
+  const canais = [
+    { key: 'loja_fisica', label: '🏪 Loja Física' },
+    { key: 'mercado_livre', label: '🛍️ Mercado Livre' },
+    { key: 'shopee', label: '🛒 Shopee' }
+  ];
+  if (!vends.length) { wrap.innerHTML = '<p style="color:var(--text2);font-size:13px">Nenhuma vendedora cadastrada.</p>'; return; }
+  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+  html += '<thead><tr><th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>';
+  canais.forEach(c => { html += `<th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${c.label}</th>`; });
+  html += '</tr></thead><tbody>';
+  vends.forEach(v => {
+    html += `<tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>`;
+    canais.forEach(c => {
+      const cfg = comissaoConfig.find(x => x.vendedora === v && x.canal === c.key);
+      const pct = cfg ? cfg.percentual : 0;
+      html += `<td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+          <input type="number" min="0" max="100" step="0.1" value="${pct}"
+            id="cpct-${v.replace(/\s/g,'_')}-${c.key}"
+            style="width:60px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+          <span style="font-size:12px;color:var(--text2)">%</span>
+          <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoPct('${v}','${c.key}')">✓</button>
+        </div>
+      </td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+}
+
+async function salvarComissaoPct(vendedora, canal) {
+  const key = vendedora.replace(/\s/g,'_');
+  const input = document.getElementById(`cpct-${key}-${canal}`);
+  if (!input) return;
+  const percentual = parseFloat(input.value) || 0;
+  const r = await fetch('/api/comissao/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vendedora, canal, percentual }) });
+  const d = await r.json();
+  if (d.sucesso) {
+    const idx = comissaoConfig.findIndex(c => c.vendedora === vendedora && c.canal === canal);
+    if (idx >= 0) comissaoConfig[idx].percentual = percentual;
+    else comissaoConfig.push({ vendedora, canal, percentual });
+    input.style.borderColor = 'var(--accent2)';
+    setTimeout(() => input.style.borderColor = '', 1200);
+    renderComissionamento();
+  }
+}
+
+function renderComissionamento() {
+  const de = document.getElementById('comiss-de')?.value || '';
+  const ate = document.getElementById('comiss-ate')?.value || '';
+  const canalFiltro = document.getElementById('comiss-canal')?.value || '';
+  const todos = todosComissOrders(de, ate);
+
+  // Atualiza chips vendedora
+  const chips = document.getElementById('comiss-vend-chips');
+  if (chips) {
+    const todasVends = [...new Set(todos.map(p => p.vendedora).filter(Boolean))].sort();
+    chips.innerHTML = todasVends.map(v =>
+      `<button onclick="toggleComissVend('${v}',this)" class="btn btn-branco" style="font-size:11px;padding:2px 8px;${comissVendExcl.has(v)?'opacity:.4':''}">${v}</button>`
+    ).join('') + (todasVends.length > 1
+      ? `<button onclick="comissVendExcl.clear();renderComissionamento()" class="btn btn-branco" style="font-size:11px;padding:2px 8px">Todas</button>`
+      : '');
+  }
+
+  // Filtra por canal e vendedora
+  const lista = todos.filter(p => {
+    if (canalFiltro && p.canal !== canalFiltro) return false;
+    if (p.vendedora && comissVendExcl.has(p.vendedora)) return false;
+    if (!p.vendedora && comissVendExcl.has('__sem__')) return false;
+    return true;
+  });
+
+  // ── Resumo por canal ──
+  const canaisInfo = [
+    { key: 'loja_fisica', label: 'Loja Física', icon: '🏪', color: '#1565c0', bg: '#e8f4fd' },
+    { key: 'mercado_livre', label: 'Mercado Livre', icon: '🛍️', color: '#e65100', bg: '#fff3e0' },
+    { key: 'shopee', label: 'Shopee', icon: '🛒', color: '#c62828', bg: '#ffebee' }
+  ];
+  const resumoEl = document.getElementById('comiss-resumo-canais');
+  if (resumoEl) {
+    resumoEl.innerHTML = canaisInfo.map(c => {
+      if (canalFiltro && canalFiltro !== c.key) return '';
+      const pedidosCanal = lista.filter(p => p.canal === c.key);
+      const totalVendas = pedidosCanal.reduce((s,p) => s + (p.valor||0), 0);
+      const totalComiss = pedidosCanal.reduce((s,p) => s + (p.valor||0) * (getComissaoPct(p.vendedora, c.key)/100), 0);
+      return `<div class="card" style="flex:1;min-width:180px;padding:14px 16px;border-top:3px solid ${c.color}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:16px">${c.icon}</span>
+          <span style="font-size:13px;font-weight:600;color:${c.color}">${c.label}</span>
+        </div>
+        <p style="font-size:22px;font-weight:700;margin:0 0 2px">${fmtR(totalVendas)}</p>
+        <p style="font-size:12px;color:var(--text2);margin:0">${pedidosCanal.length} pedido(s)</p>
+        <p style="font-size:13px;font-weight:600;color:${c.color};margin:6px 0 0">Comissão: ${fmtR(totalComiss)}</p>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Resumo por vendedora ──
+  const vendEl = document.getElementById('comiss-resumo-vend');
+  if (vendEl) {
+    const vendMap = {};
+    lista.forEach(p => {
+      const v = p.vendedora || '—';
+      if (!vendMap[v]) vendMap[v] = { loja_fisica:0, mercado_livre:0, shopee:0, comiss:0, qtd:0 };
+      vendMap[v][p.canal] = (vendMap[v][p.canal]||0) + (p.valor||0);
+      vendMap[v].comiss += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
+      vendMap[v].qtd++;
+    });
+    const vends = Object.entries(vendMap).sort((a,b) => (b[1].comiss - a[1].comiss));
+    if (!vends.length) { vendEl.innerHTML = ''; }
+    else {
+      vendEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:2px">
+        <div style="padding:10px 16px;background:var(--surface2,#f5f0eb);font-weight:600;font-size:13px">Comissão por Vendedora</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">🏪 Loja Física</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">🛍️ Mercado Livre</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#c62828;white-space:nowrap">🛒 Shopee</th>
+            <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Total vendas</th>
+            <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2)">Total comissão</th>
+          </tr></thead>
+          <tbody>${vends.map(([v,d]) => {
+            const totalV = d.loja_fisica + d.mercado_livre + d.shopee;
+            return `<tr>
+              <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.mercado_livre ? fmtR(d.mercado_livre) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.shopee ? fmtR(d.shopee) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:500">${fmtR(totalV)}</td>
+              <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${fmtR(d.comiss)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div></div>`;
+    }
+  }
+
+  // ── Lista detalhada ──
+  const listaEl = document.getElementById('comiss-lista');
+  if (!listaEl) return;
+  if (!lista.length) { listaEl.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">Nenhum pedido no período.</p>'; return; }
+  const canalStyle = { loja_fisica: { bg:'#e8f4fd', color:'#1565c0', label:'🏪 Loja Física' }, mercado_livre: { bg:'#fff3e0', color:'#e65100', label:'🛍️ Mercado Livre' }, shopee: { bg:'#ffebee', color:'#c62828', label:'🛒 Shopee' } };
+  listaEl.innerHTML = lista.map(p => {
+    const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
+    const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
+    const pct = getComissaoPct(p.vendedora, p.canal);
+    const comissVal = (p.valor||0) * (pct/100);
+    const isEcomm = p.canal !== 'loja_fisica';
+    return `<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;margin-bottom:5px;flex-wrap:wrap">
+            <span class="badge" style="background:${cs.bg};color:${cs.color};font-size:11px">${cs.label}</span>
+            <span style="font-size:12px;color:#888780">${dataFmt}${p.numero ? ' · Nº ' + p.numero : ''}</span>
+          </div>
+          <p style="font-size:15px;font-weight:500;margin:0 0 2px">${p.cliente || '—'}</p>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+            <span style="font-size:12px;color:var(--text2)">Vendedora:</span>
+            <select onchange="salvarVendedoraEcomm(${p.id}, this.value, '${p.canal}')" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+              <option value="">— selecionar —</option>
+              ${getVendedoras().map(v => `<option value="${v}"${p.vendedora===v?' selected':''}>${v}</option>`).join('')}
+            </select>
+            ${isEcomm ? `<span style="font-size:12px;color:var(--text2)">Canal:</span>
+            <select onchange="salvarCanalEcomm(${p.id}, this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+              <option value="mercado_livre"${p.canal==='mercado_livre'?' selected':''}>Mercado Livre</option>
+              <option value="shopee"${p.canal==='shopee'?' selected':''}>Shopee</option>
+            </select>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <p style="font-size:20px;font-weight:600;margin:0">${fmtR(p.valor||0)}</p>
+          <p style="font-size:13px;font-weight:600;color:var(--accent2);margin:2px 0 0">Comissão (${pct}%): ${fmtR(comissVal)}</p>
+          ${isEcomm && usuarioLogado && usuarioLogado.role === 'admin' ? `<button class="btn btn-vermelho" style="font-size:11px;padding:2px 8px;margin-top:4px" onclick="removerPedidoEcomm(${p.id})">Remover</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleComissVend(v, btn) {
+  if (comissVendExcl.has(v)) { comissVendExcl.delete(v); btn.style.opacity='1'; }
+  else { comissVendExcl.add(v); btn.style.opacity='0.4'; }
+  renderComissionamento();
+}
+
+async function salvarVendedoraEcomm(id, vendedora, canal) {
+  if (canal === 'loja_fisica') {
+    await fetch('/api/pedidos/tiny/' + id + '/vendedora', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vendedora }) });
+    const p = tinyPedidos.find(x => x.id === id);
+    if (p) p.vendedora = vendedora;
+  } else {
+    await fetch('/api/ecommerce/pedidos/' + id + '/vendedora', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vendedora }) });
+    const p = ecommercePedidos.find(x => x.id === id);
+    if (p) p.vendedora = vendedora;
+  }
+  renderComissionamento();
+}
+
+async function salvarCanalEcomm(id, canal) {
+  await fetch('/api/ecommerce/pedidos/' + id + '/canal', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ canal }) });
+  const p = ecommercePedidos.find(x => x.id === id);
+  if (p) p.canal = canal;
+  renderComissionamento();
+}
+
+async function removerPedidoEcomm(id) {
+  if (!confirm('Remover este pedido do sistema?')) return;
+  const r = await fetch('/api/ecommerce/pedidos/' + id, { method:'DELETE' });
+  const d = await r.json();
+  if (d.sucesso) { ecommercePedidos = ecommercePedidos.filter(p => p.id !== id); renderComissionamento(); }
+  else alert('Erro ao remover.');
+}
+</script>
 
 <!-- MODAL MOTIVO REJEIÇÃO -->
 <div class="modal-bg" id="modal-rejeicao" style="display:none" onclick="if(event.target===this)fecharModalRejeicao()">

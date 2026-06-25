@@ -375,11 +375,11 @@ app.get('/api/me', (req, res) => {
 
 // ── PERMISSÕES POR PERFIL ──
 // Todas as páginas conhecidas pelo sistema
-const ALL_SYSTEM_PAGES = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao'];
+const ALL_SYSTEM_PAGES = ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','parametros','usuarios','orcmat','kommo','representacao','comissionamento'];
 
 const DEFAULT_ROLE_PAGES = {
   admin:    [...ALL_SYSTEM_PAGES],
-  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo','representacao'],
+  gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo','representacao','comissionamento'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
   user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
@@ -1273,6 +1273,136 @@ app.get('/api/tiny/pedidos', auth, (req, res) => {
   res.json(rows.map(r => ({ ...r, marcadores: JSON.parse(r.marcadores || '[]') })));
 });
 
+
+// ── COMISSIONAMENTO / MARKETPLACE ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ecommerce_pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tiny_id TEXT UNIQUE NOT NULL,
+    numero TEXT,
+    numero_ecommerce TEXT,
+    canal TEXT DEFAULT 'mercado_livre',
+    cliente TEXT,
+    valor REAL DEFAULT 0,
+    data TEXT,
+    vendedora TEXT,
+    situacao TEXT,
+    sincronizado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+  CREATE TABLE IF NOT EXISTS comissao_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendedora TEXT NOT NULL,
+    canal TEXT NOT NULL,
+    percentual REAL DEFAULT 0,
+    UNIQUE(vendedora, canal)
+  );
+`);
+
+app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+  const { dataInicial, dataFinal } = req.body;
+  if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
+  const toDDMMYYYY = s => s.split('-').reverse().join('/');
+  const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const detectCanal = (numEc, tags) => {
+    if (tags.some(t => normS(t).includes('shopee'))) return 'shopee';
+    if (tags.some(t => normS(t).includes('mercado') || normS(t).includes('meli') || /mlb/i.test(t))) return 'mercado_livre';
+    if (/^MLB/i.test(numEc)) return 'mercado_livre';
+    if (/^\d{13,}$/.test(numEc)) return 'shopee';
+    return 'mercado_livre';
+  };
+  const stmt = db.prepare(`INSERT INTO ecommerce_pedidos (tiny_id,numero,numero_ecommerce,canal,cliente,valor,data,vendedora,situacao)
+    VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(tiny_id) DO UPDATE SET
+    numero=excluded.numero, cliente=excluded.cliente, valor=excluded.valor, data=excluded.data,
+    situacao=excluded.situacao, numero_ecommerce=excluded.numero_ecommerce,
+    canal=CASE WHEN ecommerce_pedidos.canal IS NULL OR ecommerce_pedidos.canal='' THEN excluded.canal ELSE ecommerce_pedidos.canal END,
+    sincronizado_em=datetime('now','localtime')`);
+  try {
+    const candidatos = [];
+    let pagina = 1, totalPags = 1;
+    while (pagina <= totalPags) {
+      const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', dataInicial: toDDMMYYYY(dataInicial), dataFinal: toDDMMYYYY(dataFinal), pagina: String(pagina) }).toString();
+      const resp = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+      const d = await resp.json();
+      if (d.retorno?.status !== 'OK') { if (pagina === 1) return res.status(400).json({ erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' }); break; }
+      totalPags = parseInt(d.retorno?.numero_paginas || '1');
+      (Array.isArray(d.retorno?.pedidos) ? d.retorno.pedidos : []).forEach(p => {
+        const item = p.pedido || p;
+        const numEc = String(item.numero_ecommerce || '').trim();
+        if (numEc) candidatos.push({ ...item, numEc });
+      });
+      pagina++;
+      if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
+    }
+    const BATCH = 5;
+    let total = 0;
+    for (let i = 0; i < candidatos.length; i += BATCH) {
+      const batch = candidatos.slice(i, i + BATCH);
+      const detalhes = await Promise.all(batch.map(item => {
+        const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(item.id) }).toString();
+        return fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b }).then(r => r.json()).catch(() => null);
+      }));
+      detalhes.forEach((d, idx) => {
+        const listItem = batch[idx];
+        const ped = d?.retorno?.pedido;
+        let tags = [];
+        if (ped) {
+          if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
+          else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
+        }
+        const canal = detectCanal(listItem.numEc, tags);
+        let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
+        if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
+        const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
+        const tinyId = String(listItem.id || '');
+        if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
+      });
+      if (i + BATCH < candidatos.length) await new Promise(r => setTimeout(r, 500));
+    }
+    const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
+    if (tinyIdsAtivos.length > 0) {
+      const ph = tinyIdsAtivos.map(() => '?').join(',');
+      db.prepare(`DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ? AND tiny_id NOT IN (${ph})`).run(dataInicial, dataFinal, ...tinyIdsAtivos);
+    } else {
+      db.prepare('DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
+    }
+    audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
+    res.json({ sucesso: true, total });
+  } catch(e) { res.status(500).json({ erro: 'Erro: ' + e.message }); }
+});
+
+app.get('/api/ecommerce/pedidos', auth, (req, res) => {
+  const { de, ate } = req.query;
+  const rows = (de && ate)
+    ? db.prepare('SELECT * FROM ecommerce_pedidos WHERE data >= ? AND data <= ? ORDER BY data DESC').all(de, ate)
+    : db.prepare('SELECT * FROM ecommerce_pedidos ORDER BY data DESC').all();
+  res.json(rows);
+});
+app.put('/api/ecommerce/pedidos/:id/canal', auth, (req, res) => {
+  db.prepare('UPDATE ecommerce_pedidos SET canal=? WHERE id=?').run(req.body.canal || 'mercado_livre', req.params.id);
+  res.json({ sucesso: true });
+});
+app.put('/api/ecommerce/pedidos/:id/vendedora', auth, (req, res) => {
+  db.prepare('UPDATE ecommerce_pedidos SET vendedora=? WHERE id=?').run(req.body.vendedora || null, req.params.id);
+  res.json({ sucesso: true });
+});
+app.delete('/api/ecommerce/pedidos/:id', auth, adminOnly, (req, res) => {
+  db.prepare('DELETE FROM ecommerce_pedidos WHERE id=?').run(req.params.id);
+  audit(req, 'REMOVER_PEDIDO_ECOMM', 'ecommerce_pedidos', req.params.id, null, null);
+  res.json({ sucesso: true });
+});
+app.get('/api/comissao/config', auth, (req, res) => {
+  res.json(db.prepare('SELECT * FROM comissao_config').all());
+});
+app.put('/api/comissao/config', auth, async (req, res) => {
+  const { vendedora, canal, percentual } = req.body;
+  if (!vendedora || !canal) return res.status(400).json({ erro: 'vendedora e canal obrigatórios.' });
+  db.prepare('INSERT INTO comissao_config (vendedora,canal,percentual) VALUES (?,?,?) ON CONFLICT(vendedora,canal) DO UPDATE SET percentual=excluded.percentual')
+    .run(vendedora, canal, parseFloat(percentual) || 0);
+  audit(req, 'ATUALIZAR_COMISSAO', 'comissao_config', 0, null, { vendedora, canal, percentual });
+  res.json({ sucesso: true });
+});
 
 // ── CATÁLOGO DE MATERIAIS ──
 app.get('/api/materiais-catalogo', auth, (req, res) => {
