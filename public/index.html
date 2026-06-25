@@ -3665,17 +3665,6 @@ async function salvarEditarInst() {
   renderInstalacoes(); renderResumoInst();
 }
 function pedirExcluirInst(id) { excluindoId = id; excluindoTipo = 'inst'; document.getElementById('confirmar-titulo').textContent = 'Excluir instalação?'; abrirModal('modal-confirmar'); }
-async function confirmarExclusao() {
-  if (excluindoTipo === 'visita') { visitas = visitas.filter(v => v.id !== excluindoId); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas(); }
-  else if (excluindoTipo === 'aprov') { aprovacoes.splice(aprovacoes.findIndex(a => a.id === excluindoId), 1); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao(); }
-  else {
-    await fetch('/api/instalacoes/' + excluindoId, { method: 'DELETE' });
-    instalacoes = instalacoes.filter(i => i.id !== excluindoId);
-    if (expandidoInst === excluindoId) expandidoInst = null;
-    renderInstalacoes(); renderResumoInst(); renderFinanceiro();
-  }
-  excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
-}
 
 
 // ═══ ESTADO ONLINE ═══
@@ -3930,7 +3919,7 @@ async function confirmarExclusao() {
     await carregarAprovacoes(); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao();
   } else {
     await fetch('/api/instalacoes/' + excluindoId, { method: 'DELETE' });
-    await carregarInstalacoes(); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst();
+    await carregarInstalacoes(); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst(); renderFinanceiro();
   }
   excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
 }
