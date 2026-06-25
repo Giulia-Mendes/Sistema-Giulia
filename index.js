@@ -1313,14 +1313,11 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const detectCanal = (numEc, tags, ec, formaEnvio) => {
-    const ecN = normS(ec || '').replace(/[\s_-]/g, '');
     const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
-    if (ecN.includes('shopee') || tags.some(t => normS(t).includes('shopee'))) return 'shopee';
-    if (feN.includes('full') || feN.includes('fulfillment') || feN.includes('fulfilment')) return 'mercado_livre_fulfillment';
-    if (ecN.includes('mercadolivrefull') || ecN.includes('mercadolivrefull')) return 'mercado_livre_fulfillment';
-    if (tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
-    if (ecN.includes('mercadolivre') || tags.some(t => normS(t).includes('mercado') || normS(t).includes('meli') || /mlb/i.test(t)) || /^MLB/i.test(numEc)) return 'mercado_livre';
-    if (ecN.includes('shopee')) return 'shopee';
+    // Shopee: numero tem letras (ex: 2606010QBJ4GW5) OU forma_envio menciona shopee
+    if (/[a-z]/i.test(numEc) || feN.includes('shopee')) return 'shopee';
+    // ML Fulfillment: tags contém fulfillment/full
+    if (feN.includes('full') || tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
     return 'mercado_livre';
   };
   const stmt = db.prepare(`INSERT INTO ecommerce_pedidos (tiny_id,numero,numero_ecommerce,canal,cliente,valor,data,vendedora,situacao)
