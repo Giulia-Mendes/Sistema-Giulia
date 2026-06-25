@@ -1324,13 +1324,30 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   (async () => {
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc) => {
+  // Pre-fetch ecommerce store IDs from Tiny to reliably detect ML Fulfillment
+  let mlFullIds = new Set(), shopeeIds = new Set();
+  try {
+    const esb = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON' }).toString();
+    const esr = await fetch('https://api.tiny.com.br/api2/ecommerce.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: esb });
+    const esd = await esr.json();
+    const lojas = esd?.retorno?.ecommerces || esd?.retorno?.lojas || [];
+    (Array.isArray(lojas) ? lojas : []).forEach(l => {
+      const loja = l.loja || l.ecommerce || l;
+      const nome = normS(String(loja.nome || loja.descricao || ''));
+      const id = String(loja.id || '');
+      if (id) {
+        if (nome.includes('fulfillment') || nome.includes('fulfilment') || nome.includes('livre full')) mlFullIds.add(id);
+        else if (nome.includes('shopee')) shopeeIds.add(id);
+      }
+    });
+  } catch(e) { /* continua sem IDs de lojas */ }
+  const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc, ecId) => {
     const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
     const ne = nomeEc || '';
-    // Shopee: numero tem letras OU forma_envio/nomeEcommerce menciona shopee
-    if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ne.includes('shopee')) return 'shopee';
-    // ML Fulfillment: nomeEcommerce contém "fulfillment" OU tags contém "fulfillment"
-    if (ne.includes('fulfillment') || ne.includes('fulfilment') || ne.includes('livre full') ||
+    // Shopee: numero tem letras, forma_envio/nomeEcommerce menciona shopee, OU id da loja é shopee
+    if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ne.includes('shopee') || shopeeIds.has(ecId)) return 'shopee';
+    // ML Fulfillment: id da loja é ML Full, OU nomeEcommerce/tags contém "fulfillment"
+    if (mlFullIds.has(ecId) || ne.includes('fulfillment') || ne.includes('fulfilment') || ne.includes('livre full') ||
         tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
     return 'mercado_livre';
   };
@@ -1384,7 +1401,8 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       }
       const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
       const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
-      const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc);
+      const ecId = pedEcArr.map(e => typeof e === 'object' && e ? String(e.id || '') : '').filter(Boolean).join(' ');
+      const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc, ecId);
       if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal });
       let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
       if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
