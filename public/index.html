@@ -8070,9 +8070,10 @@ async function sincronizarMarketplace(btn) {
           msg.style.cssText = 'display:block;color:var(--mineral-txt)';
           const bkTxt = s.breakdown ? '\nPor canal: ' + s.breakdown.map(b => `${b.canal}=${b.cnt}`).join(', ') : '';
           const lojaTxt = s.debugLojas ? `\nLojas mlFull:[${(s.debugLojas.mlFullIds||[]).map(x=>x.id+':'+x.nome).join(', ')}] shopee:[${(s.debugLojas.shopeeIds||[]).map(x=>x.id+':'+x.nome).join(', ')}]` : '';
+          const nullTxt = s.nullPedCount != null ? `\nPedidos sem detalhe (null ped): ${s.nullPedCount}` : '';
           const dbgTxt = s.debug ? '\nAmostras:\n' + s.debug.map(d => `  ${d.numEc} | ecId:${d.ecId} | ${d.nomeEc} | ${d.canal}`).join('\n') : '';
           msg.style.whiteSpace = 'pre-wrap';
-          msg.textContent = `✓ ${s.total} pedido(s) importado(s).${bkTxt}${lojaTxt}${dbgTxt}`;
+          msg.textContent = `✓ ${s.total} pedido(s) importado(s).${bkTxt}${lojaTxt}${nullTxt}${dbgTxt}`;
           btn.disabled = false; btn.textContent = orig;
           await carregarComissionamento(); renderComissionamento();
         } else {

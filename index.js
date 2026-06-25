@@ -1343,13 +1343,16 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       }
     });
   } catch(e) { debugLojas.raw = 'ERRO: ' + e.message; }
+  // IDs conhecidos do Tiny (confirmados via debug das amostras)
+  const ML_FULL_EC_IDS = new Set(['8505']);
+  const SHOPEE_EC_IDS  = new Set(['6063']);
   const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc, ecId) => {
     const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
     const ne = nomeEc || '';
-    // Shopee: numero tem letras, forma_envio/nomeEcommerce menciona shopee, OU id da loja é shopee
-    if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ne.includes('shopee') || shopeeIds.has(ecId)) return 'shopee';
-    // ML Fulfillment: id da loja é ML Full, OU nomeEcommerce/tags contém "fulfillment"
-    if (mlFullIds.has(ecId) || ne.includes('fulfillment') || ne.includes('fulfilment') || ne.includes('livre full') ||
+    // Shopee: numero tem letras, forma_envio/nomeEcommerce menciona shopee, OU ecId de loja Shopee
+    if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ne.includes('shopee') || SHOPEE_EC_IDS.has(ecId) || shopeeIds.has(ecId)) return 'shopee';
+    // ML Fulfillment: ecId hardcodado, OU nomeEcommerce/tags contém "fulfillment"
+    if (ML_FULL_EC_IDS.has(ecId) || mlFullIds.has(ecId) || ne.includes('fulfillment') || ne.includes('fulfilment') || ne.includes('livre full') ||
         tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
     return 'mercado_livre';
   };
@@ -1376,7 +1379,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       pagina++;
       if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
     }
-    let total = 0;
+    let total = 0, nullPedCount = 0;
     const debugAmostras = [];
     const fetchDetalhe = async (id) => {
       const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
@@ -1396,6 +1399,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       const listItem = candidatos[i];
       const d = await fetchDetalhe(listItem.id);
       const ped = d?.retorno?.pedido;
+      if (!ped) nullPedCount++;
       let tags = [];
       if (ped) {
         if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
@@ -1422,7 +1426,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, debug: debugAmostras, debugLojas };
+    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, debug: debugAmostras, debugLojas };
   } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
   })();
 });
