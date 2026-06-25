@@ -1374,7 +1374,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
         const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
         const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
         const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc);
-        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal });
+        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal, pedKeys: Object.keys(ped || {}).join(','), formaFrete: ped?.forma_frete, codRastreamento: ped?.cod_rastreamento });
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
         if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
         const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
