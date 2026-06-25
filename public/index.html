@@ -8224,8 +8224,10 @@ function renderComissionamento() {
   const totalLojaFGlobal  = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica').reduce((s,p) => s+(p.valor||0), 0);
   const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
   // Meta de loja física é individual por vendedora
-  const membrosVends = comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras();
   const gerenteNomesSet = new Set(allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome));
+  // Só exibe quem tem algum % de comissão configurado (> 0) ou é gerente/admin
+  const membrosVends = (comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras())
+    .filter(v => gerenteNomesSet.has(v) || comissaoConfig.some(c => c.vendedora === v && c.percentual > 0));
   const lojaFisicaTodos = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica');
   const metaLFPorVend = {}, totalLFPorVend = {}, metaAtingidaLFPorVend = {};
   membrosVends.forEach(v => {
@@ -8362,14 +8364,12 @@ function renderComissionamento() {
           </tr></thead>
           <tbody>${vendsOrdenados.map(([v,d]) => {
             const totalComiss = d.comissMarket + d.comissLoja;
-            const semMktMeta = !metaAtingidaMarket && d.marketplace > 0;
-            const semLFMeta  = !metaAtingidaLFPorVend[v] && d.loja_fisica > 0;
             return `<tr>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.marketplace ? fmtR(d.marketplace) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${semMktMeta ? '<span style="color:var(--text2);font-size:11px">meta não atingida</span>' : d.comissMarket ? fmtR(d.comissMarket) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${d.comissMarket ? fmtR(d.comissMarket) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${semLFMeta ? '<span style="color:var(--text2);font-size:11px">meta não atingida</span>' : d.comissLoja ? fmtR(d.comissLoja) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${d.comissLoja ? fmtR(d.comissLoja) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${totalComiss ? fmtR(totalComiss) : '<span style="color:var(--text2)">—</span>'}</td>
             </tr>`;
           }).join('')}</tbody>
