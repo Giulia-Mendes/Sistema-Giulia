@@ -1380,6 +1380,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
     }
     let total = 0, nullPedCount = 0;
+    const ecIdContagem = {};
     const debugAmostras = [];
     const fetchDetalhe = async (id) => {
       const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
@@ -1409,6 +1410,8 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
       const ecId = pedEcArr.map(e => typeof e === 'object' && e ? String(e.id || '') : '').filter(Boolean).join(' ');
       const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc, ecId);
+      const ecIdKey = ecId || (ped ? 'sem_ecid' : 'null_ped');
+      ecIdContagem[ecIdKey] = (ecIdContagem[ecIdKey] || 0) + 1;
       if (debugAmostras.length < 15) debugAmostras.push({ numEc: listItem.numEc, nomeEc, ecId, formaEnvio: ped?.forma_envio, tags, canal });
       let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
       if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
@@ -1426,7 +1429,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     }
     const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, debug: debugAmostras, debugLojas };
+    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, ecIdContagem, debug: debugAmostras, debugLojas };
   } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
   })();
 });
