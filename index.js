@@ -1361,7 +1361,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
           else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
         }
         const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio);
-        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, ecList: listItem.ecommerce, ecDetalhe: ped?.ecommerce, formaEnvio: ped?.forma_envio, tags, canal });
+        if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, ecList: listItem.ecommerce, ecDetalhe: JSON.stringify(ped?.ecommerce), formaEnvio: ped?.forma_envio, tipoFrete: ped?.tipo_frete, rastreamento: ped?.cod_rastreamento, tags, canal });
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
         if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
         const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
