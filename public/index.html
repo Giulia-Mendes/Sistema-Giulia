@@ -7350,10 +7350,11 @@ function orcmatImprimir(tipo) {
   const cliente = o.cliente || '—';
   const interno = tipo === 'interno';
 
-  // Para versão cliente: aplica a mesma fórmula do material na proposta
+  // Para versão cliente: aplica margem + imposto + taxa cartão 10x (8,49%)
   const margemMat  = _params.margem_mat  ?? 0;
   const impostoMat = _params.imposto_mat ?? 8;
-  const denom = 1 - (margemMat + impostoMat) / 100;
+  const taxaCartao = interno ? 0 : 8.49;
+  const denom = 1 - (margemMat + impostoMat + taxaCartao) / 100;
   const calcVenda = custo => denom > 0.01 ? custo / denom : custo;
 
   const linhasHtml = (o.itens||[]).map(it => {
