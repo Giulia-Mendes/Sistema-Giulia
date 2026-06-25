@@ -4038,8 +4038,10 @@ function _gerarHtmlSimplificado(a) {
       if (/^•\s+Desconto/.test(t)) { dentroItens = true; continue; }
       dentroItens = true;
       const mVal = t.match(/\(R\$\s*([\d.,]+)\)\s*$/);
-      const valor = mVal ? parseMoeda(mVal[1]) : 0;
+      let valor = mVal ? parseMoeda(mVal[1]) : 0;
       const nome = t.replace(/^•\s+/, '').replace(/\s*—\s*SKU\s+\S+/, '').replace(/\s*\(R\$[\s\d.,]+\)\s*$/, '').trim();
+      // Linha de material sem valor no texto — usa mat_prop da proposta
+      if (valor === 0 && /material/i.test(nome)) valor = a.mat_prop || 0;
       if (nome) itensRows.push({ nome, valor });
     }
   }
