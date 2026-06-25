@@ -1410,7 +1410,7 @@ app.put('/api/orcamentos-mat/:id', auth, (req, res) => {
   res.json({ sucesso: true });
 });
 
-app.delete('/api/orcamentos-mat/:id', auth, adminOrTecnico, (req, res) => {
+app.delete('/api/orcamentos-mat/:id', auth, (req, res) => {
   db.prepare('DELETE FROM orcamentos_mat_itens WHERE orcamento_id=?').run(req.params.id);
   db.prepare('DELETE FROM orcamentos_mat WHERE id=?').run(req.params.id);
   audit(req, 'REMOVER_ORCAMENTO_MAT', 'orcamentos_mat', req.params.id, null, null);
