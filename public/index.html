@@ -8362,7 +8362,6 @@ function renderComissionamento() {
       vendMap[v] = { marketplace: mktBase, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss };
     });
     const vendsOrdenados = Object.entries(vendMap)
-      .filter(([,d]) => d.marketplace > 0 || d.loja_fisica > 0)
       .sort((a,b) => (b[1].comissMarket+b[1].comissLoja) - (a[1].comissMarket+a[1].comissLoja));
     if (!vendsOrdenados.length) { vendEl.innerHTML = ''; }
     else {
