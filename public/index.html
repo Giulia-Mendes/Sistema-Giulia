@@ -6166,7 +6166,7 @@ async function carregarListaUsuarios() {
   const usuarios = await r.json();
   const lista = document.getElementById('lista-usuarios');
 
-  const editRoles = ['admin','gerente','vendedor','tecnico','user'];
+  const editRoles = ['admin','gerente','vendedor','tecnico','user','representante'];
   const tHead = '<tr><th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border)">Página</th>' +
     editRoles.map(r => '<th style="padding:8px 12px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);text-align:center;min-width:90px">' + ROLE_LABEL[r] + '</th>').join('') + '</tr>';
   // Páginas bloqueadas para admin (não pode remover o próprio acesso de gestão)
