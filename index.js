@@ -1362,8 +1362,8 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
           if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
           else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
         }
-        const pedEc = Array.isArray(ped?.ecommerce) ? ped.ecommerce[0] : ped?.ecommerce;
-        const nomeEc = normS(typeof pedEc === 'object' && pedEc ? (pedEc.nomeEcommerce || '') : '');
+        const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
+        const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
         const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc);
         if (debugAmostras.length < 10) debugAmostras.push({ numEc: listItem.numEc, nomeEc, formaEnvio: ped?.forma_envio, tags, canal });
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
@@ -1381,8 +1381,9 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     } else {
       db.prepare('DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
     }
+    const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
     audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    res.json({ sucesso: true, total, debug: debugAmostras });
+    res.json({ sucesso: true, total, breakdown, debug: debugAmostras });
   } catch(e) { res.status(500).json({ erro: 'Erro: ' + e.message }); }
 });
 

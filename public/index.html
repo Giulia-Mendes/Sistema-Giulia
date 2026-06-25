@@ -8065,8 +8065,10 @@ async function sincronizarMarketplace(btn) {
           `numEc=${x.numEc} | nomeEc="${x.nomeEc}" | forma_envio="${x.formaEnvio}" | tags=[${x.tags.join(',')}] → ${x.canal}`
         ).join('\n');
       }
+      let bkTxt = '';
+      if (d.breakdown) bkTxt = '\n\nPor canal: ' + d.breakdown.map(b => `${b.canal}=${b.cnt}`).join(', ');
       msg.style.whiteSpace = 'pre-wrap';
-      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.${debugTxt}`;
+      msg.textContent = `✓ ${d.total} pedido(s) importado(s) do marketplace.${bkTxt}${debugTxt}`;
       await carregarComissionamento();
       renderComissionamento();
     } else {
