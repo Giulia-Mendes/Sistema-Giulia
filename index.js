@@ -1321,7 +1321,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
   syncJobs[jobId] = { status: 'running', progresso: 0, total: 0 };
   res.json({ jobId });
   // run async in background — no await, response already sent
-  (async () => { try {
+  (async () => {
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc) => {
@@ -1347,7 +1347,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', dataInicial: toDDMMYYYY(dataInicial), dataFinal: toDDMMYYYY(dataFinal), pagina: String(pagina) }).toString();
       const resp = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
       const d = await resp.json();
-      if (d.retorno?.status !== 'OK') { if (pagina === 1) return res.status(400).json({ erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' }); break; }
+      if (d.retorno?.status !== 'OK') { if (pagina === 1) { syncJobs[jobId] = { status: 'error', erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' }; return; } break; }
       totalPags = parseInt(d.retorno?.numero_paginas || '1');
       (Array.isArray(d.retorno?.pedidos) ? d.retorno.pedidos : []).forEach(p => {
         const item = p.pedido || p;
