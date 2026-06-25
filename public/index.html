@@ -7990,6 +7990,7 @@ let ecommercePedidos = [];
 let comissaoConfig = [];
 let comissaoMetas = [];
 let comissaoNomesConfig = [];
+let allUsers = [];
 let comissVendExcl = new Set();
 
 const isMarketCanal = c => ['mercado_livre','mercado_livre_fulfillment','shopee'].includes(c);
@@ -8005,9 +8006,10 @@ async function carregarComissionamento() {
     ecommercePedidos = r1;
     comissaoConfig = r2;
     comissaoMetas = r3;
-    const admins = (r4 || []).filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome);
+    allUsers = r4 || [];
+    const admins = allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome);
     comissaoNomesConfig = [...new Set([...getVendedoras(), ...admins])].sort();
-  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; comissaoNomesConfig = []; }
+  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; comissaoNomesConfig = []; allUsers = []; }
 }
 
 function getComissaoPct(vendedora, canal) {
@@ -8290,21 +8292,26 @@ function renderComissionamento() {
   // ── Comissão por vendedora ──
   const vendEl = document.getElementById('comiss-resumo-vend');
   if (vendEl) {
+    // Marketplace é coletivo: todos recebem sobre o total
+    // Loja Física é individual: cada um recebe só pelos próprios pedidos,
+    // exceto gerentes/admin que recebem pelo total da loja física
+    const totalMarketplace = lista.filter(p => isMarketCanal(p.canal)).reduce((s,p) => s+(p.valor||0), 0);
+    const lojaFisicaLista  = lista.filter(p => !isMarketCanal(p.canal));
+    const gerenteNomes = new Set(allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome));
+    const membrosComiss = comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras();
     const vendMap = {};
-    lista.forEach(p => {
-      const v = p.vendedora || '—';
-      if (!vendMap[v]) vendMap[v] = { marketplace:0, loja_fisica:0, comissMarket:0, comissLoja:0, qtd:0 };
-      if (isMarketCanal(p.canal)) {
-        vendMap[v].marketplace += (p.valor||0);
-        if (metaAtingidaMarket && p.vendedora) vendMap[v].comissMarket += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
-      } else {
-        vendMap[v].loja_fisica += (p.valor||0);
-        if (metaAtingidaLojaF && p.vendedora) vendMap[v].comissLoja += (p.valor||0) * (getComissaoPct(p.vendedora, p.canal)/100);
-      }
-      vendMap[v].qtd++;
+    membrosComiss.forEach(v => {
+      const isGerente = gerenteNomes.has(v);
+      const lojaFiltrada = isGerente ? lojaFisicaLista : lojaFisicaLista.filter(p => p.vendedora === v);
+      const lojaValor    = lojaFiltrada.reduce((s,p) => s+(p.valor||0), 0);
+      const mktComiss    = metaAtingidaMarket ? totalMarketplace * (getComissaoPct(v, 'mercado_livre') / 100) : 0;
+      const lojaComiss   = metaAtingidaLojaF  ? lojaValor        * (getComissaoPct(v, 'loja_fisica')   / 100) : 0;
+      vendMap[v] = { marketplace: totalMarketplace, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss };
     });
-    const vends = Object.entries(vendMap).sort((a,b) => (b[1].comissMarket+b[1].comissLoja) - (a[1].comissMarket+a[1].comissLoja));
-    if (!vends.length) { vendEl.innerHTML = ''; }
+    const vendsOrdenados = Object.entries(vendMap)
+      .filter(([,d]) => d.marketplace > 0 || d.loja_fisica > 0)
+      .sort((a,b) => (b[1].comissMarket+b[1].comissLoja) - (a[1].comissMarket+a[1].comissLoja));
+    if (!vendsOrdenados.length) { vendEl.innerHTML = ''; }
     else {
       vendEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
         <div style="padding:10px 16px;background:var(--surface2,#f5f0eb);font-weight:600;font-size:13px">Comissão por Vendedora</div>
@@ -8317,7 +8324,7 @@ function renderComissionamento() {
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">Comissão LF</th>
             <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2);white-space:nowrap">Total comissão</th>
           </tr></thead>
-          <tbody>${vends.map(([v,d]) => {
+          <tbody>${vendsOrdenados.map(([v,d]) => {
             const totalComiss = d.comissMarket + d.comissLoja;
             const semMktMeta = !metaAtingidaMarket && d.marketplace > 0;
             const semLFMeta  = !metaAtingidaLojaF  && d.loja_fisica > 0;
