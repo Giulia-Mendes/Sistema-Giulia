@@ -8127,6 +8127,7 @@ function renderComissConfigTable() {
     html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr>
         <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
+        <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Membro</th>
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#e65100">% Marketplace</th>
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#1565c0">% Loja Física</th>
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#1565c0">Meta LF (R$)</th>
@@ -8136,8 +8137,12 @@ function renderComissConfigTable() {
       const pctM    = comissaoConfig.find(x => x.vendedora === v && x.canal === 'marketplace')?.percentual || 0;
       const pctL    = comissaoConfig.find(x => x.vendedora === v && x.canal === 'loja_fisica')?.percentual  || 0;
       const metaLFV = comissaoMetas.find(m => m.tipo === 'lf:' + v && m.mes === mes)?.valor || 0;
+      const isMembro = comissaoConfig.some(x => x.vendedora === v && x.canal === 'membro' && x.percentual > 0);
       html += `<tr>
         <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
+          <input type="checkbox" ${isMembro?'checked':''} onchange="toggleMembroComiss('${v}',this.checked)" style="width:16px;height:16px;cursor:pointer">
+        </td>
         <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
           <div style="display:flex;align-items:center;justify-content:center;gap:4px">
             <input type="number" min="0" max="100" step="0.1" value="${pctM}" id="cpct-${vk}-marketplace"
@@ -8177,6 +8182,16 @@ async function salvarComissaoMeta(tipo, mes, valor) {
     if (idx >= 0) comissaoMetas[idx] = nova; else comissaoMetas.push(nova);
     renderComissionamento();
   }
+}
+
+async function toggleMembroComiss(vendedora, ativo) {
+  const percentual = ativo ? 1 : 0;
+  await fetch('/api/comissao/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vendedora, canal: 'membro', percentual }) });
+  const idx = comissaoConfig.findIndex(c => c.vendedora === vendedora && c.canal === 'membro');
+  if (idx >= 0) comissaoConfig[idx].percentual = percentual;
+  else comissaoConfig.push({ vendedora, canal: 'membro', percentual });
+  renderComissConfigTable();
+  renderComissionamento();
 }
 
 async function salvarComissaoPct(vendedora, canal) {
@@ -8225,9 +8240,9 @@ function renderComissionamento() {
   const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
   // Meta de loja física é individual por vendedora
   const gerenteNomesSet = new Set(allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome));
-  // Só exibe quem tem algum % de comissão configurado (> 0) ou é gerente/admin
+  // Só exibe quem está marcado como membro da comissão (canal='membro') ou é gerente/admin
   const membrosVends = (comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras())
-    .filter(v => gerenteNomesSet.has(v) || comissaoConfig.some(c => c.vendedora === v && c.percentual > 0));
+    .filter(v => gerenteNomesSet.has(v) || comissaoConfig.some(c => c.vendedora === v && c.canal === 'membro' && c.percentual > 0));
   const lojaFisicaTodos = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica');
   const metaLFPorVend = {}, totalLFPorVend = {}, metaAtingidaLFPorVend = {};
   membrosVends.forEach(v => {
