@@ -3910,19 +3910,25 @@ async function salvarEditarVisita() {
 
 // VISITAS - excluir
 async function confirmarExclusao() {
-  if (excluindoTipo === 'visita') {
-    const excluirKommo = document.getElementById('confirmar-excluir-kommo')?.checked;
-    const url = '/api/visitas/' + excluindoId + (excluirKommo ? '?excluir_kommo=true' : '');
-    await fetch(url, { method: 'DELETE' });
-    await carregarVisitas(); if (expandidoVisita === excluindoId) expandidoVisita = null; renderVisitas();
-  } else if (excluindoTipo === 'aprov') {
-    await fetch('/api/aprovacoes/' + excluindoId, { method: 'DELETE' });
-    await carregarAprovacoes(); if (expandidoAprov === excluindoId) expandidoAprov = null; renderAprovacao();
-  } else {
-    await fetch('/api/instalacoes/' + excluindoId, { method: 'DELETE' });
-    await carregarInstalacoes(); if (expandidoInst === excluindoId) expandidoInst = null; renderInstalacoes(); renderResumoInst(); renderFinanceiro();
-  }
+  const id = excluindoId, tipo = excluindoTipo;
   excluindoId = null; excluindoTipo = null; fecharModal('modal-confirmar');
+  try {
+    if (tipo === 'visita') {
+      const excluirKommo = document.getElementById('confirmar-excluir-kommo')?.checked;
+      const url = '/api/visitas/' + id + (excluirKommo ? '?excluir_kommo=true' : '');
+      const r = await fetch(url, { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); alert('Erro ao excluir: ' + (d.erro || r.status)); return; }
+      await carregarVisitas(); if (expandidoVisita === id) expandidoVisita = null; renderVisitas();
+    } else if (tipo === 'aprov') {
+      const r = await fetch('/api/aprovacoes/' + id, { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); alert('Erro ao excluir: ' + (d.erro || r.status)); return; }
+      await carregarAprovacoes(); if (expandidoAprov === id) expandidoAprov = null; renderAprovacao();
+    } else {
+      const r = await fetch('/api/instalacoes/' + id, { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); alert('Erro ao excluir: ' + (d.erro || r.status)); return; }
+      await carregarInstalacoes(); if (expandidoInst === id) expandidoInst = null; renderInstalacoes(); renderResumoInst(); renderFinanceiro();
+    }
+  } catch(e) { alert('Erro ao excluir: ' + e.message); }
 }
 
 // LAUDO - salvar
