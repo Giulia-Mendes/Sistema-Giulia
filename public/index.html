@@ -8062,7 +8062,7 @@ async function sincronizarMarketplace(btn) {
       let debugTxt = '';
       if (d.debug && d.debug.length > 0) {
         debugTxt = '\n\nAmostra (primeiros pedidos):\n' + d.debug.map(x =>
-          `numEc=${x.numEc} | ec_detalhe=${x.ecDetalhe} | forma_envio="${x.formaEnvio}" | tipo_frete="${x.tipoFrete}" | rastreamento="${x.rastreamento}" | tags=[${x.tags.join(',')}] → ${x.canal}`
+          `numEc=${x.numEc} | nomeEc="${x.nomeEc}" | forma_envio="${x.formaEnvio}" | tags=[${x.tags.join(',')}] → ${x.canal}`
         ).join('\n');
       }
       msg.style.whiteSpace = 'pre-wrap';
