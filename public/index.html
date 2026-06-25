@@ -3350,24 +3350,72 @@ async function abrirEditarAprov(id, e) {
   propAnexos = Array.isArray(a.anexos) ? [...a.anexos] : [];
   renderPropAnexos();
 
-  // Preenche equipamento — preço do produto = total − material
-  const equipPrice = (a.valor || 0) - (a.mat_prop || 0);
-  produtosAdicionais = a.equip ? [{ nome: a.equip, sku: '', qtd: 1, custo: a.custo_prod || 0, precoUn: Math.max(equipPrice, 0) }] : [];
+  // Reconstrói produtosAdicionais e desconto parseando o texto salvo
+  produtosAdicionais = [];
+  let _descValEdit = 0, _descTipoEdit = 'fixed';
+  if (a.texto) {
+    let inItems = false;
+    for (const linha of a.texto.split('\n')) {
+      const t = linha.trim();
+      if (!t) { if (inItems) break; continue; }
+      if (t === 'Itens da proposta:') { inItems = true; continue; }
+      if (!t.startsWith('•')) { if (inItems) break; continue; }
+      if (/^•\s+R\$/.test(t)) break; // linha de pagamento
+      if (/^•\s+Material/.test(t)) continue; // material fica em mat_prop
+      // Linha de desconto
+      const mDesc = t.match(/^•\s+Desconto(?:\s*\((\d+(?:[,\.]\d+)?)%\))?\s*:\s*-\s*R\$\s*([\d.,]+)/);
+      if (mDesc) {
+        if (mDesc[1]) { _descTipoEdit = 'pct'; _descValEdit = parseFloat(mDesc[1].replace(',','.')); }
+        else { _descTipoEdit = 'fixed'; _descValEdit = parseMoeda(mDesc[2]); }
+        continue;
+      }
+      inItems = true;
+      const mVal = t.match(/\(R\$\s*([\d.,]+)\)\s*$/);
+      const precoTotal = mVal ? parseMoeda(mVal[1]) : 0;
+      const mSku = t.match(/—\s*SKU\s+(\S+)/);
+      const sku = mSku ? mSku[1] : '';
+      const mQtd = t.match(/^•\s+(\d+)x\s+/);
+      const qtd = mQtd ? parseInt(mQtd[1]) : 1;
+      const nome = t.replace(/^•\s+/, '').replace(/^\d+x\s+/, '').replace(/\s*—\s*SKU\s+\S+/, '').replace(/\s*\(R\$[\s\d.,]+\)\s*$/, '').trim();
+      const precoUn = qtd > 0 && precoTotal > 0 ? precoTotal / qtd : 0;
+      if (nome) produtosAdicionais.push({ nome, sku, qtd, custo: 0, custoUn: 0, precoUn });
+    }
+    // Prazo e validade
+    const mPrazo = a.texto.match(/Prazo estimado para instalação:\s*(.+)/);
+    if (mPrazo) {
+      const prazoVal = mPrazo[1].trim();
+      const sel = document.getElementById('p-prazo');
+      const opts = Array.from(sel.options).map(o => o.value);
+      if (opts.includes(prazoVal)) { sel.value = prazoVal; document.getElementById('p-prazo-outro').style.display = 'none'; }
+      else { sel.value = 'outro'; document.getElementById('p-prazo-outro').value = prazoVal; document.getElementById('p-prazo-outro').style.display = ''; }
+    }
+    const mVal2 = a.texto.match(/Validade da proposta:\s*([^.]+)/);
+    if (mVal2) document.getElementById('p-validade').value = mVal2[1].trim();
+  }
+  // Fallback se não conseguiu parsear itens
+  if (!produtosAdicionais.length) {
+    const equipPrice = (a.valor || 0) - (a.mat_prop || 0);
+    produtosAdicionais = a.equip ? [{ nome: a.equip, sku: '', qtd: 1, custo: a.custo_prod || 0, precoUn: Math.max(equipPrice, 0) }] : [];
+  }
+  // Restaura desconto
+  document.getElementById('p-desc-tipo').value = _descTipoEdit;
+  document.getElementById('p-desc-val').value = _descValEdit > 0
+    ? (_descTipoEdit === 'pct' ? String(_descValEdit).replace('.',',') : _descValEdit.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}))
+    : '';
   renderProdutosAdicionais();
 
   // Preenche pagamento (reverso do label para key)
   const pagKey = Object.entries(TAXAS).find(([k, v]) => v.label === a.pag)?.[0] || 'pix';
   document.getElementById('p-pag').value = (pagKey === 'bol_parc' || pagKey === 'bol_desc') ? 'boleto' : pagKey;
 
-  // Carrega texto salvo no modo manual para preservar itens/quantidades corretas
-  propModoEdit = true;
+  // Modo automático — texto regenera corretamente dos itens parseados
+  propModoEdit = false;
   const prev = document.getElementById('prop-preview');
   const ed = document.getElementById('prop-edit');
   const btnEdit = document.getElementById('btn-editar-prop');
-  prev.style.display = 'none';
-  ed.style.display = '';
-  ed.value = a.texto || '';
-  if (btnEdit) btnEdit.textContent = '👁 Visualizar';
+  prev.style.display = '';
+  ed.style.display = 'none';
+  if (btnEdit) btnEdit.textContent = '✏️ Editar';
 
   // Atualiza botão de envio
   document.getElementById('btn-enviar-aprov').textContent = 'Salvar alterações';
