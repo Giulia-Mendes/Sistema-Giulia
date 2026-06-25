@@ -6208,7 +6208,7 @@ async function carregarListaUsuarios() {
       '</div>'
     : '';
   lista.innerHTML = tinyHtml + legendaHtml + usuarios.map(u => {
-    const roleOpts = ['admin','gerente','vendedor','tecnico','user'].map(rv =>
+    const roleOpts = ['admin','gerente','vendedor','tecnico','user','representante'].map(rv =>
       '<option value="' + rv + '"' + (u.role === rv ? ' selected' : '') + '>' + ROLE_LABEL[rv] + '</option>'
     ).join('');
     const protegido = u.login === 'giulia';
