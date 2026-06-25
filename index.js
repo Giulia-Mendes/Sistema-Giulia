@@ -607,7 +607,7 @@ app.put('/api/aprovacoes/:id', auth, (req, res) => {
       ? new Date().toISOString().slice(0, 10)
       : (antes.aprovado_em || null);
   const criadoEmUpd = d.criado_em ? d.criado_em + ' 00:00:00' : null;
-  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(html_proposta,?),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=?,visita_id=COALESCE(?,visita_id),orcmat_id=COALESCE(?,orcmat_id),lead_id=COALESCE(?,lead_id),aprovado_em=?,criado_em=COALESCE(?,criado_em) WHERE id=?')
+  db.prepare('UPDATE aprovacoes SET cliente=?,vendedora=?,equip=?,valor=?,custo=?,margem=?,pag=?,status=?,texto=?,custos=?,html_proposta=COALESCE(?,html_proposta),motivo_recusa=?,temperatura_alvo=?,anexos=COALESCE(?,anexos),mat_prop=?,custo_mat=?,custo_prod=?,visita_id=COALESCE(?,visita_id),orcmat_id=COALESCE(?,orcmat_id),lead_id=COALESCE(?,lead_id),aprovado_em=?,criado_em=COALESCE(?,criado_em) WHERE id=?')
     .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, d.status, d.texto, d.custos || null, d.html_proposta || null, d.motivo_recusa || null, d.temperatura_alvo || null, d.anexos ? JSON.stringify(d.anexos) : null, d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, aprovadoEm, criadoEmUpd, req.params.id);
   audit(req, 'EDITAR_PROPOSTA', 'aprovacoes', req.params.id, antes, { cliente: d.cliente, valor: d.valor, status: d.status });
   res.json({ sucesso: true });

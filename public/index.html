@@ -1745,12 +1745,9 @@ function irParaFinanceiro(id) {
 }
 
 // ═══ IMPRIMIR PROPOSTA ═══
-async function imprimirProposta() {
+function _construirHtmlProposta(numProposta) {
   const cliente = document.getElementById('p-cliente').value.trim();
   const pv = parseMoeda(document.getElementById('p-venda').value) || 0;
-  if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda antes de gerar.'); return; }
-  const numResp = await fetch('/api/proposta/numero', { method: 'POST' });
-  const { numero } = await numResp.json();
 
   const prazo = getPrazo();
   const pag = getPag();
@@ -1762,7 +1759,6 @@ async function imprimirProposta() {
   const descontoAmt = descontoVal > 0 ? (descontoTipo === 'pct' ? subtotalBruto * (descontoVal / 100) : descontoVal) : 0;
   const validade = document.getElementById('p-validade').value.trim() || '';
   const hoje = new Date().toLocaleDateString('pt-BR');
-  const numProposta = numero;
   const tempAlvo = (document.getElementById('p-temp')?.value || '').trim();
   const anexosHtml = propAnexos.length ? (() => {
     const imgs = propAnexos.filter(a => a.tipo && a.tipo.startsWith('image/'));
@@ -1913,12 +1909,28 @@ ${anexosHtml}
 </body>
 </html>`;
 
+  return html;
+}
+let _ultimaPropostaHtml = null;
+let _editandoAprovNumero = null;
+async function imprimirProposta() {
+  const cliente = document.getElementById('p-cliente').value.trim();
+  const pv = parseMoeda(document.getElementById('p-venda').value) || 0;
+  if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda antes de gerar.'); return; }
+  let numProposta;
+  if (_editandoAprovNumero) {
+    numProposta = _editandoAprovNumero;
+  } else {
+    const numResp = await fetch('/api/proposta/numero', { method: 'POST' });
+    const { numero } = await numResp.json();
+    numProposta = numero;
+  }
+  const html = _construirHtmlProposta(numProposta);
   _ultimaPropostaHtml = html;
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
 }
-let _ultimaPropostaHtml = null;
 
 // ═══ SIDEBAR COLLAPSE ═══
 function toggleCollapse() {
@@ -3421,6 +3433,17 @@ async function abrirEditarAprov(id, e) {
   document.getElementById('btn-enviar-aprov').textContent = 'Salvar alterações';
   document.getElementById('btn-cancelar-aprov').style.display = '';
 
+  // Busca número da proposta existente para regenerar HTML ao salvar
+  _ultimaPropostaHtml = null;
+  _editandoAprovNumero = null;
+  fetch('/api/aprovacoes/' + id + '/html').then(r => r.json()).then(d => {
+    if (d.html_proposta) {
+      a.html_proposta = d.html_proposta;
+      const m = d.html_proposta.match(/Nº\s*(\d+)/);
+      if (m) _editandoAprovNumero = m[1];
+    }
+  }).catch(() => {});
+
   // Libera o bloqueio e garante que os valores finais estão corretos
   _bloqueandoCalcTotal = false;
 
@@ -4019,7 +4042,11 @@ async function enviarAprovacao() {
     const ctTotal = cp + cm + taxaR; // custo total real (para referência)
     const _leadIdProp = document.getElementById('prop-lead-id-hidden')?.value?.trim() || null;
     const _criadoEm = document.getElementById('p-criado-em')?.value || null;
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _ultimaPropostaHtml || null, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp, criado_em: _criadoEm || null };
+    // Regenera HTML ao editar proposta existente (preserva o número original)
+    const _htmlParaSalvar = editandoAprovId && _editandoAprovNumero
+      ? _construirHtmlProposta(_editandoAprovNumero)
+      : (_ultimaPropostaHtml || null);
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _htmlParaSalvar, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp, criado_em: _criadoEm || null };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
