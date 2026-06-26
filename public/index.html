@@ -8044,7 +8044,7 @@ function initComissionamento() {
   // Mostrar config apenas para admin/gerente
   const adminWrap = document.getElementById('comiss-config-wrap');
   if (adminWrap && usuarioLogado && ['admin','gerente'].includes(usuarioLogado.role)) adminWrap.style.display = 'block';
-  carregarComissionamento().then(() => renderComissionamento());
+  Promise.all([carregarComissionamento(), carregarInstalacoes()]).then(() => renderComissionamento());
   atualizarAutoSyncStatus();
 }
 
@@ -8152,13 +8152,15 @@ function renderComissConfigTable() {
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#e65100">% Marketplace</th>
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#1565c0">% Loja Física</th>
         <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#1565c0">Meta LF (R$)</th>
+        <th style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#2e7d32;white-space:nowrap">R$/Instal.</th>
       </tr></thead><tbody>`;
     vends.forEach(v => {
       const vk = v.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-      const pctM    = comissaoConfig.find(x => x.vendedora === v && x.canal === 'marketplace')?.percentual || 0;
-      const pctL    = comissaoConfig.find(x => x.vendedora === v && x.canal === 'loja_fisica')?.percentual  || 0;
-      const metaLFV = comissaoMetas.find(m => m.tipo === 'lf:' + v && m.mes === mes)?.valor || 0;
-      const isMembro = comissaoConfig.some(x => x.vendedora === v && x.canal === 'membro' && x.percentual > 0);
+      const pctM       = comissaoConfig.find(x => x.vendedora === v && x.canal === 'marketplace')?.percentual || 0;
+      const pctL       = comissaoConfig.find(x => x.vendedora === v && x.canal === 'loja_fisica')?.percentual  || 0;
+      const valInstal  = comissaoConfig.find(x => x.vendedora === v && x.canal === 'instalacao')?.percentual   || 0;
+      const metaLFV    = comissaoMetas.find(m => m.tipo === 'lf:' + v && m.mes === mes)?.valor || 0;
+      const isMembro   = comissaoConfig.some(x => x.vendedora === v && x.canal === 'membro' && x.percentual > 0);
       html += `<tr>
         <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
         <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
@@ -8185,6 +8187,14 @@ function renderComissConfigTable() {
             <input type="number" min="0" step="100" value="${metaLFV||''}" id="cmetalf-${vk}"
               placeholder="0" style="width:80px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
             <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoMeta('lf:${v}','${mes}',document.getElementById('cmetalf-${vk}').value)">✓</button>
+          </div>
+        </td>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            <span style="font-size:12px;color:var(--text2)">R$</span>
+            <input type="number" min="0" step="10" value="${valInstal||''}" id="cpct-${vk}-instalacao"
+              placeholder="0" style="width:70px;text-align:center;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+            <button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarComissaoPct('${v}','instalacao')">✓</button>
           </div>
         </td>
       </tr>`;
@@ -8371,6 +8381,12 @@ function renderComissionamento() {
     const totalMarketplace = lista.filter(p => isMarketCanal(p.canal)).reduce((s,p) => s+(p.valor||0), 0);
     const lojaFisicaLista  = lista.filter(p => !isMarketCanal(p.canal));
     const membrosComiss = membrosVends;
+    // Instalações concluídas no período (checks.instalado === true)
+    const instsConcluidas = instalacoes.filter(i => {
+      const d = (i.data || '').slice(0,10);
+      return d >= de && d <= ate && i.checks && i.checks.instalado;
+    });
+    const instConclCount = instsConcluidas.length;
     const vendMap = {};
     membrosComiss.forEach(v => {
       const isGerente = gerenteNomesSet.has(v);
@@ -8380,10 +8396,12 @@ function renderComissionamento() {
       const mktBase      = mktPct > 0 ? totalMarketplace : 0;
       const mktComiss    = metaAtingidaMarket ? mktBase * (mktPct / 100) : 0;
       const lojaComiss   = metaAtingidaLFPorVend[v] ? lojaValor * (getComissaoPct(v, 'loja_fisica') / 100) : 0;
-      vendMap[v] = { marketplace: mktBase, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss };
+      const valorPorInstal = comissaoConfig.find(c => c.vendedora === v && c.canal === 'instalacao')?.percentual || 0;
+      const comissInstal   = valorPorInstal > 0 ? instConclCount * valorPorInstal : 0;
+      vendMap[v] = { marketplace: mktBase, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss, comissInstal, instConclCount: valorPorInstal > 0 ? instConclCount : 0, valorPorInstal };
     });
     const vendsOrdenados = Object.entries(vendMap)
-      .sort((a,b) => (b[1].comissMarket+b[1].comissLoja) - (a[1].comissMarket+a[1].comissLoja));
+      .sort((a,b) => (b[1].comissMarket+b[1].comissLoja+b[1].comissInstal) - (a[1].comissMarket+a[1].comissLoja+a[1].comissInstal));
     if (!vendsOrdenados.length) { vendEl.innerHTML = ''; }
     else {
       vendEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
@@ -8395,16 +8413,21 @@ function renderComissionamento() {
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#e65100;white-space:nowrap">Comissão MKT</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">🏪 Loja Física</th>
             <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#1565c0;white-space:nowrap">Comissão LF</th>
+            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);color:#2e7d32;white-space:nowrap">🔧 Instalações</th>
             <th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);color:var(--accent2);white-space:nowrap">Total comissão</th>
           </tr></thead>
           <tbody>${vendsOrdenados.map(([v,d]) => {
-            const totalComiss = d.comissMarket + d.comissLoja;
+            const totalComiss = d.comissMarket + d.comissLoja + d.comissInstal;
+            const instalCell = d.valorPorInstal > 0
+              ? `<span style="color:#2e7d32">${fmtR(d.comissInstal)}</span><br><span style="font-size:11px;color:var(--text2)">${d.instConclCount} × ${fmtR(d.valorPorInstal)}</span>`
+              : '<span style="color:var(--text2)">—</span>';
             return `<tr>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.marketplace ? fmtR(d.marketplace) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${d.comissMarket ? fmtR(d.comissMarket) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${d.comissLoja ? fmtR(d.comissLoja) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${instalCell}</td>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${totalComiss ? fmtR(totalComiss) : '<span style="color:var(--text2)">—</span>'}</td>
             </tr>`;
           }).join('')}</tbody>
