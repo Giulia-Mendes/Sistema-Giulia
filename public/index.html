@@ -8375,6 +8375,13 @@ function renderComissionamento() {
     }).join('');
   }
 
+  // Instalações concluídas no período — calculado aqui para uso em múltiplos blocos
+  const instsConcluidas = instalacoes.filter(i => {
+    const d = (i.data || '').slice(0,10);
+    return d >= de && d <= ate && i.checks && i.checks.instalado;
+  });
+  const instConclCount = instsConcluidas.length;
+
   // ── Comissão por vendedora ──
   const vendEl = document.getElementById('comiss-resumo-vend');
   if (vendEl) {
@@ -8384,12 +8391,6 @@ function renderComissionamento() {
     const totalMarketplace = lista.filter(p => isMarketCanal(p.canal)).reduce((s,p) => s+(p.valor||0), 0);
     const lojaFisicaLista  = lista.filter(p => !isMarketCanal(p.canal));
     const membrosComiss = membrosVends;
-    // Instalações concluídas no período (checks.instalado === true)
-    const instsConcluidas = instalacoes.filter(i => {
-      const d = (i.data || '').slice(0,10);
-      return d >= de && d <= ate && i.checks && i.checks.instalado;
-    });
-    const instConclCount = instsConcluidas.length;
     const vendMap = {};
     membrosComiss.forEach(v => {
       const isGerente = gerenteNomesSet.has(v);
