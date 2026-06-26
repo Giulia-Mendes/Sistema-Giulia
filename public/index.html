@@ -8379,7 +8379,7 @@ function renderComissionamento() {
   const instsConcluidas = instalacoes.filter(i => {
     const d = (i.data || '').slice(0,10);
     return d >= de && d <= ate && i.checks && i.checks.instalado;
-  });
+  }).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
   const instConclCount = instsConcluidas.length;
 
   // ── Comissão por vendedora ──
