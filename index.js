@@ -1386,14 +1386,18 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     const fetchDetalhe = async (id) => {
       const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
       let lastErr = '';
-      for (let tentativa = 0; tentativa < 3; tentativa++) {
+      for (let tentativa = 0; tentativa < 4; tentativa++) {
         try {
           const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
           const d = await r.json();
           if (d?.retorno?.pedido) return { ped: d, err: null };
           lastErr = JSON.stringify(d?.retorno || d).slice(0, 300);
-          if (tentativa < 2) await new Promise(r => setTimeout(r, 1000));
-        } catch(e) { lastErr = 'CATCH:' + e.message; if (tentativa < 2) await new Promise(r => setTimeout(r, 1000)); }
+          if (tentativa < 3) {
+            // Rate limit (codigo_erro=6): aguarda mais tempo antes de tentar novamente
+            const isRateLimit = d?.retorno?.codigo_erro === 6 || String(d?.retorno?.erros?.[0]?.erro || '').includes('Bloqueada');
+            await new Promise(r => setTimeout(r, isRateLimit ? 15000 : 2000));
+          }
+        } catch(e) { lastErr = 'CATCH:' + e.message; if (tentativa < 3) await new Promise(r => setTimeout(r, 2000)); }
       }
       return { ped: null, err: lastErr };
     };
@@ -1421,7 +1425,7 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
       const tinyId = String(listItem.id || '');
       if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 700));
     }
     const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
     if (tinyIdsAtivos.length > 0) {
