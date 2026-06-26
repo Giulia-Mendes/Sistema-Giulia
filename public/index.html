@@ -1025,6 +1025,9 @@ select option { background: var(--surface); color: var(--text); }
   <!-- Resumo por vendedora -->
   <div id="comiss-resumo-vend" style="margin-bottom:8px"></div>
 
+  <!-- Instalações concluídas no período -->
+  <div id="comiss-instal-concluidas" style="margin-bottom:8px"></div>
+
   <!-- Configurar percentuais (admin/gerente) -->
   <div id="comiss-config-wrap" style="margin-bottom:8px;display:none">
     <div class="card" style="padding:0;overflow:hidden">
@@ -8432,6 +8435,38 @@ function renderComissionamento() {
             </tr>`;
           }).join('')}</tbody>
         </table></div></div>`;
+    }
+  }
+
+  // ── Instalações concluídas no período ──
+  const instalEl = document.getElementById('comiss-instal-concluidas');
+  if (instalEl) {
+    if (!instsConcluidas.length) {
+      instalEl.innerHTML = '';
+    } else {
+      const fmtData = d => (d||'').slice(0,10).split('-').reverse().join('/');
+      instalEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
+        <div style="padding:10px 16px;background:var(--surface2,#f5f0eb);font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px">
+          <span>🔧 Instalações concluídas no período</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text2)">${instsConcluidas.length} instalação(ões)</span>
+        </div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="text-align:left;padding:7px 14px;border-bottom:1px solid var(--border);color:var(--text2)">Cliente</th>
+            <th style="text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Equipamento</th>
+            <th style="text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
+            <th style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Data</th>
+            <th style="text-align:right;padding:7px 14px;border-bottom:1px solid var(--border);color:#1565c0">Valor</th>
+          </tr></thead>
+          <tbody>${instsConcluidas.map(i => `<tr>
+            <td style="padding:7px 14px;border-bottom:1px solid var(--border);font-weight:500">${i.cliente||'—'}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.equip||'—'}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${i.vend||'—'}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;color:var(--text2)">${fmtData(i.data)}</td>
+            <td style="padding:7px 14px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${i.valor ? fmtR(i.valor) : '—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
     }
   }
 
