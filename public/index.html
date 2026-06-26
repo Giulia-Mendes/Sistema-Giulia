@@ -996,7 +996,10 @@ select option { background: var(--surface); color: var(--text); }
       <input type="checkbox" id="comiss-show-cancelados" onchange="renderComissionamento()" style="width:15px;height:15px;cursor:pointer">
       <label for="comiss-show-cancelados" style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Mostrar cancelados</label>
     </div>
-    <button class="btn btn-branco" style="font-size:12px;padding:5px 12px;margin-bottom:2px" onclick="abrirSyncMarketplace()">↓ Sincronizar ML/Shopee</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-branco" style="font-size:12px;padding:5px 12px" onclick="abrirSyncMarketplace()">↓ Sincronizar ML/Shopee</button>
+      <span id="auto-sync-status-label" style="font-size:11px;color:var(--text2)">Carregando...</span>
+    </div>
   </div>
 
   <!-- Modal sync marketplace -->
@@ -8042,6 +8045,23 @@ function initComissionamento() {
   const adminWrap = document.getElementById('comiss-config-wrap');
   if (adminWrap && usuarioLogado && ['admin','gerente'].includes(usuarioLogado.role)) adminWrap.style.display = 'block';
   carregarComissionamento().then(() => renderComissionamento());
+  atualizarAutoSyncStatus();
+}
+
+async function atualizarAutoSyncStatus() {
+  const lbl = document.getElementById('auto-sync-status-label');
+  if (!lbl) return;
+  try {
+    const r = await fetch('/api/tiny/auto-sync-status');
+    const d = await r.json();
+    const ref = d.lastRun || d.lastStoredRun;
+    if (!ref) { lbl.textContent = 'Sync automático: nunca executado'; return; }
+    if (d.status === 'running') { lbl.textContent = 'Sincronizando automaticamente...'; return; }
+    const diff = Math.round((Date.now() - new Date(ref).getTime()) / 60000);
+    const tempoStr = diff < 1 ? 'agora mesmo' : diff < 60 ? `há ${diff} min` : diff < 1440 ? `há ${Math.round(diff/60)}h` : `há ${Math.round(diff/1440)}d`;
+    const totalStr = d.total ? ` · ${d.total} pedidos` : '';
+    lbl.textContent = `Sync automático: ${tempoStr}${totalStr}`;
+  } catch(e) { lbl.textContent = ''; }
 }
 
 function abrirSyncMarketplace() {

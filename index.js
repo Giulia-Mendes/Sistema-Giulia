@@ -210,6 +210,8 @@ const DB_PATH = process.env.NODE_ENV === 'production'
   : 'capellato.db';
 const db = new Database(DB_PATH);
 const syncJobs = {};
+let autoSyncState = { lastRun: null, status: 'idle', total: 0, breakdown: [], erro: null };
+let autoSyncRunning = false;
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS usuarios (
@@ -1312,30 +1314,20 @@ app.get('/api/sync-status/:jobId', auth, (req, res) => {
   res.json(job);
 });
 
-app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
-  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
-  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
-  const { dataInicial, dataFinal } = req.body;
-  if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
-  const jobId = Date.now().toString();
-  syncJobs[jobId] = { status: 'running', progresso: 0, total: 0 };
-  res.json({ jobId });
-  // run async in background — no await, response already sent
-  (async () => {
+async function doSyncMarketplace(dataInicial, dataFinal, tokenValor, onProgress) {
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
-  const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  // Pre-fetch ecommerce store IDs from Tiny to reliably detect ML Fulfillment
+  const normSL = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   let mlFullIds = new Set(), shopeeIds = new Set();
   let debugLojas = { raw: null, mlFullIds: [], shopeeIds: [] };
   try {
-    const esb = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON' }).toString();
+    const esb = new URLSearchParams({ token: tokenValor, formato: 'JSON' }).toString();
     const esr = await fetch('https://api.tiny.com.br/api2/ecommerce.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: esb });
     const esd = await esr.json();
     debugLojas.raw = JSON.stringify(esd).slice(0, 3000);
     const lojas = esd?.retorno?.ecommerces || esd?.retorno?.lojas || [];
     (Array.isArray(lojas) ? lojas : []).forEach(l => {
       const loja = l.loja || l.ecommerce || l;
-      const nome = normS(String(loja.nome || loja.descricao || loja.nomeEcommerce || ''));
+      const nome = normSL(String(loja.nome || loja.descricao || loja.nomeEcommerce || ''));
       const id = String(loja.id || '');
       if (id) {
         if (nome.includes('fulfillment') || nome.includes('fulfilment') || nome.includes('livre full')) { mlFullIds.add(id); debugLojas.mlFullIds.push({ id, nome }); }
@@ -1343,17 +1335,14 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
       }
     });
   } catch(e) { debugLojas.raw = 'ERRO: ' + e.message; }
-  // IDs conhecidos do Tiny (confirmados via debug das amostras)
   const ML_FULL_EC_IDS = new Set(['8505']);
   const SHOPEE_EC_IDS  = new Set(['6063']);
   const detectCanal = (numEc, tags, ec, formaEnvio, nomeEc, ecId) => {
-    const feN = normS(formaEnvio || '').replace(/[\s_-]/g, '');
+    const feN = normSL(formaEnvio || '').replace(/[\s_-]/g, '');
     const ne = nomeEc || '';
-    // Shopee: numero tem letras, forma_envio/nomeEcommerce menciona shopee, OU ecId de loja Shopee
     if (/[a-z]/i.test(numEc) || feN.includes('shopee') || ne.includes('shopee') || SHOPEE_EC_IDS.has(ecId) || shopeeIds.has(ecId)) return 'shopee';
-    // ML Fulfillment: ecId hardcodado, OU nomeEcommerce/tags contém "fulfillment"
     if (ML_FULL_EC_IDS.has(ecId) || mlFullIds.has(ecId) || ne.includes('fulfillment') || ne.includes('fulfilment') || ne.includes('livre full') ||
-        tags.some(t => normS(t).includes('fulfillment') || normS(t).includes('fulfilment') || normS(t) === 'full')) return 'mercado_livre_fulfillment';
+        tags.some(t => normSL(t).includes('fulfillment') || normSL(t).includes('fulfilment') || normSL(t) === 'full')) return 'mercado_livre_fulfillment';
     return 'mercado_livre';
   };
   const stmt = db.prepare(`INSERT INTO ecommerce_pedidos (tiny_id,numero,numero_ecommerce,canal,cliente,valor,data,vendedora,situacao)
@@ -1362,83 +1351,163 @@ app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
     situacao=excluded.situacao, numero_ecommerce=excluded.numero_ecommerce,
     canal=excluded.canal,
     sincronizado_em=datetime('now','localtime')`);
+  const candidatos = [];
+  let pagina = 1, totalPags = 1;
+  while (pagina <= totalPags) {
+    const body = new URLSearchParams({ token: tokenValor, formato: 'JSON', dataInicial: toDDMMYYYY(dataInicial), dataFinal: toDDMMYYYY(dataFinal), pagina: String(pagina) }).toString();
+    const resp = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    const d = await resp.json();
+    if (d.retorno?.status !== 'OK') { if (pagina === 1) throw new Error(d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.'); break; }
+    totalPags = parseInt(d.retorno?.numero_paginas || '1');
+    (Array.isArray(d.retorno?.pedidos) ? d.retorno.pedidos : []).forEach(p => {
+      const item = p.pedido || p;
+      const numEc = String(item.numero_ecommerce || '').trim();
+      if (numEc) candidatos.push({ ...item, numEc, ecommerce: String(item.ecommerce || '') });
+    });
+    pagina++;
+    if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
+  }
+  let total = 0, nullPedCount = 0;
+  const ecIdContagem = {};
+  const debugAmostras = [];
+  const debugNullPeds = [];
+  const fetchDetalhe = async (id) => {
+    const b = new URLSearchParams({ token: tokenValor, formato: 'JSON', id: String(id) }).toString();
+    let lastErr = '';
+    for (let tentativa = 0; tentativa < 4; tentativa++) {
+      try {
+        const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+        const d = await r.json();
+        if (d?.retorno?.pedido) return { ped: d, err: null };
+        lastErr = JSON.stringify(d?.retorno || d).slice(0, 300);
+        if (tentativa < 3) {
+          const isRateLimit = d?.retorno?.codigo_erro === 6 || String(d?.retorno?.erros?.[0]?.erro || '').includes('Bloqueada');
+          await new Promise(r => setTimeout(r, isRateLimit ? 15000 : 2000));
+        }
+      } catch(e) { lastErr = 'CATCH:' + e.message; if (tentativa < 3) await new Promise(r => setTimeout(r, 2000)); }
+    }
+    return { ped: null, err: lastErr };
+  };
+  for (let i = 0; i < candidatos.length; i++) {
+    if (onProgress) onProgress(i + 1, candidatos.length);
+    const listItem = candidatos[i];
+    const { ped: dResult, err: dErr } = await fetchDetalhe(listItem.id);
+    const ped = dResult?.retorno?.pedido;
+    if (!ped) { nullPedCount++; if (debugNullPeds.length < 5) debugNullPeds.push({ id: listItem.id, numEc: listItem.numEc, err: dErr }); }
+    let tags = [];
+    if (ped) {
+      if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
+      else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
+    }
+    const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
+    const nomeEc = pedEcArr.map(e => normSL(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
+    const ecId = pedEcArr.map(e => typeof e === 'object' && e ? String(e.id || '') : '').filter(Boolean).join(' ');
+    const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc, ecId);
+    const ecIdKey = ecId || (ped ? 'sem_ecid' : 'null_ped');
+    ecIdContagem[ecIdKey] = (ecIdContagem[ecIdKey] || 0) + 1;
+    if (debugAmostras.length < 15) debugAmostras.push({ numEc: listItem.numEc, nomeEc, ecId, formaEnvio: ped?.forma_envio, tags, canal });
+    let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
+    if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
+    const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
+    const tinyId = String(listItem.id || '');
+    if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
+    await new Promise(r => setTimeout(r, 700));
+  }
+  const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
+  if (tinyIdsAtivos.length > 0) {
+    const ph = tinyIdsAtivos.map(() => '?').join(',');
+    db.prepare(`DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ? AND tiny_id NOT IN (${ph})`).run(dataInicial, dataFinal, ...tinyIdsAtivos);
+  } else {
+    db.prepare('DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
+  }
+  const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
+  return { total, breakdown, nullPedCount, ecIdContagem, debug: debugAmostras, debugNullPeds, debugLojas };
+}
+
+app.post('/api/tiny/sincronizar-marketplace', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+  const { dataInicial, dataFinal } = req.body;
+  if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
+  const jobId = Date.now().toString();
+  syncJobs[jobId] = { status: 'running', progresso: 0, total: 0 };
+  res.json({ jobId });
+  (async () => {
+    try {
+      const result = await doSyncMarketplace(dataInicial, dataFinal, tokenRow.valor, (progresso, total) => {
+        syncJobs[jobId].progresso = progresso;
+        syncJobs[jobId].total = total;
+      });
+      audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total: result.total });
+      syncJobs[jobId] = { status: 'done', sucesso: true, ...result };
+    } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
+  })();
+});
+
+async function runAutoSyncMarketplace() {
+  if (autoSyncRunning) { console.log('[AutoSync] Já rodando, pulando.'); return; }
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) { console.log('[AutoSync] Token Tiny não configurado.'); return; }
+  autoSyncRunning = true;
+  const startTime = new Date().toISOString();
+  autoSyncState = { lastRun: startTime, status: 'running', total: 0, breakdown: [], erro: null };
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const dataInicial = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const dataFinal = `${y}-${String(m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  console.log(`[AutoSync] Iniciando ${dataInicial} → ${dataFinal}`);
   try {
-    const candidatos = [];
+    const result = await doSyncMarketplace(dataInicial, dataFinal, tokenRow.valor, null);
+    autoSyncState = { lastRun: startTime, status: 'done', total: result.total, breakdown: result.breakdown, erro: null };
+    db.prepare("INSERT OR REPLACE INTO config(chave,valor) VALUES('auto_sync_last',?)").run(new Date().toISOString());
+    console.log(`[AutoSync] Concluído: ${result.total} pedidos`);
+  } catch(e) {
+    autoSyncState = { lastRun: startTime, status: 'error', total: 0, breakdown: [], erro: e.message };
+    console.error('[AutoSync] Erro:', e.message);
+  } finally { autoSyncRunning = false; }
+}
+
+async function runCancelStatusCheck() {
+  if (autoSyncRunning) return;
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return;
+  try {
+    const toDDMMYYYY = s => s.split('-').reverse().join('/');
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const dataInicial = `${y}-${String(m+1).padStart(2,'0')}-01`;
+    const lastDay = new Date(y, m+1, 0).getDate();
+    const dataFinal = `${y}-${String(m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    const tinyOrders = new Map();
     let pagina = 1, totalPags = 1;
     while (pagina <= totalPags) {
       const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', dataInicial: toDDMMYYYY(dataInicial), dataFinal: toDDMMYYYY(dataFinal), pagina: String(pagina) }).toString();
       const resp = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
       const d = await resp.json();
-      if (d.retorno?.status !== 'OK') { if (pagina === 1) { syncJobs[jobId] = { status: 'error', erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' }; return; } break; }
+      if (d.retorno?.status !== 'OK') break;
       totalPags = parseInt(d.retorno?.numero_paginas || '1');
       (Array.isArray(d.retorno?.pedidos) ? d.retorno.pedidos : []).forEach(p => {
         const item = p.pedido || p;
-        const numEc = String(item.numero_ecommerce || '').trim();
-        if (numEc) candidatos.push({ ...item, numEc, ecommerce: String(item.ecommerce || '') });
+        if (item.id) tinyOrders.set(String(item.id), item.situacao || '');
       });
       pagina++;
       if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
     }
-    let total = 0, nullPedCount = 0;
-    const ecIdContagem = {};
-    const debugAmostras = [];
-    const debugNullPeds = [];
-    const fetchDetalhe = async (id) => {
-      const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(id) }).toString();
-      let lastErr = '';
-      for (let tentativa = 0; tentativa < 4; tentativa++) {
-        try {
-          const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
-          const d = await r.json();
-          if (d?.retorno?.pedido) return { ped: d, err: null };
-          lastErr = JSON.stringify(d?.retorno || d).slice(0, 300);
-          if (tentativa < 3) {
-            // Rate limit (codigo_erro=6): aguarda mais tempo antes de tentar novamente
-            const isRateLimit = d?.retorno?.codigo_erro === 6 || String(d?.retorno?.erros?.[0]?.erro || '').includes('Bloqueada');
-            await new Promise(r => setTimeout(r, isRateLimit ? 15000 : 2000));
-          }
-        } catch(e) { lastErr = 'CATCH:' + e.message; if (tentativa < 3) await new Promise(r => setTimeout(r, 2000)); }
-      }
-      return { ped: null, err: lastErr };
-    };
-    syncJobs[jobId].total = candidatos.length;
-    for (let i = 0; i < candidatos.length; i++) {
-      syncJobs[jobId].progresso = i + 1;
-      const listItem = candidatos[i];
-      const { ped: dResult, err: dErr } = await fetchDetalhe(listItem.id);
-      const ped = dResult?.retorno?.pedido;
-      if (!ped) { nullPedCount++; if (debugNullPeds.length < 5) debugNullPeds.push({ id: listItem.id, numEc: listItem.numEc, err: dErr }); }
-      let tags = [];
-      if (ped) {
-        if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
-        else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
-      }
-      const pedEcArr = Array.isArray(ped?.ecommerce) ? ped.ecommerce : (ped?.ecommerce ? [ped.ecommerce] : []);
-      const nomeEc = pedEcArr.map(e => normS(typeof e === 'object' && e ? (e.nomeEcommerce || '') : '')).join(' ');
-      const ecId = pedEcArr.map(e => typeof e === 'object' && e ? String(e.id || '') : '').filter(Boolean).join(' ');
-      const canal = detectCanal(listItem.numEc, tags, listItem.ecommerce, ped?.forma_envio, nomeEc, ecId);
-      const ecIdKey = ecId || (ped ? 'sem_ecid' : 'null_ped');
-      ecIdContagem[ecIdKey] = (ecIdContagem[ecIdKey] || 0) + 1;
-      if (debugAmostras.length < 15) debugAmostras.push({ numEc: listItem.numEc, nomeEc, ecId, formaEnvio: ped?.forma_envio, tags, canal });
-      let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
-      if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
-      const valor = parseFloat(String(listItem.valor || ped?.valor || '0').replace(',', '.')) || 0;
-      const tinyId = String(listItem.id || '');
-      if (tinyId) { stmt.run(tinyId, String(listItem.numero || ped?.numero || ''), listItem.numEc, canal, listItem.nome || ped?.nome || '', valor, data, '', listItem.situacao || ped?.situacao || ''); total++; }
-      await new Promise(r => setTimeout(r, 700));
-    }
-    const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
-    if (tinyIdsAtivos.length > 0) {
-      const ph = tinyIdsAtivos.map(() => '?').join(',');
-      db.prepare(`DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ? AND tiny_id NOT IN (${ph})`).run(dataInicial, dataFinal, ...tinyIdsAtivos);
-    } else {
-      db.prepare('DELETE FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
-    }
-    const breakdown = db.prepare(`SELECT canal, COUNT(*) as cnt FROM ecommerce_pedidos WHERE data >= ? AND data <= ? GROUP BY canal`).all(dataInicial, dataFinal);
-    audit(req, 'SYNC_MARKETPLACE', 'ecommerce_pedidos', 0, null, { dataInicial, dataFinal, total });
-    syncJobs[jobId] = { status: 'done', sucesso: true, total, breakdown, nullPedCount, ecIdContagem, debug: debugAmostras, debugNullPeds, debugLojas };
-  } catch(e) { syncJobs[jobId] = { status: 'error', erro: 'Erro: ' + e.message }; }
-  })();
+    const dbOrders = db.prepare('SELECT tiny_id, situacao FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').all(dataInicial, dataFinal);
+    const updateStmt = db.prepare("UPDATE ecommerce_pedidos SET situacao=?, sincronizado_em=datetime('now','localtime') WHERE tiny_id=?");
+    let updated = 0;
+    dbOrders.forEach(row => {
+      const tinySit = tinyOrders.get(row.tiny_id);
+      if (tinySit !== undefined && tinySit !== row.situacao) { updateStmt.run(tinySit, row.tiny_id); updated++; }
+    });
+    if (updated > 0) console.log(`[CancelCheck] Atualizadas ${updated} situações`);
+  } catch(e) { console.error('[CancelCheck] Erro:', e.message); }
+}
+
+app.get('/api/tiny/auto-sync-status', auth, (req, res) => {
+  const lastStored = db.prepare("SELECT valor FROM config WHERE chave='auto_sync_last'").get();
+  res.json({ ...autoSyncState, lastStoredRun: lastStored?.valor || null });
 });
 
 app.get('/api/ecommerce/pedidos', auth, (req, res) => {
@@ -1959,5 +2028,12 @@ process.on('uncaughtException', err => {
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
 });
+
+// Auto-sync marketplace: roda na inicialização (após 60s) e a cada 4 horas
+setTimeout(runAutoSyncMarketplace, 60 * 1000);
+setInterval(runAutoSyncMarketplace, 4 * 60 * 60 * 1000);
+// Verificação de cancelados: roda 30s após inicialização e a cada 1 hora
+setTimeout(runCancelStatusCheck, 30 * 1000);
+setInterval(runCancelStatusCheck, 60 * 60 * 1000);
 
 app.listen(PORT, () => console.log('Capellato rodando na porta', PORT));
