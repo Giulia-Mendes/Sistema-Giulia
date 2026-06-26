@@ -7374,26 +7374,25 @@ function orcmatImprimir(tipo) {
   const denom = 1 - (margemMat + impostoMat + taxaCartao) / 100;
   const calcVenda = custo => denom > 0.01 ? custo / denom : custo;
 
-  const linhasHtml = (o.itens||[]).map(it => {
-    const precoUnit  = interno ? it.preco_unit  : calcVenda(it.preco_unit);
-    const precoTotal = interno ? it.preco_total : calcVenda(it.preco_unit) * (it.quantidade || 1);
-    return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:13px">${it.nome}${it.sku ? `<br><span style="font-size:11px;color:#888">SKU: ${it.sku}</span>` : ''}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.unidade||'UN'}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.quantidade}</td>
-      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px">${fmtR(precoUnit)}</td>` : ''}
-      <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px;font-weight:600">${fmtR(precoTotal)}</td>
-      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:12px;color:#888">${it.estoque_tiny||'—'}</td>` : ''}
-      ${interno ? `<td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:12px;color:#888">${it.obs||''}</td>` : ''}
-    </tr>`;
-  }).join('');
+  const linhasHtml = interno
+    ? (o.itens||[]).map(it => {
+        return `<tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:13px">${it.nome}${it.sku ? `<br><span style="font-size:11px;color:#888">SKU: ${it.sku}</span>` : ''}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.unidade||'UN'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.quantidade}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px">${fmtR(it.preco_unit)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:right;font-size:13px;font-weight:600">${fmtR(it.preco_total)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:12px;color:#888">${it.estoque_tiny||'—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:12px;color:#888">${it.obs||''}</td>
+        </tr>`;
+      }).join('')
+    : (o.itens||[]).map(it => `<tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;font-size:13px">${it.nome}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e8e6e0;text-align:center;font-size:13px">${it.quantidade}</td>
+      </tr>`).join('');
 
-  const totalMostrado = interno
-    ? o.valor_total
-    : (o.itens||[]).reduce((s, it) => s + calcVenda(it.preco_unit) * (it.quantidade || 1), 0);
-
-  const thInterno = interno ? '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Preço unit.</th><th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Estoque</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Obs</th>' : '';
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento de Materiais — ${cliente}</title>
+  const html = interno
+    ? `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento de Materiais — ${cliente}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:30px;color:#1a1a1a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse}@media print{@page{margin:20mm}button{display:none!important}}</style>
   </head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
@@ -7405,10 +7404,24 @@ function orcmatImprimir(tipo) {
     <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Material</th>
     <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Un</th>
     <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Qtd</th>
-    ${thInterno}
+    <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Preço unit.</th>
     <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Total</th>
+    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Estoque</th>
+    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Obs</th>
   </tr></thead><tbody>${linhasHtml}</tbody></table>
-  <div style="text-align:right;padding:14px 10px 0;font-size:20px;font-weight:700">Total: ${fmtR(totalMostrado)}</div>
+  <div style="text-align:right;padding:14px 10px 0;font-size:20px;font-weight:700">Total: ${fmtR(o.valor_total)}</div>
+  <script>window.print();<\/script></body></html>`
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista de Materiais — ${cliente}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:30px;color:#1a1a1a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse}@media print{@page{margin:20mm}button{display:none!important}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+    <div><h1>Lista de Materiais</h1><div style="font-size:14px;color:#666;margin-top:4px">Cliente: <strong>${cliente}</strong></div></div>
+    <div style="text-align:right;font-size:13px;color:#666">Data: ${dataFmt}${o.criado_por?`<br>Técnico: ${o.criado_por}`:''}</div>
+  </div>
+  <table><thead><tr style="background:#f5f4f0">
+    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Material</th>
+    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Quantidade</th>
+  </tr></thead><tbody>${linhasHtml}</tbody></table>
   <script>window.print();<\/script></body></html>`;
   const w = window.open('', '_blank');
   w.document.write(html);
