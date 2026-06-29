@@ -385,7 +385,7 @@ const DEFAULT_ROLE_PAGES = {
   gerente:  ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','orcmat','kommo','representacao','comissionamento'],
   vendedor: ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:  ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
-  user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
+  user:     ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar','comissionamento'],
   representante: ['representacao'],
 };
 
@@ -400,7 +400,13 @@ app.get('/api/role-permissions', auth, (req, res) => {
     // Roles sem config salva usam os defaults.
     const result = {};
     for (const role of Object.keys(DEFAULT_ROLE_PAGES)) {
-      result[role] = saved[role] ? [...saved[role]] : [...DEFAULT_ROLE_PAGES[role]];
+      if (saved[role]) {
+        // Merge: mantém o que foi salvo + adiciona páginas novas do default que não existiam quando foi salvo
+        const extras = DEFAULT_ROLE_PAGES[role].filter(p => !saved[role].includes(p));
+        result[role] = ALL_SYSTEM_PAGES.filter(p => saved[role].includes(p) || extras.includes(p));
+      } else {
+        result[role] = [...DEFAULT_ROLE_PAGES[role]];
+      }
       // Admin sempre tem as páginas obrigatórias (dashboard, parâmetros, usuários, auditoria)
       if (role === 'admin') {
         for (const p of ADMIN_LOCKED) { if (!result[role].includes(p)) result[role].push(p); }
