@@ -8424,8 +8424,8 @@ function renderComissionamento() {
       const lojaValor    = lojaFiltrada.reduce((s,p) => s+(p.valor||0), 0);
       const mktPct       = getComissaoPct(v, 'mercado_livre');
       const mktBase      = mktPct > 0 ? totalMarketplace : 0;
-      const mktComiss    = mktBase * (mktPct / 100);
-      const lojaComiss   = lojaValor * (getComissaoPct(v, 'loja_fisica') / 100);
+      const mktComiss    = metaAtingidaMarket ? mktBase * (mktPct / 100) : 0;
+      const lojaComiss   = metaAtingidaLFPorVend[v] ? lojaValor * (getComissaoPct(v, 'loja_fisica') / 100) : 0;
       const valorPorInstal = comissaoConfig.find(c => c.vendedora === v && c.canal === 'instalacao')?.percentual || 0;
       const comissInstal   = valorPorInstal > 0 ? instConclCount * valorPorInstal : 0;
       vendMap[v] = { marketplace: mktBase, loja_fisica: lojaValor, comissMarket: mktComiss, comissLoja: lojaComiss, comissInstal, instConclCount: valorPorInstal > 0 ? instConclCount : 0, valorPorInstal };
@@ -8506,7 +8506,8 @@ function renderComissionamento() {
     const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
     const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
     const pct = getComissaoPct(p.vendedora, p.canal);
-    const comissVal = (p.valor||0) * (pct/100);
+    const metaOk = isMarketCanal(p.canal) ? metaAtingidaMarket : (metaAtingidaLFPorVend[p.vendedora] || false);
+    const comissVal = metaOk ? (p.valor||0) * (pct/100) : 0;
     const isEcomm = p.canal !== 'loja_fisica';
     return `<div class="card" style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
