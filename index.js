@@ -456,6 +456,9 @@ app.put('/api/parametros', auth, adminOnly, (req, res) => {
 app.get('/api/vendedoras', auth, (req, res) => {
   res.json(db.prepare("SELECT id,nome FROM usuarios WHERE role='vendedor' AND ativo=1 ORDER BY nome").all());
 });
+app.get('/api/comissao/supervisores', auth, (req, res) => {
+  res.json(db.prepare("SELECT nome FROM usuarios WHERE role IN ('admin','gerente') AND ativo=1 ORDER BY nome").all().map(r => r.nome));
+});
 app.get('/api/usuarios', auth, adminOnly, (req, res) => {
   res.json(db.prepare('SELECT id,nome,login,role,ativo,criado_em FROM usuarios ORDER BY nome').all());
 });

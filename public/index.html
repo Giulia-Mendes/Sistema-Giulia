@@ -8016,6 +8016,7 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
 let ecommercePedidos = [];
 let comissaoConfig = [];
 let comissaoMetas = [];
+let comissaoSupervisores = [];
 let comissaoNomesConfig = [];
 let allUsers = [];
 let comissVendExcl = new Set();
@@ -8024,15 +8025,17 @@ const isMarketCanal = c => ['mercado_livre','mercado_livre_fulfillment','shopee'
 
 async function carregarComissionamento() {
   try {
-    const [r1, r2, r3] = await Promise.all([
+    const [r1, r2, r3, r4] = await Promise.all([
       fetch('/api/ecommerce/pedidos').then(r => r.json()),
       fetch('/api/comissao/config').then(r => r.json()),
       fetch('/api/comissao/metas').then(r => r.json()),
+      fetch('/api/comissao/supervisores').then(r => r.json()),
     ]);
     ecommercePedidos = r1;
     comissaoConfig = r2;
     comissaoMetas = r3;
-  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; }
+    comissaoSupervisores = r4;
+  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; comissaoSupervisores = []; }
   try {
     allUsers = await fetch('/api/usuarios').then(r => r.ok ? r.json() : []);
   } catch(e) { allUsers = []; }
@@ -8295,7 +8298,7 @@ function renderComissionamento() {
   const totalLojaFGlobal  = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica').reduce((s,p) => s+(p.valor||0), 0);
   const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
   // Meta de loja física é individual por vendedora
-  const gerenteNomesSet = new Set(allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome));
+  const gerenteNomesSet = new Set(comissaoSupervisores);
   // Exibe quem está marcado como membro — derivado direto do comissaoConfig (independe de allUsers)
   const membrosVends = comissaoConfig
     .filter(c => c.canal === 'membro' && c.percentual > 0)
