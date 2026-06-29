@@ -1729,7 +1729,9 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
       return res.status(503).json({ erro: 'Kommo não configurado no servidor (variáveis ausentes)' });
     }
     const { status, body } = await kommoGet(`/leads/${req.params.id}?with=contacts`);
-    if (status !== 200) return res.status(status).json({ erro: 'Lead não encontrado no Kommo' });
+    if (status === 401) return res.status(401).json({ erro: 'Token Kommo inválido ou expirado (401)' });
+    if (status === 404) return res.status(404).json({ erro: 'Lead #' + req.params.id + ' não encontrado no Kommo' });
+    if (status !== 200) return res.status(status).json({ erro: 'Kommo retornou erro ' + status });
 
     const lead = body;
     // Prioridade: nome do CONTATO (pessoa real) > nome do lead (pode ser "Lead #XXXXX")
