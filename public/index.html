@@ -4975,7 +4975,7 @@ let rolePages = {
   gerente:       ['dashboard','visita','calendario','proposta','aprovacao','pedidos','instalacao','financeiro','fechamentos','meta','calculadora','sincronizar','auditoria','kommo','representacao','comissionamento'],
   vendedor:      ['dashboard','visita','calendario','proposta','aprovacao','pedidos','meta','calculadora','sincronizar','orcmat','kommo'],
   tecnico:       ['dashboard','visita','calendario','instalacao','financeiro','calculadora','sincronizar','orcmat'],
-  user:          ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar'],
+  user:          ['dashboard','visita','calendario','proposta','aprovacao','calculadora','sincronizar','comissionamento'],
   representante: ['representacao'],
 };
 const ROLE_LABEL = { admin:'👑 Administrador', gerente:'🏆 Gerente', vendedor:'💼 Vendedor', tecnico:'🔧 Técnico', user:'👤 Usuário', representante:'🤝 Representante' };
@@ -4989,7 +4989,12 @@ async function carregarPermissoes() {
     // Aplica o que está salvo no banco — sem auto-salvar nunca
     // Páginas novas (não salvas ainda) ficam visíveis na tela de permissões para o admin configurar
     for (const role of ['admin','gerente','vendedor','tecnico','user','representante']) {
-      if (salvo[role]) rolePages[role] = salvo[role];
+      if (salvo[role]) {
+        // Inclui páginas novas do código que o admin já tem por padrão
+        const defaults = rolePages[role] || [];
+        const extras = defaults.filter(p => !salvo[role].includes(p));
+        rolePages[role] = ALL_PAGES.filter(p => salvo[role].includes(p) || extras.includes(p));
+      }
     }
   } catch(e) {}
 }
