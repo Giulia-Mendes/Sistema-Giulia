@@ -8296,9 +8296,11 @@ function renderComissionamento() {
   const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
   // Meta de loja física é individual por vendedora
   const gerenteNomesSet = new Set(allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome));
-  // Só exibe quem está explicitamente marcado como membro (canal='membro') — inclusive gerentes
-  const membrosVends = (comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras())
-    .filter(v => comissaoConfig.some(c => c.vendedora === v && c.canal === 'membro' && c.percentual > 0));
+  // Exibe quem está marcado como membro — derivado direto do comissaoConfig (independe de allUsers)
+  const membrosVends = comissaoConfig
+    .filter(c => c.canal === 'membro' && c.percentual > 0)
+    .map(c => c.vendedora)
+    .sort();
   const lojaFisicaTodos = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica');
   const metaLFPorVend = {}, totalLFPorVend = {}, metaAtingidaLFPorVend = {};
   membrosVends.forEach(v => {
