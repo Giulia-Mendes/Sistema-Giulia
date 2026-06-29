@@ -8024,19 +8024,20 @@ const isMarketCanal = c => ['mercado_livre','mercado_livre_fulfillment','shopee'
 
 async function carregarComissionamento() {
   try {
-    const [r1, r2, r3, r4] = await Promise.all([
+    const [r1, r2, r3] = await Promise.all([
       fetch('/api/ecommerce/pedidos').then(r => r.json()),
       fetch('/api/comissao/config').then(r => r.json()),
       fetch('/api/comissao/metas').then(r => r.json()),
-      fetch('/api/usuarios').then(r => r.json())
     ]);
     ecommercePedidos = r1;
     comissaoConfig = r2;
     comissaoMetas = r3;
-    allUsers = r4 || [];
-    const admins = allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome);
-    comissaoNomesConfig = [...new Set([...getVendedoras(), ...admins])].sort();
-  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; comissaoNomesConfig = []; allUsers = []; }
+  } catch(e) { ecommercePedidos = []; comissaoConfig = []; comissaoMetas = []; }
+  try {
+    allUsers = await fetch('/api/usuarios').then(r => r.ok ? r.json() : []);
+  } catch(e) { allUsers = []; }
+  const admins = allUsers.filter(u => ['admin','gerente'].includes(u.role) && u.ativo).map(u => u.nome);
+  comissaoNomesConfig = [...new Set([...getVendedoras(), ...admins])].sort();
 }
 
 function getComissaoPct(vendedora, canal) {
