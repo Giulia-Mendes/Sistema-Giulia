@@ -1946,6 +1946,7 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     );
     if (sTalks !== 200) return res.status(sTalks).json({ erro: 'Erro ao buscar talks Kommo' });
     const talks = talksBody._embedded?.talks || [];
+    if (talks.length > 0) console.log('[Kommo debug] talk sample:', JSON.stringify(talks[0]).slice(0, 400));
 
     // Agrupa por lead: guarda o talk mais antigo por lead
     const leadTalkMap = {}; // leadId → { talk_id, created_at, contact_id }
@@ -1953,8 +1954,9 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     for (const t of talks) {
       if (!t.entity_id || t.entity_type !== 'lead') continue;
       const lid = t.entity_id;
+      const talkId = t.id || t.talk_id; // Kommo usa t.id
       if (!leadTalkMap[lid] || t.created_at < leadTalkMap[lid].created_at) {
-        leadTalkMap[lid] = { talk_id: t.talk_id, created_at: t.created_at, contact_id: t.contact_id };
+        leadTalkMap[lid] = { talk_id: talkId, created_at: t.created_at, contact_id: t.contact_id };
       }
       if (t.contact_id) contactIds.add(t.contact_id);
     }
@@ -1996,16 +1998,16 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     // 4. Busca primeira mensagem de cada talk (texto enviado pelo cliente)
     const talkMsgs = {};
     const talkIds = [...new Set(Object.values(leadTalkMap).map(t => t.talk_id).filter(Boolean))];
-    await Promise.all(talkIds.map(async tid => {
+    await Promise.all(talkIds.slice(0, 20).map(async tid => {
       try {
         const { status: sM, body: mBody } = await kommoGet(`/talks/${tid}/messages?limit=50`);
+        console.log(`[Kommo debug] talk ${tid} msgs status=${sM} sample=`, JSON.stringify(mBody).slice(0, 300));
         if (sM === 200) {
           const msgs = mBody._embedded?.messages || [];
-          // Primeira mensagem recebida (direction=in) = do cliente
           const primeira = msgs.find(m => m.direction === 'in') || msgs[0];
           if (primeira) talkMsgs[tid] = primeira.content?.text || primeira.text || '';
         }
-      } catch {}
+      } catch(e) { console.log(`[Kommo debug] talk ${tid} erro:`, e.message); }
     }));
 
     // 5. Monta resultado
