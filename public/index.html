@@ -3486,6 +3486,17 @@ async function abrirEditarAprov(id, e) {
   if (!produtosAdicionais.length) {
     const equipPrice = (a.valor || 0) - (a.mat_prop || 0);
     produtosAdicionais = a.equip ? [{ nome: a.equip, sku: '', qtd: 1, custo: a.custo_prod || 0, precoUn: Math.max(equipPrice, 0) }] : [];
+  } else {
+    // Distribui custo total proporcionalmente pelo preço de venda de cada item
+    const totalCusto = a.custo_prod || a.custo || 0;
+    const totalPreco = produtosAdicionais.reduce((s, p) => s + p.precoUn * p.qtd, 0);
+    if (totalCusto > 0 && totalPreco > 0) {
+      produtosAdicionais = produtosAdicionais.map(p => {
+        const ratio = (p.precoUn * p.qtd) / totalPreco;
+        const custoTotal = totalCusto * ratio;
+        return { ...p, custo: custoTotal, custoUn: p.qtd > 0 ? custoTotal / p.qtd : 0 };
+      });
+    }
   }
   // Restaura desconto
   document.getElementById('p-desc-tipo').value = _descTipoEdit;
