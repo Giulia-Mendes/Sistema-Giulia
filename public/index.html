@@ -3509,14 +3509,15 @@ async function abrirEditarAprov(id, e) {
   const pagKey = Object.entries(TAXAS).find(([k, v]) => v.label === a.pag)?.[0] || 'pix';
   document.getElementById('p-pag').value = (pagKey === 'bol_parc' || pagKey === 'bol_desc') ? 'boleto' : pagKey;
 
-  // Modo automático — texto regenera corretamente dos itens parseados
-  propModoEdit = false;
+  // Preserva o texto salvo — não regenera ao editar proposta existente
+  propModoEdit = true;
   const prev = document.getElementById('prop-preview');
   const ed = document.getElementById('prop-edit');
   const btnEdit = document.getElementById('btn-editar-prop');
-  prev.style.display = '';
-  ed.style.display = 'none';
-  if (btnEdit) btnEdit.textContent = '✏️ Editar';
+  if (ed) ed.value = a.texto || '';
+  prev.style.display = 'none';
+  if (ed) ed.style.display = '';
+  if (btnEdit) btnEdit.textContent = '↺ Auto';
 
   // Atualiza botão de envio
   document.getElementById('btn-enviar-aprov').textContent = 'Salvar alterações';
