@@ -1944,7 +1944,9 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     const { status: sTalks, body: talksBody } = await kommoGet(
       `/talks?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
     );
-    if (sTalks !== 200) return res.status(sTalks).json({ erro: 'Erro ao buscar talks Kommo' });
+    console.log('[Kommo debug] talks status=', sTalks, 'body=', JSON.stringify(talksBody).slice(0, 300));
+    if (sTalks === 401) return res.status(401).json({ erro: 'Token Kommo inválido ou expirado (401) — atualize em Railway' });
+    if (sTalks !== 200) return res.status(sTalks).json({ erro: `Erro ao buscar talks Kommo (status ${sTalks})` });
     const talks = talksBody._embedded?.talks || [];
     if (talks.length > 0) console.log('[Kommo debug] talk sample:', JSON.stringify(talks[0]).slice(0, 400));
 
