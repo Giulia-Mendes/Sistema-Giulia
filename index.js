@@ -1993,31 +1993,39 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       } catch {}
     }
 
-    // 4. Monta resultado
+    // 4. Busca primeira mensagem de cada talk (texto enviado pelo cliente)
+    const talkMsgs = {};
+    const talkIds = [...new Set(Object.values(leadTalkMap).map(t => t.talk_id).filter(Boolean))];
+    await Promise.all(talkIds.map(async tid => {
+      try {
+        const { status: sM, body: mBody } = await kommoGet(`/talks/${tid}/messages?limit=50`);
+        if (sM === 200) {
+          const msgs = mBody._embedded?.messages || [];
+          // Primeira mensagem recebida (direction=in) = do cliente
+          const primeira = msgs.find(m => m.direction === 'in') || msgs[0];
+          if (primeira) talkMsgs[tid] = primeira.content?.text || primeira.text || '';
+        }
+      } catch {}
+    }));
+
+    // 5. Monta resultado
     const resultado = [];
     for (const [lidStr, tkInfo] of Object.entries(leadTalkMap)) {
       const lid = parseInt(lidStr);
       const lead = leadsById[lid];
-      // Nome: tenta contato do talk, depois contato do lead, depois nome do lead
       const ctTalk = tkInfo.contact_id ? contatosTel[tkInfo.contact_id] : null;
       const ctLead = lead?._embedded?.contacts?.[0];
       const ctLeadInfo = ctLead ? contatosTel[ctLead.id] : null;
       const nome = ctTalk?.nome || ctLeadInfo?.nome || lead?.name || `Lead #${lid}`;
       const tel  = ctTalk?.tel  || ctLeadInfo?.tel  || '';
-
-      // Campo "Produto" se existir como custom field no Kommo
-      const produtoField = lead?.custom_fields_values?.find(f =>
-        f.field_name?.toLowerCase().includes('produto') ||
-        f.field_name?.toLowerCase().includes('model')
-      );
-      const produto = produtoField?.values?.[0]?.value || '';
+      const textoPrimeira = talkMsgs[tkInfo.talk_id] || '';
 
       resultado.push({
         lead_id: lid,
         nome,
         tel,
         primeiro_contato: tkInfo.created_at,
-        texto_primeira: produto, // usa campo Produto se existir; '' se não existir
+        texto_primeira: textoPrimeira,
         url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${lid}`
       });
     }
