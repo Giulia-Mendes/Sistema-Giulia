@@ -8032,6 +8032,18 @@ function _construirHtmlPropostaRep(p) {
   const nItens = pvProd > 0 ? (matP > 0 ? 2 : 1) : 0;
   const textoEsc = (p.prop_texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const tempAlvo = p.temperatura_alvo ? '<tr><th style="border:1px solid #ccc;padding:6px 12px;font-weight:bold;background:#f3f3f3;width:50%;text-align:left">Temperatura alvo do aquecimento</th><td style="border:1px solid #ccc;padding:6px 12px">'+p.temperatura_alvo+'°C</td></tr>' : '';
+  const anexos = (() => { try { return JSON.parse(p.prop_anexos||'[]'); } catch(e) { return []; } })();
+  const anexosHtml = anexos.length ? (() => {
+    const imgs = anexos.filter(a => a.tipo && a.tipo.startsWith('image/'));
+    const docs = anexos.filter(a => !a.tipo || !a.tipo.startsWith('image/'));
+    let h = '<div style="margin-top:18px"><div style="font-weight:bold;font-size:11px;margin-bottom:8px">Anexos</div>';
+    if (imgs.length) h += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'
+      + imgs.map(a => '<a href="'+a.dados+'" download="'+a.nome+'" style="display:block;border:1px solid #ccc;border-radius:4px;overflow:hidden"><img src="'+a.dados+'" style="max-width:220px;max-height:160px;display:block"></a>').join('') + '</div>';
+    if (docs.length) h += '<ul style="padding-left:16px">'
+      + docs.map(a => '<li><a href="'+a.dados+'" download="'+a.nome+'" style="color:#1a1a1a">'+a.nome+'</a></li>').join('') + '</ul>';
+    h += '</div>';
+    return h;
+  })() : '';
   const printBtn = '<but'+'ton onclick="window.print()" style="position:fixed;top:16px;right:16px;background:#333;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,.2)">Imprimir / Salvar PDF</but'+'ton>';
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
     + '<title>Proposta Comercial — '+(p.cliente||'')+'</title>'
@@ -8081,6 +8093,7 @@ function _construirHtmlPropostaRep(p) {
       + '<tr><th style="border:1px solid #ccc;padding:6px 12px;font-weight:bold;background:#f3f3f3;width:50%;text-align:left">Forma de pagamento</th><td style="border:1px solid #ccc;padding:6px 12px">'+p.pag+'</td></tr>'
       + tempAlvo
       + '</tbody></table>' : '')
+    + anexosHtml
     + '<div class="sig">Atenciosamente,<br>Departamento de vendas — Capellato do Brasil</div>'
     + '</body></html>';
 }
