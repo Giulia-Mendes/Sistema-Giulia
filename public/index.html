@@ -3090,18 +3090,26 @@ function setFiltroAprov(f) {
   renderAprovacao();
 }
 function renderAprovacao() {
-  const pend = aprovacoes.filter(a => a.status === 'pendente');
-  const aprov = aprovacoes.filter(a => a.status === 'aprovado');
+  // Filtros de data e busca (afetam métricas + lista)
+  const qA = (document.getElementById('busca-aprov')?.value || '').toLowerCase().trim();
+  const mesAprov = document.getElementById('filtro-mes-aprov')?.value || '';
+  let base = aprovacoes;
+  if (mesAprov) base = base.filter(a => (a.criado_em || '').startsWith(mesAprov));
+  if (qA) base = base.filter(a => [a.cliente, a.vendedora, a.lead_id, a.equip].some(v => (v||'').toLowerCase().includes(qA)));
+
+  // Contagens por status dentro da base filtrada
+  const pend  = base.filter(a => a.status === 'pendente');
+  const aprov = base.filter(a => a.status === 'aprovado');
+  const objec = base.filter(a => a.status === 'objecao');
   document.getElementById('ap-total').textContent = pend.length;
-  document.getElementById('ap-objec').textContent = aprovacoes.filter(a => a.status === 'objecao').length;
+  document.getElementById('ap-objec').textContent = objec.length;
   document.getElementById('ap-ok').textContent = aprov.length;
   document.getElementById('ap-valor').textContent = 'R$ ' + pend.reduce((s,a) => s+a.valor, 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Aprovadas — faturamentos, lucros e margens detalhados
+  // Aprovadas — faturamentos, lucros e margens (da base filtrada)
   const totalValorAprov = aprov.reduce((s,a) => s + (a.valor||0), 0);
   const ticketMedio = aprov.length > 0 ? totalValorAprov / aprov.length : 0;
   const _fmtR = v => v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
   const _fmtC = (el, m) => { if (!el) return; if (m !== null) { el.textContent = (m*100).toFixed(1).replace('.',',')+'%'; el.style.color = m>=0.35?'var(--mineral-txt)':m>=0.25?'var(--bronze-txt)':'var(--terra-txt)'; } else { el.textContent='—'; el.style.color=''; } };
-  // Somas
   let _apFatProd=0, _apFatMat=0, _apLucroProd=0, _apLucroMat=0, _wProd=0, _wMat=0, _wComb=0;
   aprov.forEach(a => {
     const taxa = _taxaFromPagLabel(a.pag||'');
@@ -3121,14 +3129,13 @@ function renderAprovacao() {
   const _mProdAprov = totalValorAprov > 0 ? _wProd / totalValorAprov : null;
   const _mMatAprov  = totalValorAprov > 0 ? _wMat  / totalValorAprov : null;
   const _mCombAprov = totalValorAprov > 0 ? _wComb / totalValorAprov : null;
-  // Preenche os stats
   const _s = id => document.getElementById(id);
-  if (_s('ap-fat-prod'))   _s('ap-fat-prod').textContent   = aprov.length ? _fmtR(_apFatProd)   : '—';
-  if (_s('ap-fat-mat'))    _s('ap-fat-mat').textContent    = aprov.length ? _fmtR(_apFatMat)    : '—';
-  if (_s('ap-valor-aprov'))_s('ap-valor-aprov').textContent= aprov.length ? _fmtR(totalValorAprov): '—';
-  if (_s('ap-ticket-aprov'))_s('ap-ticket-aprov').textContent= aprov.length ? _fmtR(ticketMedio) : '—';
-  if (_s('ap-lucro-prod')) _s('ap-lucro-prod').textContent = aprov.length ? _fmtR(_apLucroProd) : '—';
-  if (_s('ap-lucro-mat'))  _s('ap-lucro-mat').textContent  = aprov.length ? _fmtR(_apLucroMat)  : '—';
+  if (_s('ap-fat-prod'))    _s('ap-fat-prod').textContent    = aprov.length ? _fmtR(_apFatProd)    : '—';
+  if (_s('ap-fat-mat'))     _s('ap-fat-mat').textContent     = aprov.length ? _fmtR(_apFatMat)     : '—';
+  if (_s('ap-valor-aprov')) _s('ap-valor-aprov').textContent = aprov.length ? _fmtR(totalValorAprov): '—';
+  if (_s('ap-ticket-aprov'))_s('ap-ticket-aprov').textContent= aprov.length ? _fmtR(ticketMedio)   : '—';
+  if (_s('ap-lucro-prod'))  _s('ap-lucro-prod').textContent  = aprov.length ? _fmtR(_apLucroProd)  : '—';
+  if (_s('ap-lucro-mat'))   _s('ap-lucro-mat').textContent   = aprov.length ? _fmtR(_apLucroMat)   : '—';
   _fmtC(_s('ap-margem-prod'),  aprov.length ? _mProdAprov  : null);
   _fmtC(_s('ap-margem-mat'),   aprov.length ? _mMatAprov   : null);
   _fmtC(_s('ap-margem-aprov'), aprov.length ? _mCombAprov  : null);
@@ -3138,12 +3145,9 @@ function renderAprovacao() {
     if (btn) btn.className = 'btn ' + (k === filtroAprov ? 'btn-preto' : 'btn-branco');
   });
   atualizarBadge();
+  // Lista: aplica também o filtro de status
   const lista = document.getElementById('lista-aprovacao');
-  const qA = (document.getElementById('busca-aprov')?.value || '').toLowerCase().trim();
-  let aprovFiltradas = filtroAprov === 'todas' ? aprovacoes : aprovacoes.filter(a => a.status === filtroAprov);
-  const mesAprov = document.getElementById('filtro-mes-aprov')?.value || '';
-  if (mesAprov) aprovFiltradas = aprovFiltradas.filter(a => (a.criado_em || '').startsWith(mesAprov));
-  if (qA) aprovFiltradas = aprovFiltradas.filter(a => [a.cliente, a.vendedora, a.lead_id, a.equip].some(v => (v||'').toLowerCase().includes(qA)));
+  let aprovFiltradas = filtroAprov === 'todas' ? base : base.filter(a => a.status === filtroAprov);
   if (!aprovFiltradas.length) { lista.innerHTML = '<p style="text-align:center;color:#888780;padding:2rem 0">' + (qA ? 'Nenhum resultado.' : 'Nenhuma proposta.') + '</p>'; return; }
   lista.innerHTML = aprovFiltradas.map(a => {
     const isExp = expandidoAprov === a.id;
