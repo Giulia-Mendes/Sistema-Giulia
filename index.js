@@ -625,6 +625,20 @@ app.put('/api/aprovacoes/:id', auth, (req, res) => {
   audit(req, 'EDITAR_PROPOSTA', 'aprovacoes', req.params.id, antes, { cliente: d.cliente, valor: d.valor, status: d.status });
   res.json({ sucesso: true });
 });
+app.patch('/api/aprovacoes/:id/status', auth, (req, res) => {
+  try {
+    const { status, motivo_recusa } = req.body;
+    const antes = db.prepare('SELECT status FROM aprovacoes WHERE id=?').get(req.params.id);
+    const aprovadoEm = status === 'aprovado' && antes.status !== 'aprovado' ? "datetime('now','localtime')" : null;
+    if (aprovadoEm) {
+      db.prepare("UPDATE aprovacoes SET status=?, motivo_recusa=?, aprovado_em=datetime('now','localtime') WHERE id=?").run(status, motivo_recusa||null, req.params.id);
+    } else {
+      db.prepare('UPDATE aprovacoes SET status=?, motivo_recusa=? WHERE id=?').run(status, motivo_recusa||null, req.params.id);
+    }
+    audit(req, 'STATUS_PROPOSTA', 'aprovacoes', req.params.id, { status: antes.status }, { status });
+    res.json({ sucesso: true });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
 app.delete('/api/aprovacoes/:id', auth, (req, res) => {
   const antes = db.prepare('SELECT cliente,valor FROM aprovacoes WHERE id=?').get(req.params.id);
   db.prepare('DELETE FROM aprovacoes WHERE id=?').run(req.params.id);
@@ -658,6 +672,7 @@ app.get('/api/rep/propostas', authRep, (req, res) => {
       SELECT a.id, a.cliente, a.equip, a.valor, a.pag, a.status, a.temperatura_alvo,
              a.visita_id, a.orcmat_id, a.vendedora, a.criado_em, a.rep_enviado_em,
              a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id, a.rep_tipo,
+             a.custo, a.margem, a.mat_prop, a.custo_mat, a.custo_prod, a.custos, a.motivo_recusa,
              a.texto AS prop_texto, a.anexos AS prop_anexos, a.html_proposta AS prop_html,
              v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome,
              v.data AS vis_data, v.hora_ini AS vis_hora_ini, v.hora_fim AS vis_hora_fim,

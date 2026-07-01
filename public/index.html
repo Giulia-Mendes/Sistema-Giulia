@@ -1450,31 +1450,71 @@ select option { background: var(--surface); color: var(--text); }
       📤 Outbound
     </button>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Total</div>
-      <div id="rep-stat-total" style="font-size:24px;font-weight:700">—</div>
+  <!-- ── INBOUND ── -->
+  <div id="rep-inbound-content">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Total</div>
+        <div id="rep-stat-total" style="font-size:24px;font-weight:700">—</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Pendente</div>
+        <div id="rep-stat-pendente" style="font-size:24px;font-weight:700;color:var(--bronze-txt)">—</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Objeção temp.</div>
+        <div id="rep-stat-objecao" style="font-size:24px;font-weight:700;color:var(--slate-txt)">—</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Visitado</div>
+        <div id="rep-stat-visitado" style="font-size:24px;font-weight:700;color:var(--mineral-txt)">—</div>
+      </div>
     </div>
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Pendente</div>
-      <div id="rep-stat-pendente" style="font-size:24px;font-weight:700;color:var(--bronze-txt)">—</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-preto" id="rep-filtro-todos" onclick="setRepFiltro('todos')">Todos</button>
+      <button class="btn btn-branco" id="rep-filtro-pendente" onclick="setRepFiltro('pendente')">Pendente</button>
+      <button class="btn btn-branco" id="rep-filtro-objecao" onclick="setRepFiltro('objecao')">Objeção temp.</button>
+      <button class="btn btn-branco" id="rep-filtro-visitado" onclick="setRepFiltro('visitado')">Visitado</button>
     </div>
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Objeção temp.</div>
-      <div id="rep-stat-objecao" style="font-size:24px;font-weight:700;color:var(--slate-txt)">—</div>
-    </div>
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Visitado</div>
-      <div id="rep-stat-visitado" style="font-size:24px;font-weight:700;color:var(--mineral-txt)">—</div>
-    </div>
+    <div id="rep-lista"></div>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-preto" id="rep-filtro-todos" onclick="setRepFiltro('todos')">Todos</button>
-    <button class="btn btn-branco" id="rep-filtro-pendente" onclick="setRepFiltro('pendente')">Pendente</button>
-    <button class="btn btn-branco" id="rep-filtro-objecao" onclick="setRepFiltro('objecao')">Objeção temp.</button>
-    <button class="btn btn-branco" id="rep-filtro-visitado" onclick="setRepFiltro('visitado')">Visitado</button>
+
+  <!-- ── OUTBOUND ── -->
+  <div id="rep-outbound-content" style="display:none">
+    <div class="stat4" style="margin-bottom:10px">
+      <div class="stat"><div class="lbl">Aguardando</div><div class="val" id="out-total">—</div></div>
+      <div class="stat"><div class="lbl">Objeção temp.</div><div class="val" id="out-objec">—</div></div>
+      <div class="stat"><div class="lbl">Aprovadas</div><div class="val" id="out-ok">—</div></div>
+      <div class="stat"><div class="lbl">Valor pendente</div><div class="val" id="out-valor">—</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px">
+      <div class="stat"><div class="lbl">Fat. equipamento</div><div class="val" id="out-fat-prod" style="font-size:13px">—</div></div>
+      <div class="stat"><div class="lbl">Fat. material</div><div class="val" id="out-fat-mat" style="font-size:13px">—</div></div>
+      <div class="stat"><div class="lbl">Faturamento total</div><div class="val" id="out-fat-total" style="font-size:13px">—</div></div>
+      <div class="stat"><div class="lbl">Ticket médio</div><div class="val" id="out-ticket" style="font-size:13px">—</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+      <div class="stat"><div class="lbl">Margem equip.</div><div class="val" id="out-margem-prod" style="font-size:18px;font-weight:700">—</div></div>
+      <div class="stat"><div class="lbl">Margem material</div><div class="val" id="out-margem-mat" style="font-size:18px;font-weight:700">—</div></div>
+      <div class="stat"><div class="lbl">Margem combinada</div><div class="val" id="out-margem-comb" style="font-size:22px;font-weight:700">—</div></div>
+    </div>
+    <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="busca-out" placeholder="🔍 Buscar por cliente, vendedora, lead Kommo..." oninput="renderOutbound()" style="width:100%;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button id="filtro-out-todas"    class="btn btn-preto"  onclick="setFiltroOut('todas')">Todas</button>
+        <button id="filtro-out-pendente" class="btn btn-branco" onclick="setFiltroOut('pendente')">⏳ Aguardando</button>
+        <button id="filtro-out-objecao"  class="btn btn-branco" onclick="setFiltroOut('objecao')">⏸ Objeção</button>
+        <button id="filtro-out-aprovado" class="btn btn-branco" onclick="setFiltroOut('aprovado')">✓ Aprovadas</button>
+        <button id="filtro-out-rejeitado" class="btn btn-branco" onclick="setFiltroOut('rejeitado')">✕ Rejeitadas</button>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+          <label style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">📅 Mês:</label>
+          <input type="month" id="filtro-mes-out" onchange="renderOutbound()" style="font-size:13px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+          <button class="btn btn-branco" onclick="document.getElementById('filtro-mes-out').value='';renderOutbound()" style="font-size:12px;padding:3px 8px">✕</button>
+        </div>
+      </div>
+    </div>
+    <div id="rep-lista-outbound"></div>
   </div>
-  <div id="rep-lista"></div>
 </div>
 
 </div><!-- container -->
@@ -7610,9 +7650,12 @@ let repPropostas = [];
 let repAba = 'inbound';
 let repFiltro = 'todos';
 let repExpandido = null;
+let filtroOut = 'todas';
+let expandidoOut = null;
 
 async function carregarRenderRep() {
-  ['rep-stat-total','rep-stat-pendente','rep-stat-objecao','rep-stat-visitado'].forEach(id => {
+  ['rep-stat-total','rep-stat-pendente','rep-stat-objecao','rep-stat-visitado',
+   'out-total','out-objec','out-ok','out-valor'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = '...';
   });
   try {
@@ -7620,29 +7663,170 @@ async function carregarRenderRep() {
     const data = await r.json();
     repPropostas = Array.isArray(data) ? data : [];
   } catch(e) { repPropostas = []; }
-  renderRep();
+  if (repAba === 'outbound') renderOutbound(); else renderRep();
 }
 
 function setRepAba(aba) {
   repAba = aba;
   repExpandido = null;
   repFiltro = 'todos';
+  expandidoOut = null;
+  filtroOut = 'todas';
   ['inbound','outbound'].forEach(k => {
     const btn = document.getElementById('rep-aba-' + k);
     if (!btn) return;
-    if (k === aba) {
-      btn.style.borderBottomColor = 'var(--text)';
-      btn.style.color = 'var(--text)';
-    } else {
-      btn.style.borderBottomColor = 'transparent';
-      btn.style.color = 'var(--text2)';
-    }
+    if (k === aba) { btn.style.borderBottomColor = 'var(--text)'; btn.style.color = 'var(--text)'; }
+    else           { btn.style.borderBottomColor = 'transparent'; btn.style.color = 'var(--text2)'; }
   });
-  ['todos','pendente','objecao','visitado'].forEach(k => {
-    const btn = document.getElementById('rep-filtro-' + k);
-    if (btn) btn.className = 'btn ' + (k === 'todos' ? 'btn-preto' : 'btn-branco');
+  document.getElementById('rep-inbound-content').style.display  = aba === 'inbound'  ? '' : 'none';
+  document.getElementById('rep-outbound-content').style.display = aba === 'outbound' ? '' : 'none';
+  if (aba === 'inbound')  renderRep();
+  else                    renderOutbound();
+}
+
+function setFiltroOut(f) {
+  filtroOut = f;
+  ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
+    const b = document.getElementById('filtro-out-' + k);
+    if (b) b.className = 'btn ' + (k === f ? 'btn-preto' : 'btn-branco');
   });
-  renderRep();
+  renderOutbound();
+}
+
+function toggleOut(id) {
+  expandidoOut = expandidoOut === id ? null : id;
+  renderOutbound();
+}
+
+async function salvarStatusOut(id, status, motivo) {
+  try {
+    const r = await fetch('/api/aprovacoes/' + id + '/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, motivo_recusa: motivo || null })
+    });
+    const d = await r.json();
+    if (!d.sucesso) { alert('Erro: ' + (d.erro||'Tente novamente.')); return; }
+    const p = repPropostas.find(x => x.id === id);
+    if (p) { p.status = status; if (motivo !== undefined) p.motivo_recusa = motivo || null; }
+    expandidoOut = null;
+    renderOutbound();
+  } catch(e) { alert('Erro de conexão.'); }
+}
+
+function renderOutbound() {
+  const qOut    = (document.getElementById('busca-out')?.value || '').toLowerCase().trim();
+  const mesOut  = document.getElementById('filtro-mes-out')?.value || '';
+  let base = repPropostas.filter(p => p.rep_tipo === 'outbound');
+  if (mesOut) base = base.filter(p => (p.criado_em||'').startsWith(mesOut));
+  if (qOut)   base = base.filter(p => [p.cliente,p.vendedora,p.lead_id,p.equip].some(v => (v||'').toLowerCase().includes(qOut)));
+
+  const pend  = base.filter(p => p.status === 'pendente');
+  const aprov = base.filter(p => p.status === 'aprovado');
+  const objec = base.filter(p => p.status === 'objecao');
+  const _s  = id => document.getElementById(id);
+  const _fR = v => v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const _fC = (el, m) => { if (!el) return; if (m!==null){el.textContent=(m*100).toFixed(1).replace('.',',')+'%';el.style.color=m>=0.35?'var(--mineral-txt)':m>=0.25?'var(--bronze-txt)':'var(--terra-txt)';}else{el.textContent='—';el.style.color='';} };
+
+  if(_s('out-total')) _s('out-total').textContent = pend.length;
+  if(_s('out-objec')) _s('out-objec').textContent = objec.length;
+  if(_s('out-ok'))    _s('out-ok').textContent    = aprov.length;
+  if(_s('out-valor')) _s('out-valor').textContent = 'R$ ' + pend.reduce((s,p)=>s+(p.valor||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const totAprov = aprov.reduce((s,p)=>s+(p.valor||0),0);
+  const ticket   = aprov.length ? totAprov / aprov.length : 0;
+  let _fProd=0,_fMat=0,_wP=0,_wM=0,_wC=0;
+  aprov.forEach(p => {
+    _fProd += (p.valor||0)-(p.mat_prop||0);
+    _fMat  += p.mat_prop||0;
+    const {mProd,mMat,mComb} = _calcMargensRecord(p);
+    _wP += (p.valor||0)*(mProd||0);
+    _wM += (p.valor||0)*(mMat||0);
+    _wC += (p.valor||0)*(mComb||0);
+  });
+  if(_s('out-fat-prod'))  _s('out-fat-prod').textContent  = aprov.length ? _fR(_fProd)  : '—';
+  if(_s('out-fat-mat'))   _s('out-fat-mat').textContent   = aprov.length ? _fR(_fMat)   : '—';
+  if(_s('out-fat-total')) _s('out-fat-total').textContent = aprov.length ? _fR(totAprov) : '—';
+  if(_s('out-ticket'))    _s('out-ticket').textContent    = aprov.length ? _fR(ticket)   : '—';
+  _fC(_s('out-margem-prod'), aprov.length&&totAprov>0 ? _wP/totAprov : null);
+  _fC(_s('out-margem-mat'),  aprov.length&&totAprov>0 ? _wM/totAprov : null);
+  _fC(_s('out-margem-comb'), aprov.length&&totAprov>0 ? _wC/totAprov : null);
+
+  ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
+    const b = document.getElementById('filtro-out-' + k);
+    if (b) b.className = 'btn ' + (k === filtroOut ? 'btn-preto' : 'btn-branco');
+  });
+
+  const lista = document.getElementById('rep-lista-outbound');
+  if (!lista) return;
+  let filtradas = filtroOut === 'todas' ? base : base.filter(p => p.status === filtroOut);
+  if (!filtradas.length) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">' + (qOut ? 'Nenhum resultado.' : 'Nenhuma proposta outbound.') + '</p>';
+    return;
+  }
+
+  const _fp  = m => m!==null ? (m*100).toFixed(1).replace('.',',')+'%' : '—';
+  const _clr = m => m===null?'var(--text2)':m>=MARGEM_MIN?'var(--mineral-txt)':m>=0.28?'var(--bronze-txt)':'var(--terra-txt)';
+  const _bcl = m => m===null?'badge-amarelo':m>=MARGEM_MIN?'badge-verde':m>=0.28?'badge-amarelo':'badge-vermelho';
+
+  lista.innerHTML = filtradas.map(p => {
+    const isExp = expandidoOut === p.id;
+    const {mProd:_mP, mMat:_mM, mComb:_mC} = _calcMargensRecord(p);
+    const scls  = p.status==='pendente'?'badge-amarelo':p.status==='aprovado'?'badge-verde':p.status==='objecao'?'badge-teal':'badge-vermelho';
+    const slabel= p.status==='pendente'?'Aguardando':p.status==='aprovado'?'Aprovada':p.status==='objecao'?'Objeção temp.':'Rejeitada';
+    const criado= (p.criado_em||'').slice(0,10).split('-').reverse().join('/');
+    const pvProd= (p.valor||0)-(p.mat_prop||0);
+    const matP  = p.mat_prop||0;
+    const _fRv  = v => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+    const finPanel = isExp
+      ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:8px">'
+        + '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. equip.</div><div style="font-size:13px;font-weight:500">'+_fRv(pvProd)+'</div></div>'
+        + (matP>0?'<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Fat. material</div><div style="font-size:13px;font-weight:500">'+_fRv(matP)+'</div></div>':'')
+        + '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem equip.</div><div style="font-size:15px;font-weight:700;color:'+_clr(_mP)+'">'+_fp(_mP)+'</div></div>'
+        + (_mM!==null?'<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem mat.</div><div style="font-size:15px;font-weight:700;color:'+_clr(_mM)+'">'+_fp(_mM)+'</div></div>':'')
+        + '<div><div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Margem comb.</div><div style="font-size:15px;font-weight:700;color:'+_clr(_mC)+'">'+_fp(_mC)+'</div></div>'
+        + '</div>'
+      : '';
+
+    const acoes = isExp
+      ? '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+        + (p.status!=='aprovado'  ? '<button class="btn btn-verde"   onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'aprovado\')">✓ Aprovar</button>' : '')
+        + (p.status!=='objecao'   ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'objecao\')"  style="border-color:var(--slate)">⏸ Objeção</button>' : '')
+        + (p.status!=='rejeitado' ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'rejeitado\')" style="border-color:var(--terra);color:var(--terra)">✕ Rejeitar</button>' : '')
+        + (p.status!=='pendente'  ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'pendente\')">↩ Reabrir</button>' : '')
+        + (p.prop_texto ? '<button class="btn btn-branco" onclick="event.stopPropagation();imprimirPropRep('+p.id+')">🖨 Imprimir</button>' : '')
+        + (['admin','gerente'].includes(usuarioLogado?.role) ? '<button class="btn btn-vermelho" onclick="event.stopPropagation();excluirOutbound('+p.id+')">🗑 Excluir</button>' : '')
+        + '</div>'
+      : '';
+
+    const texto = isExp && p.prop_texto
+      ? '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">'+p.prop_texto+'</div>'
+      : '';
+
+    const bodyHtml = isExp ? '<div class="item-body">'+finPanel+texto+acoes+'</div>' : '';
+
+    return '<div class="item-card" onclick="toggleOut('+p.id+')" style="cursor:pointer">'
+      + '<div class="item-header">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+          + '<span class="badge '+scls+'">'+slabel+'</span>'
+          + (p.vendedora ? '<span style="font-size:12px;color:var(--text2)">'+p.vendedora+'</span>' : '')
+          + (p.pag       ? '<span style="font-size:12px;color:var(--text2)">· '+p.pag+'</span>' : '')
+          + '<span style="font-size:12px;color:var(--text2)">· '+criado+'</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+          + '<span style="font-size:16px;font-weight:700">R$ '+(p.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+          + '<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">'
+            + '<span class="badge '+_bcl(_mC)+'" style="font-size:11px">Comb '+_fp(_mC)+'</span>'
+            + '<span class="badge badge-cinza" style="font-size:11px">Prod '+_fp(_mP)+'</span>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div style="margin-top:4px"><strong style="font-size:14px">'+(p.cliente||'')+'</strong></div>'
+      + (p.equip ? '<div style="font-size:12px;color:var(--text2);margin-top:2px">'+p.equip+'</div>' : '')
+      + bodyHtml
+    + '</div>';
+  }).join('');
 }
 
 function setRepFiltro(f) {
