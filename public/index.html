@@ -3553,14 +3553,9 @@ async function abrirEditarAprov(id, e) {
     }
   }).catch(() => {});
 
-  // Libera o bloqueio e garante que os valores finais estão corretos
+  // Libera o bloqueio e recalcula total a partir dos produtos carregados
   _bloqueandoCalcTotal = false;
-
-  // Re-afirma os valores exatos da proposta aprovada (nunca deixa calcTotalProposta sobrescrever)
-  setMoedaInput('p-venda', a.valor);
-  setMoedaInput('p-mat-prop', a.mat_prop);
-
-  calcMargem();
+  calcTotalProposta();
 
   // Navega para a seção de proposta
   const btnProp = document.getElementById('btn-proposta');
