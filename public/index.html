@@ -7824,22 +7824,22 @@ function renderOutbound() {
 
     return '<div class="item-card" onclick="toggleOut('+p.id+')" style="cursor:pointer">'
       + '<div class="item-header">'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-          + '<span class="badge '+scls+'">'+slabel+'</span>'
-          + (p.vendedora ? '<span style="font-size:12px;color:var(--text2)">· '+p.vendedora+'</span>' : '')
-          + (p.pag       ? '<span style="font-size:12px;color:var(--text2)">· '+p.pag+'</span>' : '')
-          + '<span style="font-size:12px;color:var(--text2)">· '+criado+'</span>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap">'
+            + '<span class="badge '+scls+'">'+slabel+'</span>'
+            + '<span style="font-size:12px;color:var(--text2)">'+(p.vendedora||'—')+' · '+(p.pag||'—')+' · '+criado+'</span>'
+          + '</div>'
+          + '<p style="font-size:15px;font-weight:500;margin:0 0 2px">'+(p.cliente||'')+'</p>'
+          + (p.equip ? '<p style="font-size:13px;color:var(--text2);margin:0">'+p.equip+'</p>' : '')
         + '</div>'
-        + '<div style="display:flex;align-items:center;gap:10px">'
-          + '<span style="font-size:16px;font-weight:700">R$ '+(p.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+        + '<div style="text-align:right;flex-shrink:0">'
+          + '<p style="font-size:16px;font-weight:500;margin:0 0 4px">R$ '+(p.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</p>'
           + '<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">'
             + '<span class="badge '+_bcl(_mC)+'" style="font-size:11px">Comb '+_fp(_mC)+'</span>'
             + '<span class="badge badge-cinza" style="font-size:11px">Prod '+_fp(_mP)+'</span>'
           + '</div>'
         + '</div>'
       + '</div>'
-      + '<div style="margin-top:4px"><strong style="font-size:14px">'+(p.cliente||'')+'</strong></div>'
-      + (p.equip ? '<div style="font-size:12px;color:var(--text2);margin-top:2px">'+p.equip+'</div>' : '')
       + bodyHtml
     + '</div>';
   }).join('');
