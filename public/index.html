@@ -5123,14 +5123,9 @@ async function carregarPermissoes() {
   try {
     const r = await fetch('/api/role-permissions');
     const salvo = await r.json();
-    // Aplica o que está salvo no banco — sem auto-salvar nunca
-    // Páginas novas (não salvas ainda) ficam visíveis na tela de permissões para o admin configurar
     for (const role of ['admin','gerente','vendedor','tecnico','user','representante']) {
       if (salvo[role]) {
-        // Inclui páginas novas do código que o admin já tem por padrão
-        const defaults = rolePages[role] || [];
-        const extras = defaults.filter(p => !salvo[role].includes(p));
-        rolePages[role] = ALL_PAGES.filter(p => salvo[role].includes(p) || extras.includes(p));
+        rolePages[role] = ALL_PAGES.filter(p => salvo[role].includes(p));
       }
     }
   } catch(e) {}
