@@ -419,9 +419,9 @@ app.get('/api/role-permissions', auth, (req, res) => {
 });
 app.put('/api/role-permissions', auth, adminOnly, (req, res) => {
   try {
-    const data = { ...DEFAULT_ROLE_PAGES, ...req.body };
+    const data = { ...req.body };
     // Garante que páginas obrigatórias do admin sempre estejam presentes
-    for (const p of ADMIN_LOCKED) { if (!data.admin.includes(p)) data.admin.push(p); }
+    for (const p of ADMIN_LOCKED) { if (!data.admin) data.admin = []; if (!data.admin.includes(p)) data.admin.push(p); }
     db.prepare("INSERT INTO config (chave,valor) VALUES ('role_permissions',?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor")
       .run(JSON.stringify(data));
     audit(req, 'EDITAR_PERMISSOES', 'config', 0, null, data);
