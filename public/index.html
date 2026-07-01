@@ -2882,10 +2882,11 @@ function editarProdCusto(idx, val) {
     }
   }
   calcTotalProposta();
-  if (propModoEdit) regenerarProp(); else gerarProposta();
+  if (propModoEdit) atualizarProdutoNoTexto(idx); else gerarProposta();
 }
 function editarProd(idx, campo, val) {
   // precoUn usa parseMoeda para aceitar formato pt-BR (5.200,32); qtd usa parseFloat
+  const nomeAntigo = produtosAdicionais[idx].nome;
   if (campo === 'nome' || campo === 'sku') produtosAdicionais[idx][campo] = val;
   else if (campo === 'precoUn') produtosAdicionais[idx][campo] = parseMoeda(val) || 0;
   else produtosAdicionais[idx][campo] = parseFloat(val) || 0;
@@ -2910,7 +2911,7 @@ function editarProd(idx, campo, val) {
     if (elTotal) elTotal.textContent = '= R$ ' + (produtosAdicionais[idx].precoUn * novaQtd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   calcTotalProposta();
-  if (propModoEdit) regenerarProp(); else gerarProposta();
+  if (propModoEdit) atualizarProdutoNoTexto(idx, nomeAntigo); else gerarProposta();
   if (campo !== 'qtd') renderProdutosAdicionais();
 }
 function toggleOutroPrazo() { document.getElementById('p-prazo-outro').style.display = document.getElementById('p-prazo').value === 'outro' ? '' : 'none'; gerarProposta(); }
@@ -3041,6 +3042,19 @@ function montarTexto() {
 function gerarProposta() { if (propModoEdit) return; const t = montarTexto(); document.getElementById('prop-preview').textContent = t || 'Preencha os dados acima para gerar a proposta.'; }
 function syncProp() { document.getElementById('prop-preview').textContent = document.getElementById('prop-edit').value; }
 function regenerarProp() { propModoEdit = false; document.getElementById('prop-edit').style.display = 'none'; document.getElementById('prop-preview').style.display = ''; document.getElementById('btn-editar-prop').textContent = '✏️ Editar'; gerarProposta(); }
+function atualizarProdutoNoTexto(idx, nomeAntigo) {
+  const ed = document.getElementById('prop-edit');
+  if (!ed) return;
+  const p = produtosAdicionais[idx];
+  const total = (p.qtd || 1) * (p.precoUn || 0);
+  const totalFmt = total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const novaLinha = '• ' + (p.qtd > 1 ? p.qtd + 'x ' : '') + p.nome + (p.sku ? ' — SKU ' + p.sku : '') + (p.precoUn ? ' (R$ ' + totalFmt + ')' : '');
+  const nomeBusca = nomeAntigo || p.nome;
+  const nomeEsc = nomeBusca.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^•[^\\n]*' + nomeEsc + '[^\\n]*$', 'gm');
+  const novoTexto = ed.value.replace(re, novaLinha);
+  if (novoTexto !== ed.value) ed.value = novoTexto;
+}
 function toggleEditarProp() {
   propModoEdit = !propModoEdit;
   const prev = document.getElementById('prop-preview'), ed = document.getElementById('prop-edit'), btn = document.getElementById('btn-editar-prop');
