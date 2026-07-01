@@ -7766,7 +7766,11 @@ function renderRep() {
           '<p style="font-size:12px;color:var(--text2);margin:0 0 12px">Registre o que foi conversado, objeções ou próximos passos.</p>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="btn btn-preto" onclick="salvarRepVisita(' + p.id + ')">💾 Salvar</button>' +
-            (['admin','gerente'].includes(usuarioLogado?.role) ? '<button class="btn btn-vermelho" onclick="removerDaRep(' + p.id + ')">✕ Remover da representação</button>' : '') +
+            (['admin','gerente'].includes(usuarioLogado?.role) ? (
+              p.rep_tipo === 'outbound'
+                ? '<button class="btn btn-vermelho" onclick="excluirOutbound(' + p.id + ')">🗑 Excluir proposta</button>'
+                : '<button class="btn btn-vermelho" onclick="removerDaRep(' + p.id + ')">✕ Remover da representação</button>'
+            ) : '') +
           '</div>' +
           (visitado && p.rep_data_visita ? '<div style="font-size:12px;color:var(--text2);margin-top:10px">Visita registrada em ' + fmtD(p.rep_data_visita) + '</div>' : '') +
           (objecao && p.rep_obs ? '<div style="font-size:12px;color:var(--slate-txt);margin-top:10px">Motivo da objeção salvo.</div>' : '')
@@ -7810,6 +7814,16 @@ async function repImprimirProposta(id) {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+}
+
+async function excluirOutbound(id) {
+  if (!confirm('Excluir esta proposta permanentemente? Esta ação não pode ser desfeita.')) return;
+  try {
+    await fetch('/api/aprovacoes/' + id, { method: 'DELETE' });
+    repPropostas = repPropostas.filter(p => p.id !== id);
+    repExpandido = null;
+    renderRep();
+  } catch(e) { alert('Erro de conexão.'); }
 }
 
 async function removerDaRep(id) {
