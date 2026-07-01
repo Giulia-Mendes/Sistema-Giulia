@@ -8022,12 +8022,13 @@ async function repImprimirProposta(id) {
 }
 
 async function excluirOutbound(id) {
-  if (!confirm('Excluir esta proposta permanentemente? Esta ação não pode ser desfeita.')) return;
+  if (!confirm('Remover esta proposta da representação?')) return;
   try {
-    await fetch('/api/aprovacoes/' + id, { method: 'DELETE' });
+    await fetch('/api/aprovacoes/' + id + '/enviar-rep', { method: 'DELETE' });
     repPropostas = repPropostas.filter(p => p.id !== id);
     repExpandido = null;
-    renderRep();
+    expandidoOut = null;
+    if (repAba === 'outbound') renderOutbound(); else renderRep();
   } catch(e) { alert('Erro de conexão.'); }
 }
 
