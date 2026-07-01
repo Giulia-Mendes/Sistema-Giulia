@@ -7733,10 +7733,10 @@ function renderOutbound() {
   if(_s('out-ok'))    _s('out-ok').textContent    = aprov.length;
   if(_s('out-valor')) _s('out-valor').textContent = 'R$ ' + pend.reduce((s,p)=>s+(p.valor||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-  const totAprov = aprov.reduce((s,p)=>s+(p.valor||0),0);
-  const ticket   = aprov.length ? totAprov / aprov.length : 0;
+  const totBase  = base.reduce((s,p)=>s+(p.valor||0),0);
+  const ticket   = base.length ? totBase / base.length : 0;
   let _fProd=0,_fMat=0,_wP=0,_wM=0,_wC=0;
-  aprov.forEach(p => {
+  base.forEach(p => {
     _fProd += (p.valor||0)-(p.mat_prop||0);
     _fMat  += p.mat_prop||0;
     const {mProd,mMat,mComb} = _calcMargensRecord(p);
@@ -7744,13 +7744,13 @@ function renderOutbound() {
     _wM += (p.valor||0)*(mMat||0);
     _wC += (p.valor||0)*(mComb||0);
   });
-  if(_s('out-fat-prod'))  _s('out-fat-prod').textContent  = aprov.length ? _fR(_fProd)  : '—';
-  if(_s('out-fat-mat'))   _s('out-fat-mat').textContent   = aprov.length ? _fR(_fMat)   : '—';
-  if(_s('out-fat-total')) _s('out-fat-total').textContent = aprov.length ? _fR(totAprov) : '—';
-  if(_s('out-ticket'))    _s('out-ticket').textContent    = aprov.length ? _fR(ticket)   : '—';
-  _fC(_s('out-margem-prod'), aprov.length&&totAprov>0 ? _wP/totAprov : null);
-  _fC(_s('out-margem-mat'),  aprov.length&&totAprov>0 ? _wM/totAprov : null);
-  _fC(_s('out-margem-comb'), aprov.length&&totAprov>0 ? _wC/totAprov : null);
+  if(_s('out-fat-prod'))  _s('out-fat-prod').textContent  = base.length ? _fR(_fProd)  : '—';
+  if(_s('out-fat-mat'))   _s('out-fat-mat').textContent   = base.length ? _fR(_fMat)   : '—';
+  if(_s('out-fat-total')) _s('out-fat-total').textContent = base.length ? _fR(totBase) : '—';
+  if(_s('out-ticket'))    _s('out-ticket').textContent    = base.length ? _fR(ticket)   : '—';
+  _fC(_s('out-margem-prod'), base.length&&totBase>0 ? _wP/totBase : null);
+  _fC(_s('out-margem-mat'),  base.length&&totBase>0 ? _wM/totBase : null);
+  _fC(_s('out-margem-comb'), base.length&&totBase>0 ? _wC/totBase : null);
 
   ['todas','pendente','objecao','aprovado','rejeitado'].forEach(k => {
     const b = document.getElementById('filtro-out-' + k);
@@ -8003,6 +8003,8 @@ function renderRep() {
     '</div>';
   }).join('');
 }
+
+async function imprimirPropRep(id) { return repImprimirProposta(id); }
 
 async function repImprimirProposta(id) {
   const p = repPropostas.find(x => x.id === id);
