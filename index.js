@@ -401,9 +401,8 @@ app.get('/api/role-permissions', auth, (req, res) => {
     const result = {};
     for (const role of Object.keys(DEFAULT_ROLE_PAGES)) {
       if (saved[role]) {
-        // Merge: mantém o que foi salvo + adiciona páginas novas do default que não existiam quando foi salvo
-        const extras = DEFAULT_ROLE_PAGES[role].filter(p => !saved[role].includes(p));
-        result[role] = ALL_SYSTEM_PAGES.filter(p => saved[role].includes(p) || extras.includes(p));
+        // Respeita exatamente o que foi salvo — não adiciona novas páginas automaticamente
+        result[role] = ALL_SYSTEM_PAGES.filter(p => saved[role].includes(p));
       } else {
         result[role] = [...DEFAULT_ROLE_PAGES[role]];
       }
