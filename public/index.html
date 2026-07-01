@@ -2882,7 +2882,7 @@ function editarProdCusto(idx, val) {
     }
   }
   calcTotalProposta();
-  gerarProposta();
+  if (propModoEdit) regenerarProp(); else gerarProposta();
 }
 function editarProd(idx, campo, val) {
   // precoUn usa parseMoeda para aceitar formato pt-BR (5.200,32); qtd usa parseFloat
@@ -2910,7 +2910,7 @@ function editarProd(idx, campo, val) {
     if (elTotal) elTotal.textContent = '= R$ ' + (produtosAdicionais[idx].precoUn * novaQtd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   calcTotalProposta();
-  gerarProposta();
+  if (propModoEdit) regenerarProp(); else gerarProposta();
   if (campo !== 'qtd') renderProdutosAdicionais();
 }
 function toggleOutroPrazo() { document.getElementById('p-prazo-outro').style.display = document.getElementById('p-prazo').value === 'outro' ? '' : 'none'; gerarProposta(); }
