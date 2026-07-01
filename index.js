@@ -604,8 +604,9 @@ app.get('/api/aprovacoes/:id/anexos', auth, (req, res) => {
 app.post('/api/aprovacoes', auth, (req, res) => {
   const d = req.body;
   const criadoEm = d.criado_em ? d.criado_em + ' 00:00:00' : null;
-  const r = db.prepare("INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,lead_id,criado_por_id,criado_por_nome,criado_em) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,datetime('now','localtime')))")
-    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, req.session.u.id, req.session.u.nome, criadoEm);
+  const repEnviado = d.rep_enviado ? 1 : 0;
+  const r = db.prepare("INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,lead_id,criado_por_id,criado_por_nome,criado_em,rep_enviado,rep_enviado_em,rep_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,datetime('now','localtime')),?,IIF(?,datetime('now','localtime'),NULL),IIF(?,'pendente',NULL))")
+    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, req.session.u.id, req.session.u.nome, criadoEm, repEnviado, repEnviado, repEnviado);
   audit(req, 'CRIAR_PROPOSTA', 'aprovacoes', r.lastInsertRowid, null, { cliente: d.cliente, valor: d.valor });
   res.json({ sucesso: true, id: r.lastInsertRowid });
 });

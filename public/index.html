@@ -904,7 +904,16 @@ select option { background: var(--surface); color: var(--text); }
     </div>
     <div id="prop-preview" class="prop-box">Preencha os dados acima para gerar a proposta.</div>
     <textarea id="prop-edit" style="width:100%;background:#f5f4f0;border:1px solid #d3d1c7;border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.8;font-family:inherit;resize:vertical;min-height:260px;display:none;margin-top:10px" oninput="syncProp()"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap" id="prop-destino-wrap">
+      <span style="font-size:13px;color:var(--text2);font-weight:500">Destino:</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+        <input type="radio" name="prop-destino" id="prop-dest-aprov" value="aprovacao" checked style="accent-color:var(--preto)" onchange="atualizarBtnEnviar()"> Aprovação
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+        <input type="radio" name="prop-destino" id="prop-dest-rep" value="representacao" style="accent-color:var(--preto)" onchange="atualizarBtnEnviar()"> Representação
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <button class="btn btn-preto" id="btn-enviar-aprov" onclick="enviarAprovacao()">Enviar para aprovação</button>
       <button class="btn btn-branco" id="btn-cancelar-aprov" onclick="cancelarEdicaoAprov()" style="display:none">Cancelar edição</button>
       <button class="btn btn-verde" onclick="imprimirProposta()">Gerar Proposta</button>
@@ -3538,9 +3547,10 @@ async function abrirEditarAprov(id, e) {
   if (ed) ed.style.display = '';
   if (btnEdit) btnEdit.textContent = '↺ Auto';
 
-  // Atualiza botão de envio
+  // Atualiza botão de envio e esconde seletor de destino (já está em aprovação)
   document.getElementById('btn-enviar-aprov').textContent = 'Salvar alterações';
   document.getElementById('btn-cancelar-aprov').style.display = '';
+  document.getElementById('prop-destino-wrap').style.display = 'none';
 
   // Busca número da proposta existente para regenerar HTML ao salvar
   _ultimaPropostaHtml = null;
@@ -3573,6 +3583,8 @@ function cancelarEdicaoAprov() {
   if (document.getElementById('p-criado-em')) document.getElementById('p-criado-em').value = new Date().toISOString().slice(0, 10);
   document.getElementById('btn-enviar-aprov').textContent = 'Enviar para aprovação';
   document.getElementById('btn-cancelar-aprov').style.display = 'none';
+  document.getElementById('prop-destino-wrap').style.display = '';
+  document.getElementById('prop-dest-aprov').checked = true;
   regenerarProp();
 }
 function calcMargemAprov() {
@@ -4127,31 +4139,38 @@ async function salvarLaudo() {
   await carregarVisitas(); renderVisitas();
 }
 
-// PROPOSTA - enviar para aprovação
+function atualizarBtnEnviar() {
+  if (editandoAprovId) return; // editando: label controlado por abrirEditarAprov
+  const destino = document.querySelector('input[name="prop-destino"]:checked')?.value || 'aprovacao';
+  const btn = document.getElementById('btn-enviar-aprov');
+  if (btn) btn.textContent = destino === 'representacao' ? 'Enviar para representação' : 'Enviar para aprovação';
+}
+
+// PROPOSTA - enviar para aprovação ou representação
 async function enviarAprovacao() {
   calcTotalProposta();
   const cliente = document.getElementById('p-cliente').value.trim();
   const pv = parseMoeda(document.getElementById('p-venda').value) || 0;
   if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda.'); return; }
+  const destino = document.querySelector('input[name="prop-destino"]:checked')?.value || 'aprovacao';
+  const paraRep = destino === 'representacao';
   const msgEl = document.getElementById('msg-enviado');
   try {
     const cp = parseMoeda(document.getElementById('p-custo-prod').value) || 0;
     const cm = parseMoeda(document.getElementById('p-custo-mat').value) || 0;
     const matProp = parseMoeda(document.getElementById('p-mat-prop').value) || 0;
     const pag = getPag(); const taxaR = pv * (pag.taxa / 100);
-    // Margem considera só produto (sem material), igual ao calcMargem da proposta
     const pvProd = pv - matProp;
     const pvEfProd = pag.desc > 0 ? pvProd * (1 - pag.desc / 100) : pvProd;
     const ctProd = cp + taxaR;
     const margem = pvEfProd > 0 ? (pvEfProd - ctProd) / pvEfProd : 0;
-    const ctTotal = cp + cm + taxaR; // custo total real (para referência)
+    const ctTotal = cp + cm + taxaR;
     const _leadIdProp = document.getElementById('prop-lead-id-hidden')?.value?.trim() || null;
     const _criadoEm = document.getElementById('p-criado-em')?.value || null;
-    // Regenera HTML ao editar proposta existente (preserva o número original)
     const _htmlParaSalvar = editandoAprovId && _editandoAprovNumero
       ? _construirHtmlProposta(_editandoAprovNumero)
       : (_ultimaPropostaHtml || null);
-    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _htmlParaSalvar, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp, criado_em: _criadoEm || null };
+    const payload = { cliente, vendedora: getVend() || '—', equip: getEquip(), valor: pv, custo: Math.round(ctTotal), margem, pag: pag.label, texto: getTextoFinal(), custos: document.getElementById('p-custos').value.trim() || null, html_proposta: _htmlParaSalvar, temperatura_alvo: (document.getElementById('p-temp')?.value || '').trim() || null, anexos: propAnexos, mat_prop: matProp, custo_mat: cm, custo_prod: cp, visita_id: _propVisitaId || null, orcmat_id: _propOrcmatId || null, lead_id: _leadIdProp, criado_em: _criadoEm || null, rep_enviado: paraRep ? 1 : 0 };
 
     if (editandoAprovId) {
       const a = aprovacoes.find(x => x.id === editandoAprovId);
@@ -4161,6 +4180,8 @@ async function enviarAprovacao() {
       editandoAprovId = null;
       document.getElementById('btn-enviar-aprov').textContent = 'Enviar para aprovação';
       document.getElementById('btn-cancelar-aprov').style.display = 'none';
+      document.getElementById('prop-destino-wrap').style.display = '';
+      document.getElementById('prop-dest-aprov').checked = true;
       await carregarAprovacoes(); renderAprovacao();
       msgEl.style.cssText = 'display:block;color:var(--mineral-txt)';
       msgEl.textContent = '✓ Proposta atualizada!';
@@ -4171,12 +4192,23 @@ async function enviarAprovacao() {
       if (!d.sucesso) { alert('Erro ao enviar: ' + (d.erro || 'Tente novamente.')); return; }
       propAnexos = []; renderPropAnexos();
       if (document.getElementById('p-temp')) document.getElementById('p-temp').value = '';
-      await carregarAprovacoes();
-      atualizarBadge();
-      renderAprovacao();
-      msgEl.style.cssText = 'display:block;color:var(--mineral-txt)';
-      msgEl.textContent = '✓ Proposta enviada para aprovação!';
-      setTimeout(() => msgEl.style.display = 'none', 3000);
+      document.getElementById('prop-dest-aprov').checked = true;
+      atualizarBtnEnviar();
+      if (paraRep) {
+        await carregarRenderRep();
+        const btnRep = document.getElementById('btn-representacao');
+        irPara('representacao', btnRep);
+        msgEl.style.cssText = 'display:block;color:var(--mineral-txt)';
+        msgEl.textContent = '✓ Proposta enviada para representação!';
+        setTimeout(() => msgEl.style.display = 'none', 3000);
+      } else {
+        await carregarAprovacoes();
+        atualizarBadge();
+        renderAprovacao();
+        msgEl.style.cssText = 'display:block;color:var(--mineral-txt)';
+        msgEl.textContent = '✓ Proposta enviada para aprovação!';
+        setTimeout(() => msgEl.style.display = 'none', 3000);
+      }
     }
   } catch(e) {
     msgEl.style.cssText = 'display:block;color:var(--terra-txt)';
