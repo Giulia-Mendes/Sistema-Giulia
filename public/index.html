@@ -1479,6 +1479,27 @@ select option { background: var(--surface); color: var(--text); }
 
 </div><!-- container -->
 
+<!-- MODAL ESCOLHA INBOUND/OUTBOUND REP -->
+<div class="modal-bg" id="modal-rep-tipo">
+  <div class="modal-sm">
+    <p style="font-size:15px;font-weight:600;margin-bottom:6px">Enviar para Representação</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Para qual fluxo deseja enviar esta proposta?</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <button class="btn btn-preto" id="modal-rep-tipo-inbound" style="justify-content:flex-start;gap:10px;padding:12px 16px;text-align:left">
+        <span style="font-size:18px">📥</span>
+        <span><strong>Inbound</strong><br><span style="font-size:12px;font-weight:400;opacity:.75">Lead recebido — vem da aprovação</span></span>
+      </button>
+      <button class="btn btn-branco" id="modal-rep-tipo-outbound" style="justify-content:flex-start;gap:10px;padding:12px 16px;text-align:left">
+        <span style="font-size:18px">📤</span>
+        <span><strong>Outbound</strong><br><span style="font-size:12px;font-weight:400;opacity:.75">Proposta proativa para o cliente</span></span>
+      </button>
+    </div>
+    <div style="text-align:right">
+      <button class="btn btn-branco" id="modal-rep-tipo-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL MINHA CONTA / TROCAR SENHA -->
 <div class="modal-bg" id="modal-senha">
   <div class="modal-sm">
@@ -7854,27 +7875,32 @@ async function salvarRepVisita(id) {
   } catch(e) { alert('Erro de conexão.'); }
 }
 
+function escolherRepTipo() {
+  return new Promise(resolve => {
+    abrirModal('modal-rep-tipo');
+    const cleanup = (val) => { fecharModal('modal-rep-tipo'); resolve(val); };
+    document.getElementById('modal-rep-tipo-inbound').onclick  = () => cleanup('inbound');
+    document.getElementById('modal-rep-tipo-outbound').onclick = () => cleanup('outbound');
+    document.getElementById('modal-rep-tipo-cancel').onclick   = () => cleanup(null);
+  });
+}
+
 async function toggleEnviarRep(id) {
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
   const jaEnviado = !!a.rep_enviado;
-  let tipo = 'inbound';
+  const method = jaEnviado ? 'DELETE' : 'POST';
   let body = undefined;
   if (!jaEnviado) {
-    const escolha = confirm(
-      'Para qual fluxo de representação?\n\n' +
-      '• OK → Outbound (proposta proativa para o cliente)\n' +
-      '• Cancelar → Inbound (lead recebido / da aprovação)'
-    );
-    tipo = escolha ? 'outbound' : 'inbound';
+    const tipo = await escolherRepTipo();
+    if (tipo === null) return;
     body = JSON.stringify({ tipo });
   }
-  const method = jaEnviado ? 'DELETE' : 'POST';
   try {
     const r = await fetch('/api/aprovacoes/' + id + '/enviar-rep', {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: method === 'POST' ? body : undefined
+      body
     });
     const d = await r.json();
     if (!d.sucesso) { alert('Erro: ' + (d.erro || 'Tente novamente.')); return; }
