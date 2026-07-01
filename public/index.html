@@ -7795,6 +7795,7 @@ function renderOutbound() {
         + (p.status!=='objecao'   ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'objecao\')"  style="border-color:var(--slate)">⏸ Objeção</button>' : '')
         + (p.status!=='rejeitado' ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'rejeitado\')" style="border-color:var(--terra);color:var(--terra)">✕ Rejeitar</button>' : '')
         + (p.status!=='pendente'  ? '<button class="btn btn-branco"  onclick="event.stopPropagation();salvarStatusOut('+p.id+',\'pendente\')">↩ Reabrir</button>' : '')
+        + '<button class="btn btn-branco" onclick="abrirEditarAprov('+p.id+',event)">✏️ Editar</button>'
         + (p.prop_texto ? '<button class="btn btn-branco" onclick="event.stopPropagation();imprimirPropRep('+p.id+')">🖨 Imprimir</button>' : '')
         + (['admin','gerente'].includes(usuarioLogado?.role) ? '<button class="btn btn-vermelho" onclick="event.stopPropagation();excluirOutbound('+p.id+')">🗑 Excluir</button>' : '')
         + '</div>'
@@ -7810,7 +7811,7 @@ function renderOutbound() {
       + '<div class="item-header">'
         + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
           + '<span class="badge '+scls+'">'+slabel+'</span>'
-          + (p.vendedora ? '<span style="font-size:12px;color:var(--text2)">'+p.vendedora+'</span>' : '')
+          + (p.vendedora ? '<span style="font-size:12px;color:var(--text2)">· '+p.vendedora+'</span>' : '')
           + (p.pag       ? '<span style="font-size:12px;color:var(--text2)">· '+p.pag+'</span>' : '')
           + '<span style="font-size:12px;color:var(--text2)">· '+criado+'</span>'
         + '</div>'
