@@ -7579,9 +7579,13 @@ let repFiltro = 'todos';
 let repExpandido = null;
 
 async function carregarRenderRep() {
+  ['rep-stat-total','rep-stat-pendente','rep-stat-objecao','rep-stat-visitado'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '...';
+  });
   try {
     const r = await fetch('/api/rep/propostas');
-    repPropostas = await r.json();
+    const data = await r.json();
+    repPropostas = Array.isArray(data) ? data : [];
   } catch(e) { repPropostas = []; }
   renderRep();
 }
