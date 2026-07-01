@@ -2912,7 +2912,12 @@ function editarProd(idx, campo, val) {
   }
   calcTotalProposta();
   if (propModoEdit) atualizarProdutoNoTexto(idx, nomeAntigo); else gerarProposta();
-  if (campo !== 'qtd') renderProdutosAdicionais();
+  if (campo === 'nome' || campo === 'sku') {
+    renderProdutosAdicionais();
+  } else if (campo === 'precoUn') {
+    const elTotal = document.getElementById('prod-total-' + idx);
+    if (elTotal) elTotal.textContent = '= R$ ' + (produtosAdicionais[idx].precoUn * (produtosAdicionais[idx].qtd || 1)).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
 }
 function toggleOutroPrazo() { document.getElementById('p-prazo-outro').style.display = document.getElementById('p-prazo').value === 'outro' ? '' : 'none'; gerarProposta(); }
 
