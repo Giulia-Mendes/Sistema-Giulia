@@ -8017,7 +8017,18 @@ async function repImprimirProposta(id) {
       if (d.html_proposta) { html = d.html_proposta; p.prop_html = html; }
     } catch(e) {}
   }
-  if (!html) { alert('Proposta sem HTML gerado. Reimprima pela página de Aprovação primeiro.'); return; }
+  if (!html && p.prop_texto) {
+    const criado = (p.criado_em||'').slice(0,10).split('-').reverse().join('/');
+    html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Proposta — ${p.cliente||''}</title>
+<style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#222;line-height:1.7}
+h2{font-size:18px;margin-bottom:4px}p.sub{color:#666;font-size:13px;margin-bottom:24px}
+pre{white-space:pre-wrap;font-family:inherit;font-size:14px}
+@media print{button{display:none}}</style></head><body>
+<h2>${p.equip||''}</h2><p class="sub">Cliente: <strong>${p.cliente||''}</strong> · ${criado}</p>
+<pre>${p.prop_texto}</pre>
+<script>window.onload=()=>window.print()</script></body></html>`;
+  }
+  if (!html) { alert('Proposta sem conteúdo para imprimir.'); return; }
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
