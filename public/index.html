@@ -1439,6 +1439,17 @@ select option { background: var(--surface); color: var(--text); }
     <h2 style="font-size:18px;font-weight:700;margin:0">🤝 Representação</h2>
     <button class="btn btn-branco" onclick="carregarRenderRep()" style="font-size:13px">🔄 Atualizar</button>
   </div>
+  <!-- Abas Inbound / Outbound -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
+    <button id="rep-aba-inbound" onclick="setRepAba('inbound')"
+      style="padding:9px 22px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:3px solid var(--text);margin-bottom:-2px;color:var(--text)">
+      📥 Inbound
+    </button>
+    <button id="rep-aba-outbound" onclick="setRepAba('outbound')"
+      style="padding:9px 22px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:var(--text2)">
+      📤 Outbound
+    </button>
+  </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
     <div class="card" style="text-align:center;padding:12px">
       <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Total</div>
@@ -7575,6 +7586,7 @@ async function catExcluirMaterial(id) {
 // ═══ INICIAR ═══
 // ═══ REPRESENTAÇÃO ═══
 let repPropostas = [];
+let repAba = 'inbound';
 let repFiltro = 'todos';
 let repExpandido = null;
 
@@ -7587,6 +7599,28 @@ async function carregarRenderRep() {
     const data = await r.json();
     repPropostas = Array.isArray(data) ? data : [];
   } catch(e) { repPropostas = []; }
+  renderRep();
+}
+
+function setRepAba(aba) {
+  repAba = aba;
+  repExpandido = null;
+  repFiltro = 'todos';
+  ['inbound','outbound'].forEach(k => {
+    const btn = document.getElementById('rep-aba-' + k);
+    if (!btn) return;
+    if (k === aba) {
+      btn.style.borderBottomColor = 'var(--text)';
+      btn.style.color = 'var(--text)';
+    } else {
+      btn.style.borderBottomColor = 'transparent';
+      btn.style.color = 'var(--text2)';
+    }
+  });
+  ['todos','pendente','objecao','visitado'].forEach(k => {
+    const btn = document.getElementById('rep-filtro-' + k);
+    if (btn) btn.className = 'btn ' + (k === 'todos' ? 'btn-preto' : 'btn-branco');
+  });
   renderRep();
 }
 
@@ -7605,10 +7639,13 @@ function toggleRepCard(id) {
 }
 
 function renderRep() {
-  const total     = repPropostas.length;
-  const pendentes = repPropostas.filter(p => !p.rep_status || p.rep_status === 'pendente').length;
-  const objecoes  = repPropostas.filter(p => p.rep_status === 'objecao').length;
-  const visitados = repPropostas.filter(p => p.rep_status === 'visitado').length;
+  const base = repAba === 'outbound'
+    ? repPropostas.filter(p => p.rep_tipo === 'outbound')
+    : repPropostas.filter(p => p.rep_tipo !== 'outbound');
+  const total     = base.length;
+  const pendentes = base.filter(p => !p.rep_status || p.rep_status === 'pendente').length;
+  const objecoes  = base.filter(p => p.rep_status === 'objecao').length;
+  const visitados = base.filter(p => p.rep_status === 'visitado').length;
   const _s = id => document.getElementById(id);
   if (_s('rep-stat-total'))    _s('rep-stat-total').textContent    = total;
   if (_s('rep-stat-pendente')) _s('rep-stat-pendente').textContent = pendentes;
@@ -7618,13 +7655,14 @@ function renderRep() {
   const lista = document.getElementById('rep-lista');
   if (!lista) return;
 
-  let filtradas = repFiltro === 'todos'    ? repPropostas
-    : repFiltro === 'visitado' ? repPropostas.filter(p => p.rep_status === 'visitado')
-    : repFiltro === 'objecao'  ? repPropostas.filter(p => p.rep_status === 'objecao')
-    : repPropostas.filter(p => !p.rep_status || p.rep_status === 'pendente');
+  let filtradas = repFiltro === 'todos'    ? base
+    : repFiltro === 'visitado' ? base.filter(p => p.rep_status === 'visitado')
+    : repFiltro === 'objecao'  ? base.filter(p => p.rep_status === 'objecao')
+    : base.filter(p => !p.rep_status || p.rep_status === 'pendente');
 
   if (!filtradas.length) {
-    lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">Nenhuma proposta' + (repFiltro !== 'todos' ? ' nesta categoria' : ' enviada para representação') + '.</p>';
+    const abaLabel = repAba === 'outbound' ? 'outbound' : 'inbound';
+    lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">Nenhuma proposta ' + (repFiltro !== 'todos' ? 'nesta categoria' : abaLabel) + '.</p>';
     return;
   }
 

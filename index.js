@@ -605,8 +605,8 @@ app.post('/api/aprovacoes', auth, (req, res) => {
   const d = req.body;
   const criadoEm = d.criado_em ? d.criado_em + ' 00:00:00' : null;
   const repEnviado = d.rep_enviado ? 1 : 0;
-  const r = db.prepare("INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,lead_id,criado_por_id,criado_por_nome,criado_em,rep_enviado,rep_enviado_em,rep_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,datetime('now','localtime')),?,IIF(?,datetime('now','localtime'),NULL),IIF(?,'pendente',NULL))")
-    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, req.session.u.id, req.session.u.nome, criadoEm, repEnviado, repEnviado, repEnviado);
+  const r = db.prepare("INSERT INTO aprovacoes (cliente,vendedora,equip,valor,custo,margem,pag,status,texto,custos,html_proposta,temperatura_alvo,anexos,mat_prop,custo_mat,custo_prod,visita_id,orcmat_id,lead_id,criado_por_id,criado_por_nome,criado_em,rep_enviado,rep_enviado_em,rep_status,rep_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,datetime('now','localtime')),?,IIF(?,datetime('now','localtime'),NULL),IIF(?,'pendente',NULL),IIF(?,'outbound',NULL))")
+    .run(d.cliente, d.vendedora, d.equip, d.valor, d.custo, d.margem, d.pag, 'pendente', d.texto, d.custos || null, d.html_proposta || null, d.temperatura_alvo || null, JSON.stringify(d.anexos || []), d.mat_prop || 0, d.custo_mat || 0, d.custo_prod || 0, d.visita_id || null, d.orcmat_id || null, d.lead_id || null, req.session.u.id, req.session.u.nome, criadoEm, repEnviado, repEnviado, repEnviado, repEnviado);
   audit(req, 'CRIAR_PROPOSTA', 'aprovacoes', r.lastInsertRowid, null, { cliente: d.cliente, valor: d.valor });
   res.json({ sucesso: true, id: r.lastInsertRowid });
 });
@@ -639,14 +639,14 @@ function authRep(req, res, next) {
 }
 app.post('/api/aprovacoes/:id/enviar-rep', adminOnly, (req, res) => {
   try {
-    db.prepare("UPDATE aprovacoes SET rep_enviado=1, rep_enviado_em=datetime('now','localtime'), rep_status='pendente' WHERE id=?").run(req.params.id);
+    db.prepare("UPDATE aprovacoes SET rep_enviado=1, rep_enviado_em=datetime('now','localtime'), rep_status='pendente', rep_tipo='inbound' WHERE id=?").run(req.params.id);
     audit(req, 'ENVIAR_PARA_REP', 'aprovacoes', req.params.id, null, null);
     res.json({ sucesso: true });
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 app.delete('/api/aprovacoes/:id/enviar-rep', adminOnly, (req, res) => {
   try {
-    db.prepare("UPDATE aprovacoes SET rep_enviado=0, rep_enviado_em=NULL, rep_status=NULL, rep_data_visita=NULL, rep_obs=NULL WHERE id=?").run(req.params.id);
+    db.prepare("UPDATE aprovacoes SET rep_enviado=0, rep_enviado_em=NULL, rep_status=NULL, rep_data_visita=NULL, rep_obs=NULL, rep_tipo=NULL WHERE id=?").run(req.params.id);
     audit(req, 'REMOVER_DA_REP', 'aprovacoes', req.params.id, null, null);
     res.json({ sucesso: true });
   } catch(e) { res.status(500).json({ erro: e.message }); }
@@ -656,7 +656,7 @@ app.get('/api/rep/propostas', authRep, (req, res) => {
     const rows = db.prepare(`
       SELECT a.id, a.cliente, a.equip, a.valor, a.pag, a.status, a.temperatura_alvo,
              a.visita_id, a.orcmat_id, a.vendedora, a.criado_em, a.rep_enviado_em,
-             a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id,
+             a.rep_status, a.rep_data_visita, a.rep_obs, a.lead_id, a.rep_tipo,
              a.texto AS prop_texto, a.anexos AS prop_anexos, a.html_proposta AS prop_html,
              v.endereco, v.cep, v.cel AS vis_cel, v.nome AS vis_nome,
              v.data AS vis_data, v.hora_ini AS vis_hora_ini, v.hora_fim AS vis_hora_fim,
@@ -956,6 +956,7 @@ try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_enviado_em TEXT DEFAULT 
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_status TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_data_visita TEXT DEFAULT NULL').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_obs TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE aprovacoes ADD COLUMN rep_tipo TEXT DEFAULT NULL').run(); } catch(e) {}
 
 // ── ORÇAMENTOS DE MATERIAIS ──
 db.exec(`
