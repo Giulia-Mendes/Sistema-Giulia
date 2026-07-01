@@ -639,7 +639,8 @@ function authRep(req, res, next) {
 }
 app.post('/api/aprovacoes/:id/enviar-rep', adminOnly, (req, res) => {
   try {
-    db.prepare("UPDATE aprovacoes SET rep_enviado=1, rep_enviado_em=datetime('now','localtime'), rep_status='pendente', rep_tipo='inbound' WHERE id=?").run(req.params.id);
+    const tipo = req.body?.tipo === 'outbound' ? 'outbound' : 'inbound';
+    db.prepare("UPDATE aprovacoes SET rep_enviado=1, rep_enviado_em=datetime('now','localtime'), rep_status='pendente', rep_tipo=? WHERE id=?").run(tipo, req.params.id);
     audit(req, 'ENVIAR_PARA_REP', 'aprovacoes', req.params.id, null, null);
     res.json({ sucesso: true });
   } catch(e) { res.status(500).json({ erro: e.message }); }

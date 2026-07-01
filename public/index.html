@@ -7858,9 +7858,24 @@ async function toggleEnviarRep(id) {
   const a = aprovacoes.find(x => x.id === id);
   if (!a) return;
   const jaEnviado = !!a.rep_enviado;
+  let tipo = 'inbound';
+  let body = undefined;
+  if (!jaEnviado) {
+    const escolha = confirm(
+      'Para qual fluxo de representação?\n\n' +
+      '• OK → Outbound (proposta proativa para o cliente)\n' +
+      '• Cancelar → Inbound (lead recebido / da aprovação)'
+    );
+    tipo = escolha ? 'outbound' : 'inbound';
+    body = JSON.stringify({ tipo });
+  }
   const method = jaEnviado ? 'DELETE' : 'POST';
   try {
-    const r = await fetch('/api/aprovacoes/' + id + '/enviar-rep', { method });
+    const r = await fetch('/api/aprovacoes/' + id + '/enviar-rep', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: method === 'POST' ? body : undefined
+    });
     const d = await r.json();
     if (!d.sucesso) { alert('Erro: ' + (d.erro || 'Tente novamente.')); return; }
     a.rep_enviado = jaEnviado ? 0 : 1;
