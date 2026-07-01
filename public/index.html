@@ -4134,6 +4134,7 @@ async function salvarLaudo() {
 
 // PROPOSTA - enviar para aprovação
 async function enviarAprovacao() {
+  calcTotalProposta();
   const cliente = document.getElementById('p-cliente').value.trim();
   const pv = parseMoeda(document.getElementById('p-venda').value) || 0;
   if (!cliente || pv === 0) { alert('Preencha o nome do cliente e o preço de venda.'); return; }
