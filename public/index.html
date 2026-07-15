@@ -1231,11 +1231,18 @@ select option { background: var(--surface); color: var(--text); }
   </div>
 
   <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
     <div class="stat"><div class="lbl">Total</div><div class="val" id="ks-total">—</div></div>
     <div class="stat"><div class="lbl">Ortum S12</div><div class="val" id="ks-s12" style="color:#1976D2">—</div></div>
     <div class="stat"><div class="lbl">Prime Inv.</div><div class="val" id="ks-prime" style="color:#E64A19">—</div></div>
     <div class="stat"><div class="lbl">Outros</div><div class="val" id="ks-outros" style="color:#666">—</div></div>
+  </div>
+
+  <!-- Funil do dia: cruzamento com Alery -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+    <div class="stat"><div class="lbl">📅 Visitas marcadas</div><div class="val" id="ks-visitas" style="color:#7c3aed">—</div></div>
+    <div class="stat"><div class="lbl">📝 Propostas feitas</div><div class="val" id="ks-propostas" style="color:#0e7490">—</div></div>
+    <div class="stat"><div class="lbl">✅ Propostas aprovadas</div><div class="val" id="ks-aprovadas" style="color:#2e7d32">—</div></div>
   </div>
 
   <!-- Seção S12 -->
@@ -6518,6 +6525,7 @@ async function toggleUsuario(id, ativo) {
 
 // ─── KOMMO: página de primeiros contatos ───
 let _kommoLeadsCache = [];
+let _kommoFunil = { visitas: {}, propostas: {} };
 const _kommoSecs = { s12: true, prime: true, outros: true };
 
 function kommoHoje() {
@@ -6572,12 +6580,21 @@ function renderKommoSecao(sec, leads, corBg, corText) {
     const hora = fmtHoraKommo(l.primeiro_contato);
     const msg  = l.texto_primeira || '';
     const ini  = (nome[0] || '?').toUpperCase();
+    const lidKey = String(l.lead_id).trim();
+    const temVisita = (_kommoFunil.visitas || {})[lidKey] > 0;
+    const prop = (_kommoFunil.propostas || {})[lidKey];
+    const funilBadges =
+      (temVisita ? '<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📅 Visita</span>' : '') +
+      (prop && prop.aprovadas > 0
+        ? '<span style="background:#e8f5e9;color:#2e7d32;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">✅ Aprovada</span>'
+        : (prop && prop.total > 0 ? '<span style="background:#e0f2f1;color:#0e7490;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📝 Proposta</span>' : ''));
     return `<div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
       <div style="width:34px;height:34px;border-radius:50%;background:${corBg};color:${corText};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;margin-top:2px">${ini}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:600;font-size:13px;color:var(--text)">${nome}</span>
           ${tel ? `<span style="font-size:12px;color:var(--text2)">${tel}</span>` : ''}
+          ${funilBadges}
           <span style="font-size:11px;color:var(--text2);margin-left:auto">${hora}</span>
         </div>
         ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;word-break:break-word">"${msg.length > 160 ? msg.slice(0,160)+'…' : msg}"</div>` : ''}
@@ -6594,7 +6611,7 @@ async function carregarKommo() {
   document.getElementById('kommo-subtitulo').textContent = 'Carregando...';
 
   // Atualiza stats para "carregando"
-  ['ks-total','ks-s12','ks-prime','ks-outros'].forEach(id => {
+  ['ks-total','ks-s12','ks-prime','ks-outros','ks-visitas','ks-propostas','ks-aprovadas'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = '…';
   });
 
@@ -6619,6 +6636,20 @@ async function carregarKommo() {
     document.getElementById('ks-s12').textContent    = s12.length;
     document.getElementById('ks-prime').textContent  = prime.length;
     document.getElementById('ks-outros').textContent = outros.length;
+
+    // Funil do dia: cruza os leads com visitas/propostas do Alery
+    _kommoFunil = { visitas: {}, propostas: {} };
+    try {
+      const rf = await fetch('/api/kommo/funil', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ lead_ids: _kommoLeadsCache.map(l => l.lead_id) }) });
+      if (rf.ok) _kommoFunil = await rf.json();
+    } catch(e) {}
+    const nVisitas   = Object.keys(_kommoFunil.visitas || {}).length;
+    const propVals   = Object.values(_kommoFunil.propostas || {});
+    const nPropostas = propVals.reduce((s,p) => s + (p.total||0), 0);
+    const nAprovadas = propVals.reduce((s,p) => s + (p.aprovadas||0), 0);
+    if (document.getElementById('ks-visitas'))   document.getElementById('ks-visitas').textContent   = nVisitas;
+    if (document.getElementById('ks-propostas')) document.getElementById('ks-propostas').textContent = nPropostas;
+    if (document.getElementById('ks-aprovadas')) document.getElementById('ks-aprovadas').textContent = nAprovadas;
 
     // Formata data para exibição
     const [ano, mes, dia] = data.split('-');

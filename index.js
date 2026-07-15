@@ -1926,6 +1926,26 @@ app.get('/api/kommo/periodo', auth, async (req, res) => {
   }
 });
 
+// ── KOMMO: funil do dia — cruza leads do Kommo com visitas/propostas do Alery ──
+app.post('/api/kommo/funil', auth, (req, res) => {
+  try {
+    const ids = (req.body?.lead_ids || []).map(x => String(x).trim()).filter(Boolean).slice(0, 500);
+    if (!ids.length) return res.json({ visitas: {}, propostas: {} });
+    const ph = ids.map(() => '?').join(',');
+    const vis = db.prepare(`SELECT TRIM(lead_id) AS lid, COUNT(*) AS n FROM visitas WHERE TRIM(COALESCE(lead_id,'')) IN (${ph}) GROUP BY TRIM(lead_id)`).all(...ids);
+    const props = db.prepare(`SELECT TRIM(lead_id) AS lid, status FROM aprovacoes WHERE TRIM(COALESCE(lead_id,'')) IN (${ph})`).all(...ids);
+    const visitas = {};
+    vis.forEach(v => { visitas[v.lid] = v.n; });
+    const propostas = {};
+    props.forEach(p => {
+      if (!propostas[p.lid]) propostas[p.lid] = { total: 0, aprovadas: 0 };
+      propostas[p.lid].total++;
+      if (p.status === 'aprovado') propostas[p.lid].aprovadas++;
+    });
+    res.json({ visitas, propostas });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── KOMMO: debug de notas de um lead ──
 app.get('/api/kommo/lead/:id/notas-debug', auth, async (req, res) => {
   try {
