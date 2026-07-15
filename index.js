@@ -1781,6 +1781,9 @@ app.get('/api/kommo/lead/:id', auth, async (req, res) => {
     }
     // Só usa o nome do lead como fallback se não achou contato
     if (!nome) nome = lead.name || '';
+    if (req.query.raw === '1') {
+      return res.json({ id: lead.id, nome, custom_fields_values: lead.custom_fields_values || null, source_id: lead.source_id || null, tags: lead._embedded?.tags || null, pipeline_id: lead.pipeline_id, status_id: lead.status_id });
+    }
     res.json({ id: lead.id, nome, cel, status_id: lead.status_id, pipeline_id: lead.pipeline_id, valor: lead.price });
   } catch (e) {
     console.error('[Kommo] Erro:', e.message);
