@@ -2020,6 +2020,22 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       } catch {}
     }
 
+    // 3.5 Busca notas "Primeira mensagem" criadas pelo Salesbot (workaround para falta de escopo chats)
+    const notasPrimeira = {};
+    for (let i = 0; i < leadIds.length; i += 50) {
+      const qN = leadIds.slice(i, i + 50).map(id => `filter[entity_id][]=${id}`).join('&');
+      try {
+        const { status: sN, body: nBody } = await kommoGet(`/leads/notes?${qN}&filter[note_type][]=common&limit=250`);
+        if (sN === 200) {
+          for (const n of nBody._embedded?.notes || []) {
+            const txt = n.params?.text || '';
+            const m = txt.match(/^Primeira mensagem:\s*([\s\S]+)/i);
+            if (m && !notasPrimeira[n.entity_id]) notasPrimeira[n.entity_id] = m[1].trim();
+          }
+        }
+      } catch {}
+    }
+
     // 4. Busca primeira mensagem de cada talk (texto enviado pelo cliente)
     const talkMsgs = {};
     const talkIds = [...new Set(Object.values(leadTalkMap).map(t => t.talk_id).filter(Boolean))];
@@ -2047,7 +2063,7 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       const tel  = ctTalk?.tel  || ctLeadInfo?.tel  || '';
       // Fallback: campo custom "Primeira mensagem" preenchido por Salesbot no Kommo
       const cfPrimeira = (lead?.custom_fields_values || []).find(f => /primeira\s*mensagem/i.test(f.field_name || ''));
-      const textoPrimeira = talkMsgs[tkInfo.talk_id] || cfPrimeira?.values?.[0]?.value || '';
+      const textoPrimeira = talkMsgs[tkInfo.talk_id] || cfPrimeira?.values?.[0]?.value || notasPrimeira[lid] || '';
 
       resultado.push({
         lead_id: lid,
