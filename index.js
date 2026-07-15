@@ -1986,24 +1986,26 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       return res.json({ total: 0, data: dataStr, leads: [] });
     }
 
-    // 2. Busca detalhes dos leads em lote (nome, pipeline, custom fields)
+    // 2. Busca detalhes dos leads em lotes de 50 (nome, pipeline, custom fields)
     const leadsById = {};
-    try {
-      const idsQuery = leadIds.slice(0,50).map(id => `filter[id][]=${id}`).join('&');
-      const { status: sL, body: lBody } = await kommoGet(`/leads?${idsQuery}&with=contacts&limit=250`);
-      if (sL === 200) {
-        for (const l of lBody._embedded?.leads || []) {
-          leadsById[l.id] = l;
-          for (const c of l._embedded?.contacts || []) contactIds.add(c.id);
+    for (let i = 0; i < leadIds.length; i += 50) {
+      try {
+        const idsQuery = leadIds.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&');
+        const { status: sL, body: lBody } = await kommoGet(`/leads?${idsQuery}&with=contacts&limit=250`);
+        if (sL === 200) {
+          for (const l of lBody._embedded?.leads || []) {
+            leadsById[l.id] = l;
+            for (const c of l._embedded?.contacts || []) contactIds.add(c.id);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
-    // 3. Busca nome e telefone dos contatos em lote
+    // 3. Busca nome e telefone dos contatos em lotes de 50
     const contatosTel = {};
-    if (contactIds.size > 0) {
-      const ids = [...contactIds].slice(0, 50);
-      const idsQuery = ids.map(id => `filter[id][]=${id}`).join('&');
+    const allContactIds = [...contactIds];
+    for (let i = 0; i < allContactIds.length; i += 50) {
+      const idsQuery = allContactIds.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&');
       try {
         const { status: sC, body: cBody } = await kommoGet(`/contacts?${idsQuery}&limit=250`);
         if (sC === 200) {
@@ -2046,6 +2048,7 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
         lead_id: lid,
         nome,
         tel,
+        lead_name: lead?.name || '',
         primeiro_contato: tkInfo.created_at,
         texto_primeira: textoPrimeira,
         url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${lid}`
