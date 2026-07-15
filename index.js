@@ -2045,7 +2045,9 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       const ctLeadInfo = ctLead ? contatosTel[ctLead.id] : null;
       const nome = ctTalk?.nome || ctLeadInfo?.nome || lead?.name || `Lead #${lid}`;
       const tel  = ctTalk?.tel  || ctLeadInfo?.tel  || '';
-      const textoPrimeira = talkMsgs[tkInfo.talk_id] || '';
+      // Fallback: campo custom "Primeira mensagem" preenchido por Salesbot no Kommo
+      const cfPrimeira = (lead?.custom_fields_values || []).find(f => /primeira\s*mensagem/i.test(f.field_name || ''));
+      const textoPrimeira = talkMsgs[tkInfo.talk_id] || cfPrimeira?.values?.[0]?.value || '';
 
       resultado.push({
         lead_id: lid,
