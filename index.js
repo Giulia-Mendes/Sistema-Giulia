@@ -2034,16 +2034,29 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     }
 
     // 3.5 Busca notas "Primeira mensagem" criadas pelo Salesbot (workaround para falta de escopo chats)
+    // O Salesbot grava a nota no CONTATO principal — busca em contacts/notes e mapeia contato → lead
     const notasPrimeira = {};
-    for (let i = 0; i < leadIds.length; i += 50) {
-      const qN = leadIds.slice(i, i + 50).map(id => `filter[entity_id][]=${id}`).join('&');
+    const contactToLead = {};
+    for (const [lidStr, tk] of Object.entries(leadTalkMap)) {
+      if (tk.contact_id) contactToLead[tk.contact_id] = parseInt(lidStr);
+    }
+    for (const [lidStr] of Object.entries(leadTalkMap)) {
+      const lid = parseInt(lidStr);
+      for (const c of leadsById[lid]?._embedded?.contacts || []) {
+        if (!contactToLead[c.id]) contactToLead[c.id] = lid;
+      }
+    }
+    const cIdsNotas = Object.keys(contactToLead);
+    for (let i = 0; i < cIdsNotas.length; i += 50) {
+      const qN = cIdsNotas.slice(i, i + 50).map(id => `filter[entity_id][]=${id}`).join('&');
       try {
-        const { status: sN, body: nBody } = await kommoGet(`/leads/notes?${qN}&filter[note_type][]=common&limit=250`);
+        const { status: sN, body: nBody } = await kommoGet(`/contacts/notes?${qN}&limit=250`);
         if (sN === 200) {
           for (const n of nBody._embedded?.notes || []) {
             const txt = n.params?.text || '';
             const m = txt.match(/^Primeira mensagem:\s*([\s\S]+)/i);
-            if (m && !notasPrimeira[n.entity_id]) notasPrimeira[n.entity_id] = m[1].trim();
+            const lidNota = contactToLead[n.entity_id];
+            if (m && lidNota && !notasPrimeira[lidNota]) notasPrimeira[lidNota] = m[1].trim();
           }
         }
       } catch {}
