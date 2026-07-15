@@ -1929,19 +1929,22 @@ app.get('/api/kommo/periodo', auth, async (req, res) => {
 // ── KOMMO: funil do dia — cruza leads do Kommo com visitas/propostas do Alery ──
 app.post('/api/kommo/funil', auth, (req, res) => {
   try {
-    const ids = (req.body?.lead_ids || []).map(x => String(x).trim()).filter(Boolean).slice(0, 500);
-    if (!ids.length) return res.json({ visitas: {}, propostas: {} });
-    const ph = ids.map(() => '?').join(',');
-    const vis = db.prepare(`SELECT TRIM(lead_id) AS lid, COUNT(*) AS n FROM visitas WHERE TRIM(COALESCE(lead_id,'')) IN (${ph}) GROUP BY TRIM(lead_id)`).all(...ids);
-    const props = db.prepare(`SELECT TRIM(lead_id) AS lid, status FROM aprovacoes WHERE TRIM(COALESCE(lead_id,'')) IN (${ph})`).all(...ids);
+    const idsAll = (req.body?.lead_ids || []).map(x => String(x).trim()).filter(Boolean).slice(0, 3000);
+    if (!idsAll.length) return res.json({ visitas: {}, propostas: {} });
     const visitas = {};
-    vis.forEach(v => { visitas[v.lid] = v.n; });
     const propostas = {};
-    props.forEach(p => {
-      if (!propostas[p.lid]) propostas[p.lid] = { total: 0, aprovadas: 0 };
-      propostas[p.lid].total++;
-      if (p.status === 'aprovado') propostas[p.lid].aprovadas++;
-    });
+    for (let i = 0; i < idsAll.length; i += 500) {
+      const ids = idsAll.slice(i, i + 500);
+      const ph = ids.map(() => '?').join(',');
+      const vis = db.prepare(`SELECT TRIM(lead_id) AS lid, COUNT(*) AS n FROM visitas WHERE TRIM(COALESCE(lead_id,'')) IN (${ph}) GROUP BY TRIM(lead_id)`).all(...ids);
+      const props = db.prepare(`SELECT TRIM(lead_id) AS lid, status FROM aprovacoes WHERE TRIM(COALESCE(lead_id,'')) IN (${ph})`).all(...ids);
+      vis.forEach(v => { visitas[v.lid] = v.n; });
+      props.forEach(p => {
+        if (!propostas[p.lid]) propostas[p.lid] = { total: 0, aprovadas: 0 };
+        propostas[p.lid].total++;
+        if (p.status === 'aprovado') propostas[p.lid].aprovadas++;
+      });
+    }
     res.json({ visitas, propostas });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
@@ -1988,21 +1991,29 @@ app.get('/api/kommo/eventos', auth, async (req, res) => {
 // ── KOMMO: primeiros contatos do dia (por data exata) ──
 app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
   try {
-    const dataStr = req.query.data || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const dataStr    = req.query.data || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const dataFimStr = req.query.data_fim && /^\d{4}-\d{2}-\d{2}$/.test(req.query.data_fim) ? req.query.data_fim : dataStr;
     // Timestamps em horário de Brasília (UTC-3)
     const inicio = Math.floor(new Date(dataStr + 'T00:00:00-03:00').getTime() / 1000);
-    const fim    = Math.floor(new Date(dataStr + 'T23:59:59-03:00').getTime() / 1000);
+    const fim    = Math.floor(new Date(dataFimStr + 'T23:59:59-03:00').getTime() / 1000);
 
-    // 1. Busca TALKS criados no dia (conversas WhatsApp — horário exato do 1º contato)
-    // Talks são mais precisos que leads criados pois capturam contatos em leads antigos
-    const { status: sTalks, body: talksBody } = await kommoGet(
-      `/talks?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250`
-    );
-    console.log('[Kommo debug] talks status=', sTalks, 'body=', JSON.stringify(talksBody).slice(0, 300));
-    if (sTalks === 401) return res.status(401).json({ erro: 'Token Kommo inválido ou expirado (401) — atualize em Railway' });
-    if (sTalks !== 200) return res.status(sTalks).json({ erro: `Erro ao buscar talks Kommo (status ${sTalks})` });
-    const talks = talksBody._embedded?.talks || [];
-    if (talks.length > 0) console.log('[Kommo debug] talk sample:', JSON.stringify(talks[0]).slice(0, 400));
+    // 1. Busca TALKS criados no período (conversas WhatsApp — horário exato do 1º contato)
+    // Pagina até 8 páginas (2000 talks) para cobrir intervalos de vários dias
+    let talks = [];
+    for (let pg = 1; pg <= 8; pg++) {
+      const { status: sTalks, body: talksBody } = await kommoGet(
+        `/talks?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&page=${pg}`
+      );
+      if (sTalks === 401) return res.status(401).json({ erro: 'Token Kommo inválido ou expirado (401) — atualize em Railway' });
+      if (sTalks === 204) break;
+      if (sTalks !== 200) {
+        if (pg === 1) return res.status(sTalks).json({ erro: `Erro ao buscar talks Kommo (status ${sTalks})` });
+        break;
+      }
+      const pageTalks = talksBody._embedded?.talks || [];
+      talks = talks.concat(pageTalks);
+      if (pageTalks.length < 250) break;
+    }
 
     // Agrupa por lead: guarda o talk mais antigo por lead
     const leadTalkMap = {}; // leadId → { talk_id, created_at, contact_id }

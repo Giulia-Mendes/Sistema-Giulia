@@ -1223,7 +1223,11 @@ select option { background: var(--surface); color: var(--text); }
       <div style="font-size:12px;color:var(--text2);margin-top:2px" id="kommo-subtitulo">Carregando...</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="date" id="kommo-data" onchange="carregarKommo()"
+      <span style="font-size:12px;color:var(--text2)">De</span>
+      <input type="date" id="kommo-data" onchange="kommoAjustaFim();carregarKommo()"
+        style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <span style="font-size:12px;color:var(--text2)">até</span>
+      <input type="date" id="kommo-data-fim" onchange="carregarKommo()"
         style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
       <button class="btn btn-branco" onclick="kommoHoje()" style="font-size:12px">Hoje</button>
       <button class="btn btn-branco" onclick="carregarKommo()" style="font-size:12px">🔄</button>
@@ -6543,7 +6547,17 @@ function kommoHoje() {
   const hoje = new Date();
   const y = hoje.getFullYear(), m = String(hoje.getMonth()+1).padStart(2,'0'), d = String(hoje.getDate()).padStart(2,'0');
   document.getElementById('kommo-data').value = `${y}-${m}-${d}`;
+  const fimEl = document.getElementById('kommo-data-fim');
+  if (fimEl) fimEl.value = `${y}-${m}-${d}`;
   carregarKommo();
+}
+
+// Se a data inicial passar da final, arrasta a final junto
+function kommoAjustaFim() {
+  const ini = document.getElementById('kommo-data')?.value;
+  const fimEl = document.getElementById('kommo-data-fim');
+  if (!fimEl) return;
+  if (!fimEl.value || (ini && fimEl.value < ini)) fimEl.value = ini;
 }
 
 function toggleKommoSec(sec) {
@@ -6617,8 +6631,10 @@ function renderKommoSecao(sec, leads, corBg, corText) {
 
 async function carregarKommo() {
   const dataInput = document.getElementById('kommo-data');
-  if (!dataInput.value) kommoHoje();
+  if (!dataInput.value) { kommoHoje(); return; }
   const data = dataInput.value;
+  let dataFim = document.getElementById('kommo-data-fim')?.value || data;
+  if (dataFim < data) { dataFim = data; const fimEl = document.getElementById('kommo-data-fim'); if (fimEl) fimEl.value = data; }
   document.getElementById('kommo-subtitulo').textContent = 'Carregando...';
 
   // Atualiza stats para "carregando"
@@ -6627,7 +6643,7 @@ async function carregarKommo() {
   });
 
   try {
-    const r = await fetch('/api/kommo/primeiras-mensagens?data=' + data);
+    const r = await fetch('/api/kommo/primeiras-mensagens?data=' + data + '&data_fim=' + dataFim);
     const d = await r.json();
     if (!r.ok) throw new Error(d.erro || 'Erro ao carregar');
     // Debug temporário — ver console do navegador (F12)
@@ -6663,10 +6679,12 @@ async function carregarKommo() {
     if (document.getElementById('ks-aprovadas')) document.getElementById('ks-aprovadas').textContent = nAprovadas;
 
     // Formata data para exibição
-    const [ano, mes, dia] = data.split('-');
+    const fmtBR = s => s.split('-').reverse().join('/');
     const hoje = new Date().toISOString().slice(0,10);
     const ontem = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    const labelData = data === hoje ? 'Hoje' : data === ontem ? 'Ontem' : `${dia}/${mes}/${ano}`;
+    let labelData;
+    if (data === dataFim) labelData = data === hoje ? 'Hoje' : data === ontem ? 'Ontem' : fmtBR(data);
+    else labelData = `${fmtBR(data)} a ${fmtBR(dataFim)}`;
     document.getElementById('kommo-subtitulo').textContent =
       `${_kommoLeadsCache.length} contato${_kommoLeadsCache.length !== 1 ? 's' : ''} • ${labelData}`;
 
