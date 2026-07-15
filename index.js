@@ -179,6 +179,7 @@ function kommoRequest(method, path, body) {
       headers: {
         'Authorization': `Bearer ${KOMMO_TOKEN}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'Alery/1.0 (+https://alery-production.up.railway.app)',
         ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
       }
     };
