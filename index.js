@@ -1926,6 +1926,19 @@ app.get('/api/kommo/periodo', auth, async (req, res) => {
   }
 });
 
+// ── KOMMO: debug de notas de um lead ──
+app.get('/api/kommo/lead/:id/notas-debug', auth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const a = await kommoGet(`/leads/notes?filter[entity_id][]=${id}&limit=50`);
+    const b = await kommoGet(`/leads/${id}/notes?limit=50`);
+    res.json({
+      filtro:  { status: a.status, body: JSON.stringify(a.body).slice(0, 1200) },
+      direto:  { status: b.status, body: JSON.stringify(b.body).slice(0, 1200) },
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── KOMMO: eventos/mensagens recentes ──
 app.get('/api/kommo/eventos', auth, async (req, res) => {
   try {
