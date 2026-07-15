@@ -6526,6 +6526,17 @@ async function toggleUsuario(id, ativo) {
 // ─── KOMMO: página de primeiros contatos ───
 let _kommoLeadsCache = [];
 let _kommoFunil = { visitas: {}, propostas: {} };
+
+// Erros JS silenciosos viram aviso visível (facilita suporte)
+window.addEventListener('error', ev => {
+  try {
+    const t = document.getElementById('kommo-toast');
+    if (!t) return;
+    t.textContent = '⚠️ Erro no sistema: ' + (ev.message || 'desconhecido') + ' — atualize a página (F5). Se persistir, avise a Giulia.';
+    t.style.display = 'flex';
+    setTimeout(() => { t.style.display = 'none'; }, 8000);
+  } catch(e) {}
+});
 const _kommoSecs = { s12: true, prime: true, outros: true };
 
 function kommoHoje() {
