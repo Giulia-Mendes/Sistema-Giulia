@@ -2355,7 +2355,7 @@ function abrirPopupCal(evt, src, id) {
   } else {
     const tipoLabel = obj.tipo === 'instalacao' ? '🔧 Instalação' : '🔍 Visita técnica';
     const cor = obj.tipo === 'instalacao' ? 'var(--mineral)' : 'var(--accent)';
-    const tecs = (obj.tecnicos || []).map(t => { const [n,c] = t.split('|'); return n + '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }).join('\n\n');
+    const tecs = (obj.tecnicos || []).map(t => { const [n,c] = String(t||'').split('|'); return n + (c ? '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ''); }).join('\n\n');
     h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
     h += '<span style="font-size:13px;font-weight:500;color:' + cor + '">' + tipoLabel + '</span>';
     h += '<button onclick="fecharPopupCal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#888780;line-height:1">×</button></div>';
