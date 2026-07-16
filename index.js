@@ -1997,13 +1997,12 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     const inicio = Math.floor(new Date(dataStr + 'T00:00:00-03:00').getTime() / 1000);
     const fim    = Math.floor(new Date(dataFimStr + 'T23:59:59-03:00').getTime() / 1000);
 
-    // 1. Busca TALKS criados no período (conversas WhatsApp — horário exato do 1º contato)
-    // Pagina até 8 páginas (2000 talks) para cobrir intervalos de vários dias
+    // 1. Busca TALKS (conversas WhatsApp — horário exato do 1º contato)
+    // ATENÇÃO: o Kommo IGNORA filter[created_at] em /talks — filtramos aqui no servidor.
+    // Pagina até 20 páginas (5000 talks = histórico completo atual) e filtra pelo período.
     let talks = [];
-    for (let pg = 1; pg <= 8; pg++) {
-      const { status: sTalks, body: talksBody } = await kommoGet(
-        `/talks?filter[created_at][from]=${inicio}&filter[created_at][to]=${fim}&limit=250&page=${pg}`
-      );
+    for (let pg = 1; pg <= 20; pg++) {
+      const { status: sTalks, body: talksBody } = await kommoGet(`/talks?limit=250&page=${pg}`);
       if (sTalks === 401) return res.status(401).json({ erro: 'Token Kommo inválido ou expirado (401) — atualize em Railway' });
       if (sTalks === 204) break;
       if (sTalks !== 200) {
@@ -2011,7 +2010,7 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
         break;
       }
       const pageTalks = talksBody._embedded?.talks || [];
-      talks = talks.concat(pageTalks);
+      talks = talks.concat(pageTalks.filter(t => t.created_at >= inicio && t.created_at <= fim));
       if (pageTalks.length < 250) break;
     }
 
