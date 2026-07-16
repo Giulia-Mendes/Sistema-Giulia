@@ -2481,7 +2481,7 @@ function abrirEditarVisita(id) {
   const outroTec = (v.tecnicos||[]).find(t => t !== 'Joseilto da Silva Melo|05770641428' && t !== 'José Wesley Mendes da Silva|15417106496');
   if (outroTec) {
     const [n, c] = outroTec.split('|');
-    document.getElementById('ev-outro-tec-span').textContent = n + ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    document.getElementById('ev-outro-tec-span').textContent = n + (c ? ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '');
     document.getElementById('ev-outro-tec-label').style.display = 'flex';
     document.getElementById('ev-outro-tec-check').value = outroTec;
     document.getElementById('ev-outro-tec-check').checked = true;
@@ -2650,7 +2650,7 @@ function clonarVisita(id) {
   );
   if (outroTec) {
     const [n, c] = outroTec.split('|');
-    document.getElementById('ev-outro-tec-span').textContent = n + ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    document.getElementById('ev-outro-tec-span').textContent = n + (c ? ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '');
     document.getElementById('ev-outro-tec-label').style.display = 'flex';
     const ck = document.getElementById('ev-outro-tec-check');
     if (ck) { ck.value = outroTec; ck.checked = true; }
