@@ -248,6 +248,7 @@ select option { background: var(--surface); color: var(--text); }
 .tipo-opt { flex: 1; padding: 10px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 500; color: var(--text); transition: all .2s; }
 .tipo-opt.sel-visita { border-color: var(--accent); background: var(--accent); color: #fff; }
 .tipo-opt.sel-inst { border-color: var(--mineral); background: var(--mineral); color: #fff; }
+.tipo-opt.sel-retorno { border-color: #E65100; background: #E65100; color: #fff; }
 
 /* CHECKLIST */
 .ck-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -358,6 +359,7 @@ select option { background: var(--surface); color: var(--text); }
 .cal-ev { font-size: 10px; border-radius: 3px; padding: 2px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .cal-ev.visita { background: var(--accent); color: #fff; }
 .cal-ev.inst { background: var(--mineral); color: #fff; }
+.cal-ev.retorno { background: #E65100; color: #fff; }
 .cal-semana-wrap { overflow-x: auto; }
 .cal-semana { display: grid; grid-template-columns: 52px repeat(7, 1fr); min-width: 580px; }
 .cal-sem-header { grid-column: 1 / -1; display: grid; grid-template-columns: 52px repeat(7, 1fr); border-bottom: 1px solid var(--border); }
@@ -375,6 +377,7 @@ select option { background: var(--surface); color: var(--text); }
 .cal-ev-week { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 5px; font-size: 11px; cursor: pointer; overflow: hidden; z-index: 2; line-height: 1.3; }
 .cal-ev-week.visita { background: var(--accent); color: #fff; }
 .cal-ev-week.inst { background: var(--mineral); color: #fff; }
+.cal-ev-week.retorno { background: #E65100; color: #fff; }
 .cal-popup { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; z-index: 200; width: 300px; box-shadow: 0 8px 32px var(--shadow); display: none; color: var(--text); }
 .cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
 .cal-legenda-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -616,6 +619,7 @@ select option { background: var(--surface); color: var(--text); }
       <div class="tipo-wrap">
         <div class="tipo-opt sel-visita" id="tipo-btn-visita" onclick="selecionarTipo('visita')">🔍 Visita técnica</div>
         <div class="tipo-opt" id="tipo-btn-inst" onclick="selecionarTipo('instalacao')">🔧 Instalação</div>
+        <div class="tipo-opt" id="tipo-btn-retorno" onclick="selecionarTipo('retorno')">🔄 Retorno</div>
       </div>
     </div>
 
@@ -720,6 +724,7 @@ select option { background: var(--surface); color: var(--text); }
     <div class="cal-legenda">
       <div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:var(--accent)"></div> Visita técnica</div>
       <div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:var(--mineral)"></div> Instalação</div>
+      <div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#E65100"></div> Retorno</div>
     </div>
   </div>
 </div>
@@ -1643,6 +1648,7 @@ select option { background: var(--surface); color: var(--text); }
       <div class="tipo-wrap">
         <div class="tipo-opt" id="ev-tipo-visita" onclick="selecionarTipoEdit('visita')">🔍 Visita técnica</div>
         <div class="tipo-opt" id="ev-tipo-inst" onclick="selecionarTipoEdit('instalacao')">🔧 Instalação</div>
+        <div class="tipo-opt" id="ev-tipo-retorno" onclick="selecionarTipoEdit('retorno')">🔄 Retorno</div>
       </div>
     </div>
     <div class="g2">
@@ -2187,12 +2193,16 @@ function selecionarTipo(t) {
   tipoEvento = t;
   document.getElementById('tipo-btn-visita').className = 'tipo-opt' + (t === 'visita' ? ' sel-visita' : '');
   document.getElementById('tipo-btn-inst').className = 'tipo-opt' + (t === 'instalacao' ? ' sel-inst' : '');
+  const btnRet = document.getElementById('tipo-btn-retorno');
+  if (btnRet) btnRet.className = 'tipo-opt' + (t === 'retorno' ? ' sel-retorno' : '');
   gerarTexto();
 }
 function selecionarTipoEdit(t) {
   tipoEventoEdit = t;
   document.getElementById('ev-tipo-visita').className = 'tipo-opt' + (t === 'visita' ? ' sel-visita' : '');
   document.getElementById('ev-tipo-inst').className = 'tipo-opt' + (t === 'instalacao' ? ' sel-inst' : '');
+  const btnRet = document.getElementById('ev-tipo-retorno');
+  if (btnRet) btnRet.className = 'tipo-opt' + (t === 'retorno' ? ' sel-retorno' : '');
 }
 
 // ═══ CALENDÁRIO ═══
@@ -2222,7 +2232,7 @@ function strData(d) {
 }
 function getEventosDia(ds) {
   const evs = [];
-  visitas.forEach(v => { if (v.data === ds) evs.push({ tipo: (v.tipo === 'instalacao' ? 'inst' : 'visita'), label: v.nome, horaIni: v.horaIni, horaFim: v.horaFim, id: v.id, src: 'v' }); });
+  visitas.forEach(v => { if (v.data === ds) evs.push({ tipo: (v.tipo === 'instalacao' ? 'inst' : v.tipo === 'retorno' ? 'retorno' : 'visita'), label: v.nome, horaIni: v.horaIni, horaFim: v.horaFim, id: v.id, src: 'v' }); });
   return evs;
 }
 function renderCalendario() {
@@ -2253,7 +2263,7 @@ function renderMes(corpo) {
     if (!om) {
       h += numHtml;
       evs.forEach(ev => {
-        const cls = ev.tipo === 'inst' ? 'inst' : 'visita';
+        const cls = ev.tipo === 'inst' ? 'inst' : ev.tipo === 'retorno' ? 'retorno' : 'visita';
         h += '<div class="cal-ev ' + cls + '" onclick="abrirPopupCal(event,\'' + ev.src + '\',' + ev.id + ')">' + (ev.horaIni || '') + ' ' + ev.label + '</div>';
       });
     }
@@ -2295,7 +2305,7 @@ function renderSemana(corpo) {
     grupos.forEach(({ ev, col, totalCols }) => {
       const top = horaToPx(ev.horaIni);
       const height = Math.max(horaToPx(ev.horaFim) - top, 24);
-      const cls = ev.tipo === 'inst' ? 'inst' : 'visita';
+      const cls = ev.tipo === 'inst' ? 'inst' : ev.tipo === 'retorno' ? 'retorno' : 'visita';
       const largura = (100 / totalCols).toFixed(1) + '%';
       const left = ((col / totalCols) * 100).toFixed(1) + '%';
       const gap = col > 0 ? '2px' : '2px';
@@ -2353,8 +2363,8 @@ function abrirPopupCal(evt, src, id) {
     h += '<p style="font-size:13px;font-weight:500;color:var(--accent)">💰 R$ ' + (obj.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</p>';
     if (obj.obs) h += '<p style="font-size:12px;color:#888780;margin-top:6px">📝 ' + obj.obs + '</p>';
   } else {
-    const tipoLabel = obj.tipo === 'instalacao' ? '🔧 Instalação' : '🔍 Visita técnica';
-    const cor = obj.tipo === 'instalacao' ? 'var(--mineral)' : 'var(--accent)';
+    const tipoLabel = obj.tipo === 'instalacao' ? '🔧 Instalação' : obj.tipo === 'retorno' ? '🔄 Retorno' : '🔍 Visita técnica';
+    const cor = obj.tipo === 'instalacao' ? 'var(--mineral)' : obj.tipo === 'retorno' ? '#E65100' : 'var(--accent)';
     const tecs = (obj.tecnicos || []).map(t => { const [n,c] = String(t||'').split('|'); return n + (c ? '\nCPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ''); }).join('\n\n');
     h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
     h += '<span style="font-size:13px;font-weight:500;color:' + cor + '">' + tipoLabel + '</span>';
@@ -2406,7 +2416,7 @@ function addTec() {
   gerarTexto();
 }
 function montarTextoVisita(v) {
-  const tipo = v.tipo === 'instalacao' ? 'Instalação' : 'Visita técnica';
+  const tipo = v.tipo === 'instalacao' ? 'Instalação' : v.tipo === 'retorno' ? 'Retorno' : 'Visita técnica';
   const tecs = (v.tecnicos || []).map(t => {
     const [n, c] = t.split('|');
     const cpfFmt = c ? c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
@@ -2564,7 +2574,11 @@ function renderVisitas() {
   lista.innerHTML = filtradas.map(v => {
     const isExp = expandidoVisita === v.id;
     const isInst = v.tipo === 'instalacao';
-    const tipoBadge = isInst ? '<span class="badge badge-teal">🔧 Instalação</span>' : '<span class="badge badge-roxo">🔍 Visita técnica</span>';
+    const tipoBadge = isInst
+      ? '<span class="badge badge-teal">🔧 Instalação</span>'
+      : v.tipo === 'retorno'
+        ? '<span class="badge" style="background:#FFE0B2;color:#E65100">🔄 Retorno</span>'
+        : '<span class="badge badge-roxo">🔍 Visita técnica</span>';
     const tecs = (v.tecnicos||[]).map(t => t.split('|')[0]).join(', ') || '—';
     let bodyHtml = '';
     if (isExp) {
@@ -4776,7 +4790,7 @@ function renderDashboard() {
   }
 
   // Getters por tipo
-  const gVis  = (de, ate) => allVs.filter(v => v.tipo !== 'instalacao' && inP(v.data, de, ate)).length;
+  const gVis  = (de, ate) => allVs.filter(v => v.tipo !== 'instalacao' && v.tipo !== 'retorno' && inP(v.data, de, ate)).length;
   const gInst = (de, ate) => allVs.filter(v => v.tipo === 'instalacao' && inP(v.data, de, ate)).length;
   const gProp = (de, ate) => allProps.filter(a => inP(a.criado_em, de, ate)).length;
   const vProp = (de, ate) => allProps.filter(a => inP(a.criado_em, de, ate)).reduce((s,a) => s+(a.valor||0), 0);
@@ -4804,7 +4818,7 @@ function renderDashboard() {
   const pedsBase  = pedidos.filter(p => inRange(p.data, r));
 
   const vs      = vsBase.filter(v  => matchV(v.vendedora));
-  const vsVisit = vs.filter(v => v.tipo !== 'instalacao');
+  const vsVisit = vs.filter(v => v.tipo !== 'instalacao' && v.tipo !== 'retorno');
   const vsInst  = vs.filter(v => v.tipo === 'instalacao');
   const props   = propsBase.filter(a => matchV(a.vendedora));
   const aprov   = aprovBase.filter(a => matchV(a.vendedora));
@@ -4823,7 +4837,7 @@ function renderDashboard() {
   const semProps = propsBase.filter(a => !a.vendedora);
   const semAprov = aprovBase.filter(a => !a.vendedora);
   const semPeds  = pedsBase.filter(p => !p.vendedora || !vends.some(v2 => matchPedVend(p.vendedora, v2)));
-  const semVs      = vsBase.filter(v => !v.vendedora && v.tipo !== 'instalacao');
+  const semVs      = vsBase.filter(v => !v.vendedora && v.tipo !== 'instalacao' && v.tipo !== 'retorno');
   const semVsInst  = vsBase.filter(v => !v.vendedora && v.tipo === 'instalacao');
   _dashCache = {
     all: { visitas: vsVisit, instAgend: vsInst, props, aprov, peds, abertas, concl },
@@ -4833,7 +4847,7 @@ function renderDashboard() {
     const isSem = v === '__sem__';
     _dashCache.byVend[i] = {
       label: isSem ? 'Sem vendedor' : v,
-      visitas:   isSem ? semVs     : vsBase.filter(vi => vi.vendedora === v && vi.tipo !== 'instalacao'),
+      visitas:   isSem ? semVs     : vsBase.filter(vi => vi.vendedora === v && vi.tipo !== 'instalacao' && vi.tipo !== 'retorno'),
       instAgend: isSem ? semVsInst : vsBase.filter(vi => vi.vendedora === v && vi.tipo === 'instalacao'),
       props:   isSem ? semProps : propsBase.filter(a => a.vendedora === v),
       aprov:   isSem ? semAprov : aprovBase.filter(a => a.vendedora === v),
