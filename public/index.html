@@ -1240,10 +1240,11 @@ select option { background: var(--surface); color: var(--text); }
   </div>
 
   <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
     <div class="stat"><div class="lbl">Total</div><div class="val" id="ks-total">—</div></div>
     <div class="stat"><div class="lbl">Ortum S12</div><div class="val" id="ks-s12" style="color:#1976D2">—</div></div>
     <div class="stat"><div class="lbl">Prime Inv.</div><div class="val" id="ks-prime" style="color:#E64A19">—</div></div>
+    <div class="stat"><div class="lbl">Capa térmica</div><div class="val" id="ks-capa" style="color:#00897B">—</div></div>
     <div class="stat"><div class="lbl">Outros</div><div class="val" id="ks-outros" style="color:#666">—</div></div>
   </div>
 
@@ -1274,6 +1275,17 @@ select option { background: var(--surface); color: var(--text); }
       <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-prime">▼</span>
     </div>
     <div id="kommo-lista-prime" style="padding:4px 0"></div>
+  </div>
+
+  <!-- Seção Capa Térmica -->
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-capa">
+    <div onclick="toggleKommoSec('capa')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">🧊</span>
+      <span style="font-weight:600;font-size:14px;color:#00897B">Capa térmica</span>
+      <span id="kommo-badge-capa" style="background:#00897B;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-capa">▼</span>
+    </div>
+    <div id="kommo-lista-capa" style="padding:4px 0"></div>
   </div>
 
   <!-- Seção Outros -->
@@ -6555,7 +6567,7 @@ window.addEventListener('error', ev => {
     setTimeout(() => { t.style.display = 'none'; }, 8000);
   } catch(e) {}
 });
-const _kommoSecs = { s12: true, prime: true, outros: true };
+const _kommoSecs = { s12: true, prime: true, capa: true, outros: true };
 
 function kommoHoje() {
   const hoje = new Date();
@@ -6587,6 +6599,9 @@ function detectarModelo(texto) {
   const t = texto.toLowerCase();
   if (t.includes('s12')) return 's12';
   if (t.includes('prime') || t.includes('full inverter') || t.includes('inverter')) return 'prime';
+  if (t.includes('capa') || t.includes('termica') || t.includes('térmica')) return 'capa';
+  // Anúncio de capa térmica: mensagem padrão genérica "Olá! Posso ter mais informações sobre isso?"
+  if (t.includes('posso ter mais informa')) return 'capa';
   return 'outros';
 }
 
@@ -6664,11 +6679,12 @@ async function carregarKommo() {
     _kommoLeadsCache = d.leads || [];
 
     // Separa por modelo
-    const s12 = [], prime = [], outros = [];
+    const s12 = [], prime = [], capa = [], outros = [];
     for (const l of _kommoLeadsCache) {
       const m = detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim());
       if (m === 's12') s12.push(l);
       else if (m === 'prime') prime.push(l);
+      else if (m === 'capa') capa.push(l);
       else outros.push(l);
     }
 
@@ -6676,6 +6692,7 @@ async function carregarKommo() {
     document.getElementById('ks-total').textContent  = _kommoLeadsCache.length;
     document.getElementById('ks-s12').textContent    = s12.length;
     document.getElementById('ks-prime').textContent  = prime.length;
+    if (document.getElementById('ks-capa')) document.getElementById('ks-capa').textContent = capa.length;
     document.getElementById('ks-outros').textContent = outros.length;
 
     // Funil do dia: cruza os leads com visitas/propostas do Alery
@@ -6705,6 +6722,7 @@ async function carregarKommo() {
     // Renderiza seções
     renderKommoSecao('s12',    s12,    '#BBDEFB', '#1565C0');
     renderKommoSecao('prime',  prime,  '#FFE0B2', '#BF360C');
+    renderKommoSecao('capa',   capa,   '#B2DFDB', '#00695C');
     renderKommoSecao('outros', outros, '#E0E0E0', '#424242');
 
   } catch (e) {
