@@ -96,6 +96,30 @@ function gcalHttpRequest(method, urlPath, token, bodyObj) {
   });
 }
 
+// ── Cor do evento no Google Calendar, por técnico ──
+// IDs de cor do Google Calendar: 1 Lavanda · 2 Sálvia · 3 Uva · 4 Flamingo · 5 Banana
+// 6 Tangerina · 7 Pavão · 8 Grafite · 9 Mirtilo · 10 Manjericão · 11 Tomate
+const GCAL_COR_TECNICO = {
+  'joseilto da silva melo': '7',        // Pavão (azul)
+  'josé wesley mendes da silva': '10',  // Manjericão (verde)
+  'jose wesley mendes da silva': '10',
+  'caio': '6',                          // Tangerina (laranja)
+};
+const GCAL_COR_SEM_TECNICO = '8';       // Grafite (cinza) — falta definir quem vai
+const GCAL_CORES_EXTRAS = ['3', '5', '11', '9', '4', '2', '1']; // para técnicos novos
+
+function gcalCorPorTecnico(tecnicos) {
+  if (!tecnicos || !tecnicos.length) return GCAL_COR_SEM_TECNICO;
+  // Com mais de um técnico, usa a cor do primeiro da lista
+  const nome = String(tecnicos[0] || '').split('|')[0].trim().toLowerCase();
+  if (!nome) return GCAL_COR_SEM_TECNICO;
+  if (GCAL_COR_TECNICO[nome]) return GCAL_COR_TECNICO[nome];
+  // Técnico não cadastrado: cor estável derivada do nome (o mesmo nome sempre recebe a mesma cor)
+  let h = 0;
+  for (let i = 0; i < nome.length; i++) h = (h * 31 + nome.charCodeAt(i)) >>> 0;
+  return GCAL_CORES_EXTRAS[h % GCAL_CORES_EXTRAS.length];
+}
+
 // Monta o objeto de evento Google Calendar a partir de uma visita do banco
 function gcalEventFromVisita(v) {
   const tecnicos = (() => { try { return JSON.parse(v.tecnicos || '[]'); } catch { return []; } })();
@@ -127,7 +151,14 @@ function gcalEventFromVisita(v) {
     start = { date: datePart };
     end = { date: datePart };
   }
-  return { summary: title, description: desc, start, end, location: v.endereco || '' };
+  return {
+    summary: title,
+    description: desc,
+    start,
+    end,
+    location: v.endereco || '',
+    colorId: gcalCorPorTecnico(tecnicos),
+  };
 }
 
 async function gcalSync(action, visita) {
