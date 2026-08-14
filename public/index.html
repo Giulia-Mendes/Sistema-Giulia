@@ -6731,7 +6731,7 @@ async function carregarKommo() {
     try {
       const rc = await fetch('/api/kommo/vendas-capa', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel })) })
+        body: JSON.stringify({ leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel, nome: l.nome })) })
       });
       if (rc.ok) _kommoCapas = await rc.json();
     } catch(e) {}

@@ -1323,6 +1323,25 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     return r.json();
   }
 
+  // O telefone costuma vir vazio no pedido — ele fica no cadastro do contato.
+  // Busca só quando faz falta (pedido de capa sem telefone), para não pesar a sincronização.
+  async function fetchTelefoneContato(cpfCnpj, nome) {
+    const termo = String(cpfCnpj || '').replace(/\D/g, '') || String(nome || '').trim();
+    if (!termo) return '';
+    try {
+      const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: termo }).toString();
+      const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+      const d = await r.json();
+      const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
+      for (const c of lista) {
+        const ct = c.contato || c;
+        const tel = String(ct.celular || ct.fone || '').trim();
+        if (tel) return tel;
+      }
+    } catch (e) { console.warn('[Tiny] contato sem telefone:', e.message); }
+    return '';
+  }
+
   try {
     // Step 1: collect pedidos SEM vínculo ecommerce da listagem (loja física)
     // Pedidos de marketplace (ML/Shopee) têm numero_ecommerce preenchido
@@ -1348,6 +1367,14 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     for (let i = 0; i < candidatos.length; i += BATCH) {
       const batch = candidatos.slice(i, i + BATCH);
       const detalhes = await Promise.all(batch.map(item => fetchDetalhe(String(item.id)).catch(() => null)));
+      // Pedidos de capa sem telefone: busca no cadastro do contato (poucos por lote)
+      const telsExtras = await Promise.all(detalhes.map(async d => {
+        const ped = d?.retorno?.pedido || d?.retorno?.pedidos?.[0]?.pedido;
+        const det = extrairDetalhePedido(ped);
+        if (!det.temCapa || det.telefone) return '';
+        const cli = ped?.cliente || {};
+        return fetchTelefoneContato(cli.cpf_cnpj, cli.nome || ped?.nome).catch(() => '');
+      }));
       detalhes.forEach((d, idx) => {
         const listItem = batch[idx];
         const ped = d?.retorno?.pedido || d?.retorno?.pedidos?.[0]?.pedido;
@@ -1366,9 +1393,10 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
         const cliente = listItem.nome || ped?.nome || '';
         const situacao = listItem.situacao || ped?.situacao || '';
         const det = extrairDetalhePedido(ped);
+        const telefone = det.telefone || telsExtras[idx] || '';
         if (tinyId) {
           stmt.run(tinyId, numero, cliente, valor, data, vendedora, JSON.stringify(tags), situacao,
-            det.itens.length ? JSON.stringify(det.itens) : null, det.telefone || null, det.temCapa);
+            det.itens.length ? JSON.stringify(det.itens) : null, telefone || null, det.temCapa);
           total++;
         }
       });
@@ -2060,20 +2088,41 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
       (porTel[k] = porTel[k] || []).push(p);
     }
 
+    // Índice por nome completo normalizado, usado quando o telefone não resolve
+    const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+    const porNome = {};
+    for (const p of pedidos) {
+      const n = nomeKey(p.cliente);
+      if (n && n.includes(' ')) (porNome[n] = porNome[n] || []).push(p); // exige nome + sobrenome
+    }
+
     const casados = {};
-    let comCompra = 0;
+    let comCompra = 0, viaTelefone = 0, viaNome = 0;
     for (const l of leads) {
       const k = telKey(l.tel);
       const achados = [];
+      let origem = '';
       if (k && porTel[k]) achados.push(...porTel[k].filter(p => telCombina(p.telefone, l.tel)));
+      if (achados.length) origem = 'telefone';
+      // Reforço: nome completo idêntico ao do cadastro do pedido
+      const n = nomeKey(l.nome);
+      if (!achados.length && n && porNome[n]) {
+        achados.push(...porNome[n]);
+        if (achados.length) origem = 'nome';
+      }
       // Vínculo manual pelo lead também vale
       for (const p of pedidos) {
-        if (p.lead_id && String(p.lead_id).trim() === String(l.lead_id).trim() && !achados.includes(p)) achados.push(p);
+        if (p.lead_id && String(p.lead_id).trim() === String(l.lead_id).trim() && !achados.includes(p)) {
+          achados.push(p);
+          origem = origem || 'lead';
+        }
       }
       if (achados.length) {
         comCompra++;
+        if (origem === 'telefone') viaTelefone++;
+        if (origem === 'nome') viaNome++;
         casados[String(l.lead_id)] = achados.map(p => ({
-          numero: p.numero, cliente: p.cliente, valor: p.valor, data: p.data,
+          numero: p.numero, cliente: p.cliente, valor: p.valor, data: p.data, casado_por: origem,
           itens: (() => { try { return JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)); } catch { return []; } })(),
         }));
       }
@@ -2083,6 +2132,8 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
     res.json({
       leads_consultados: leads.length,
       leads_que_compraram: comCompra,
+      casados_por_telefone: viaTelefone,
+      casados_por_nome: viaNome,
       valor_total: valorTotal,
       pedidos_capa_no_sistema: pedidos.length,
       pedidos_capa_com_telefone: Object.values(porTel).flat().length,
