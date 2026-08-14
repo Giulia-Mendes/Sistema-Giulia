@@ -6054,36 +6054,91 @@ async function carregarConversaoFech(mostrar) {
 function renderConversaoFech(d) {
   const corpo = document.getElementById('fech-conv-corpo');
   if (!corpo) return;
-  const camps = (d.campanhas || []).filter(c => c.campanha !== 'sem_origem' || c.leads > 0);
-  if (!camps.length) {
+  const eq = d.equipamentos || { leads: 0 }, cp = d.capa || { leads: 0 }, ot = d.outros || { leads: 0 };
+  if (!d.total_leads) {
     corpo.innerHTML = '<p style="font-size:13px;color:var(--text2);text-align:center;padding:12px 0">Nenhum lead no período.</p>';
     return;
   }
-  const maxLeads = Math.max(...camps.map(c => c.leads), 1);
-  const cores = { s12:'#1976D2', prime:'#E64A19', capa:'#00897B', outros:'#9A8F80', sem_origem:'#C0B6A6' };
   const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  corpo.innerHTML = camps.map(c => {
-    const cor = cores[c.campanha] || '#9A8F80';
-    const lgLeads  = (c.leads  / maxLeads) * 100;
-    const lgVendas = (c.vendas / maxLeads) * 100;
-    const pct = (c.conversao * 100).toFixed(1).replace('.', ',');
-    return '<div style="margin-bottom:14px">'
-      + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
-        + '<strong style="font-size:13.5px">' + c.rotulo + '</strong>'
-        + '<span style="font-size:12px;color:var(--text2)">' + c.leads + ' leads · ' + c.vendas + ' venda' + (c.vendas !== 1 ? 's' : '') + '</span>'
-        + '<span style="margin-left:auto;font-size:13px;font-weight:700;color:' + (c.conversao >= 0.05 ? 'var(--mineral-txt)' : c.conversao > 0 ? 'var(--bronze-txt)' : 'var(--text2)') + '">' + pct + '%</span>'
+  const pctTxt = v => (v * 100).toFixed(1).replace('.', ',') + '%';
+  const corPct = v => v >= 0.05 ? 'var(--mineral-txt)' : v > 0 ? 'var(--bronze-txt)' : 'var(--text2)';
+
+  // Etapa do funil: barra proporcional ao total de leads
+  const etapa = (n, label, base, cor) => {
+    const larg = base ? Math.max((n / base) * 100, n > 0 ? 2 : 0) : 0;
+    return '<div style="margin-bottom:9px">'
+      + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
+        + '<span style="font-size:19px;font-weight:700;font-family:Georgia,serif;min-width:44px;color:' + cor + '">' + n + '</span>'
+        + '<span style="font-size:13px">' + label + '</span>'
+        + '<span style="margin-left:auto;font-size:12px;color:var(--text2)">' + (base ? pctTxt(n / base) : '—') + '</span>'
       + '</div>'
-      + '<div style="position:relative;height:10px;background:var(--surface2,#efe9e0);border-radius:5px;overflow:hidden;margin-bottom:3px">'
-        + '<div style="position:absolute;inset:0 auto 0 0;width:' + lgLeads + '%;background:' + cor + ';opacity:.28"></div>'
-        + '<div style="position:absolute;inset:0 auto 0 0;width:' + lgVendas + '%;background:' + cor + '"></div>'
+      + '<div style="height:8px;background:var(--surface2,#efe9e0);border-radius:4px;overflow:hidden">'
+        + '<div style="height:100%;width:' + larg + '%;background:' + cor + '"></div>'
       + '</div>'
-      + (c.valor > 0 ? '<div style="font-size:11.5px;color:var(--text2)">' + fmtR(c.valor) + ' faturados</div>' : '')
     + '</div>';
-  }).join('')
-  + '<div style="font-size:11.5px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px;margin-top:4px">'
-  + 'Barra clara = leads recebidos · barra cheia = vendas fechadas. '
-  + 'Equipamento conta propostas aprovadas com lead vinculado; capa térmica conta pedidos do Tiny casados pelo telefone.'
+  };
+
+  let html = '';
+
+  // ── Funil de equipamentos (S12 + Prime) ──
+  html += '<div style="margin-bottom:20px">'
+    + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
+      + '<strong style="font-size:14px">🔧 Equipamentos</strong>'
+      + '<span style="font-size:12px;color:var(--text2)">Ortum S12 + Prime Full Inverter · passam por visita e proposta</span>'
+    + '</div>'
+    + etapa(eq.leads, 'contatos recebidos', eq.leads, '#1976D2')
+    + etapa(eq.visitas, 'visitas marcadas', eq.leads, '#7c3aed')
+    + etapa(eq.propostas, 'propostas emitidas', eq.leads, '#0e7490')
+    + etapa(eq.aprovadas, 'propostas aprovadas', eq.leads, '#2e7d32')
+    + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--surface2,#f5f0eb);border-radius:8px;padding:10px 14px;margin-top:10px">'
+      + '<span style="font-size:12.5px;font-weight:600">Conversão final</span>'
+      + '<span style="font-size:20px;font-weight:700;color:' + corPct(eq.conversao || 0) + '">' + pctTxt(eq.conversao || 0) + '</span>'
+      + '<span style="font-size:12px;color:var(--text2)">' + (eq.vendas || 0) + ' venda' + ((eq.vendas || 0) !== 1 ? 's' : '') + ' de ' + eq.leads + ' contatos</span>'
+      + (eq.valor > 0 ? '<span style="margin-left:auto;font-size:13px;font-weight:600">' + fmtR(eq.valor) + '</span>' : '')
+    + '</div>';
+  // Quebra por campanha
+  const pcs = eq.por_campanha || [];
+  if (pcs.length > 1) {
+    html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">'
+      + pcs.map(c => '<div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:9px 12px">'
+        + '<div style="font-size:12px;font-weight:600;margin-bottom:3px">' + c.rotulo + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text2)">' + c.leads + ' leads · ' + c.visitas + ' visitas · ' + c.propostas + ' propostas · ' + c.aprovadas + ' aprovadas</div>'
+      + '</div>').join('')
+    + '</div>';
+  }
+  html += '</div>';
+
+  // ── Capa térmica: venda direta ──
+  html += '<div style="margin-bottom:16px">'
+    + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
+      + '<strong style="font-size:14px">🧊 Capa térmica</strong>'
+      + '<span style="font-size:12px;color:var(--text2)">venda direta · sem visita nem proposta</span>'
+    + '</div>'
+    + etapa(cp.leads, 'contatos recebidos', cp.leads, '#00897B')
+    + etapa(cp.vendas, 'compraram', cp.leads, '#00695C')
+    + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--surface2,#f5f0eb);border-radius:8px;padding:10px 14px;margin-top:10px">'
+      + '<span style="font-size:12.5px;font-weight:600">Conversão</span>'
+      + '<span style="font-size:20px;font-weight:700;color:' + corPct(cp.conversao || 0) + '">' + pctTxt(cp.conversao || 0) + '</span>'
+      + '<span style="font-size:12px;color:var(--text2)">' + (cp.vendas || 0) + ' de ' + cp.leads + ' contatos</span>'
+      + (cp.valor > 0 ? '<span style="margin-left:auto;font-size:13px;font-weight:600">' + fmtR(cp.valor) + '</span>' : '')
+    + '</div>'
   + '</div>';
+
+  // ── Outras mensagens ──
+  if (ot.leads > 0) {
+    html += '<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px">'
+      + '<strong>Outras mensagens:</strong> ' + ot.leads + ' contatos · ' + (ot.vendas || 0) + ' venda' + ((ot.vendas || 0) !== 1 ? 's' : '')
+      + ' (' + pctTxt(ot.conversao || 0) + ')' + (ot.valor > 0 ? ' · ' + fmtR(ot.valor) : '')
+      + ' — contatos sem campanha identificada na primeira mensagem.'
+    + '</div>';
+  }
+
+  html += '<div style="font-size:11.5px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px;margin-top:10px">'
+    + 'Mede a safra de leads do período: conta a venda mesmo que tenha fechado depois. '
+    + 'Equipamento conta instalações e propostas aprovadas com lead vinculado; capa conta pedidos do Tiny casados por telefone.'
+  + '</div>';
+
+  corpo.innerHTML = html;
 }
 
 function renderFechamentos() {

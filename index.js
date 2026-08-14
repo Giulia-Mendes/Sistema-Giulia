@@ -2285,30 +2285,73 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
     ).all();
     const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
 
-    const base = { leads: 0, vendas: 0, valor: 0 };
-    const porCampanha = { s12: { ...base }, prime: { ...base }, capa: { ...base }, outros: { ...base }, sem_origem: { ...base } };
+    // Visitas e propostas por lead (etapas do funil de equipamento)
+    const visitaPorLead = {};
+    for (const v of db.prepare("SELECT lead_id FROM visitas WHERE TRIM(COALESCE(lead_id,'')) != ''").all()) {
+      visitaPorLead[String(v.lead_id).trim()] = true;
+    }
+    const propPorLead = {};
+    for (const p of db.prepare("SELECT lead_id, status FROM aprovacoes WHERE TRIM(COALESCE(lead_id,'')) != ''").all()) {
+      const k = String(p.lead_id).trim();
+      propPorLead[k] = propPorLead[k] || { total: 0, aprovadas: 0 };
+      propPorLead[k].total++;
+      if (p.status === 'aprovado') propPorLead[k].aprovadas++;
+    }
+
+    // ── Funil de equipamento: só S12 e Prime, que passam por visita e proposta ──
+    const equip = { leads: 0, visitas: 0, propostas: 0, aprovadas: 0, vendas: 0, valor: 0, por_campanha: {} };
+    // ── Capa térmica: venda direta, mede só lead → venda ──
+    const capa = { leads: 0, vendas: 0, valor: 0 };
+    const outros = { leads: 0, vendas: 0, valor: 0 };
+
     for (const l of leads) {
-      const c = porCampanha[l.campanha] || porCampanha.outros;
-      c.leads++;
-      // Venda de equipamento: instalação ou proposta aprovada com esse lead
-      const vEquip = vendaPorLead[String(l.lead_id)];
-      // Venda de capa: pedido do Tiny casado por telefone ou nome completo
-      const pCapa = pedCapa.find(p =>
-        (p.telefone && telCombina(p.telefone, l.tel)) ||
-        (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome))
-      );
-      if (vEquip || pCapa) {
-        c.vendas++;
-        c.valor += (vEquip?.valor || 0) + (!vEquip && pCapa ? (pCapa.valor || 0) : 0);
+      const k = String(l.lead_id);
+      const ehEquip = l.campanha === 's12' || l.campanha === 'prime';
+      if (ehEquip) {
+        equip.leads++;
+        const pc = equip.por_campanha[l.campanha] = equip.por_campanha[l.campanha] || { leads: 0, visitas: 0, propostas: 0, aprovadas: 0, valor: 0 };
+        pc.leads++;
+        if (visitaPorLead[k]) { equip.visitas++; pc.visitas++; }
+        const pr = propPorLead[k];
+        if (pr) {
+          equip.propostas += pr.total; pc.propostas += pr.total;
+          equip.aprovadas += pr.aprovadas; pc.aprovadas += pr.aprovadas;
+        }
+        const venda = vendaPorLead[k];
+        if (venda) { equip.vendas++; equip.valor += venda.valor || 0; pc.valor += venda.valor || 0; }
+      } else if (l.campanha === 'capa') {
+        capa.leads++;
+        const pCapa = pedCapa.find(p =>
+          (p.telefone && telCombina(p.telefone, l.tel)) ||
+          (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome))
+        );
+        const vEquip = vendaPorLead[k]; // cliente de capa que acabou comprando equipamento também conta
+        if (pCapa || vEquip) { capa.vendas++; capa.valor += (pCapa?.valor || 0) + (vEquip?.valor || 0); }
+      } else {
+        outros.leads++;
+        const venda = vendaPorLead[k];
+        const pCapa = pedCapa.find(p => p.telefone && telCombina(p.telefone, l.tel));
+        if (venda || pCapa) { outros.vendas++; outros.valor += (venda?.valor || 0) + (!venda && pCapa ? (pCapa.valor || 0) : 0); }
       }
     }
-    const rotulos = { s12: 'Ortum S12', prime: 'Prime Full Inverter', capa: 'Capa térmica', outros: 'Outras mensagens', sem_origem: 'Sem origem registrada' };
-    const resultado = Object.entries(porCampanha).map(([k, v]) => ({
-      campanha: k, rotulo: rotulos[k], leads: v.leads, vendas: v.vendas, valor: v.valor,
-      conversao: v.leads ? v.vendas / v.leads : 0,
-    })).filter(c => c.leads > 0);
 
-    res.json({ periodo: { de, ate }, total_leads: leads.length, campanhas: resultado });
+    const pct = (a, b) => (b ? a / b : 0);
+    const rotulos = { s12: 'Ortum S12', prime: 'Prime Full Inverter' };
+    res.json({
+      periodo: { de, ate },
+      total_leads: leads.length,
+      equipamentos: {
+        ...equip,
+        conversao: pct(equip.vendas, equip.leads),
+        tx_visita: pct(equip.visitas, equip.leads),
+        tx_proposta: pct(equip.propostas, equip.leads),
+        por_campanha: Object.entries(equip.por_campanha).map(([k, v]) => ({
+          campanha: k, rotulo: rotulos[k] || k, ...v, conversao: pct(v.aprovadas, v.leads),
+        })),
+      },
+      capa: { ...capa, conversao: pct(capa.vendas, capa.leads) },
+      outros: { ...outros, conversao: pct(outros.vendas, outros.leads) },
+    });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
