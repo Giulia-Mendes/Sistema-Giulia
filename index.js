@@ -2377,6 +2377,46 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ── TINY: completa o telefone dos pedidos de capa que estão sem ──
+// Bem mais leve que re-sincronizar: mexe só nos pedidos de capa sem telefone.
+app.post('/api/tiny/completar-telefones', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+  const pend = db.prepare(
+    "SELECT id, tiny_id, cliente FROM tiny_pedidos WHERE tem_capa=1 AND COALESCE(telefone,'')='' LIMIT 40"
+  ).all();
+  if (!pend.length) return res.json({ sucesso: true, atualizados: 0, pendentes: 0, mensagem: 'Nenhum pedido de capa sem telefone.' });
+
+  const upd = db.prepare('UPDATE tiny_pedidos SET telefone=? WHERE id=?');
+  let ok = 0; const falhas = [];
+  for (const p of pend) {
+    try {
+      // 1) pesquisa o contato pelo nome do cliente do pedido
+      const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: p.cliente || '' }).toString();
+      const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+      const d = await r.json();
+      if (d?.retorno?.status !== 'OK') { falhas.push({ cliente: p.cliente, motivo: d?.retorno?.erros?.[0]?.erro || 'pesquisa falhou' }); await new Promise(s => setTimeout(s, 800)); continue; }
+      const c0 = (d.retorno.contatos || [])[0];
+      const ct = c0?.contato || c0;
+      let tel = String(ct?.celular || ct?.fone || '').trim();
+      // 2) o telefone quase sempre só vem no detalhe do contato
+      if (!tel && ct?.id) {
+        await new Promise(s => setTimeout(s, 600));
+        const b2 = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(ct.id) }).toString();
+        const r2 = await fetch('https://api.tiny.com.br/api2/contato.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b2 });
+        const d2 = await r2.json();
+        const det = d2?.retorno?.contato;
+        tel = String(det?.celular || det?.fone || '').trim();
+      }
+      if (tel) { upd.run(tel, p.id); ok++; }
+      else falhas.push({ cliente: p.cliente, motivo: 'contato sem telefone cadastrado' });
+    } catch (e) { falhas.push({ cliente: p.cliente, motivo: e.message }); }
+    await new Promise(s => setTimeout(s, 800)); // respeita o limite de acessos da Tiny
+  }
+  const restam = db.prepare("SELECT COUNT(*) n FROM tiny_pedidos WHERE tem_capa=1 AND COALESCE(telefone,'')=''").get().n;
+  res.json({ sucesso: true, processados: pend.length, atualizados: ok, ainda_sem_telefone: restam, falhas });
+});
+
 // ── TINY: debug da busca de telefone no cadastro do contato ──
 app.get('/api/tiny/debug-contato', auth, adminOnly, async (req, res) => {
   const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
