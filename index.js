@@ -1323,8 +1323,9 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     return r.json();
   }
 
-  // O telefone costuma vir vazio no pedido — ele fica no cadastro do contato.
-  // Busca só quando faz falta (pedido de capa sem telefone), para não pesar a sincronização.
+  // O telefone não vem no pedido nem na pesquisa de contatos — só no detalhe do contato,
+  // e normalmente no campo "celular". São duas chamadas, feitas apenas para pedidos de capa
+  // que estejam sem telefone, para não pesar a sincronização.
   async function fetchTelefoneContato(cpfCnpj, nome) {
     const termo = String(cpfCnpj || '').replace(/\D/g, '') || String(nome || '').trim();
     if (!termo) return '';
@@ -1333,9 +1334,16 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
       const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
       const d = await r.json();
       const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
-      for (const c of lista) {
+      for (const c of lista.slice(0, 3)) {
         const ct = c.contato || c;
-        const tel = String(ct.celular || ct.fone || '').trim();
+        const jaTem = String(ct.celular || ct.fone || '').trim();
+        if (jaTem) return jaTem;
+        if (!ct.id) continue;
+        const b2 = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(ct.id) }).toString();
+        const r2 = await fetch('https://api.tiny.com.br/api2/contato.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b2 });
+        const d2 = await r2.json();
+        const det = d2?.retorno?.contato;
+        const tel = String(det?.celular || det?.fone || '').trim();
         if (tel) return tel;
       }
     } catch (e) { console.warn('[Tiny] contato sem telefone:', e.message); }
