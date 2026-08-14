@@ -1329,26 +1329,34 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
   // e normalmente no campo "celular". São duas chamadas, feitas apenas para pedidos de capa
   // que estejam sem telefone, para não pesar a sincronização.
   async function fetchTelefoneContato(cpfCnpj, nome) {
-    const termo = String(cpfCnpj || '').replace(/\D/g, '') || String(nome || '').trim();
-    if (!termo) return '';
-    try {
-      const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: termo }).toString();
-      const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
-      const d = await r.json();
-      const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
-      for (const c of lista.slice(0, 3)) {
-        const ct = c.contato || c;
-        const jaTem = String(ct.celular || ct.fone || '').trim();
-        if (jaTem) return jaTem;
-        if (!ct.id) continue;
-        const b2 = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(ct.id) }).toString();
-        const r2 = await fetch('https://api.tiny.com.br/api2/contato.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b2 });
-        const d2 = await r2.json();
-        const det = d2?.retorno?.contato;
-        const tel = String(det?.celular || det?.fone || '').trim();
-        if (tel) return tel;
-      }
-    } catch (e) { console.warn('[Tiny] contato sem telefone:', e.message); }
+    // O nome encontra de forma mais confiável que o CPF (o Tiny guarda o CPF formatado),
+    // então tenta nome, CPF como está e CPF só com dígitos.
+    const termos = [
+      String(nome || '').trim(),
+      String(cpfCnpj || '').trim(),
+      String(cpfCnpj || '').replace(/\D/g, ''),
+    ].filter((t, i, arr) => t && arr.indexOf(t) === i);
+    for (const termo of termos) {
+      try {
+        const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: termo }).toString();
+        const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+        const d = await r.json();
+        const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
+        for (const c of lista.slice(0, 2)) {
+          const ct = c.contato || c;
+          const jaTem = String(ct.celular || ct.fone || '').trim();
+          if (jaTem) return jaTem;
+          if (!ct.id) continue;
+          // O telefone só aparece no detalhe do contato, normalmente no campo "celular"
+          const b2 = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(ct.id) }).toString();
+          const r2 = await fetch('https://api.tiny.com.br/api2/contato.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b2 });
+          const d2 = await r2.json();
+          const det = d2?.retorno?.contato;
+          const tel = String(det?.celular || det?.fone || '').trim();
+          if (tel) return tel;
+        }
+      } catch (e) { console.warn('[Tiny] busca de telefone falhou:', e.message); }
+    }
     return '';
   }
 
