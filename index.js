@@ -103,7 +103,8 @@ const GCAL_COR_TECNICO = {
   'joseilto da silva melo': '7',        // Pavão (azul)
   'josé wesley mendes da silva': '10',  // Manjericão (verde)
   'jose wesley mendes da silva': '10',
-  'caio': '6',                          // Tangerina (laranja)
+  'caio molon': '6',                    // Tangerina (laranja)
+  'caio': '6',
 };
 const GCAL_COR_SEM_TECNICO = '8';       // Grafite (cinza) — falta definir quem vai
 const GCAL_CORES_EXTRAS = ['3', '5', '11', '9', '4', '2', '1']; // para técnicos novos

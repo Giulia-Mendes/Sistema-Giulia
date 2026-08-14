@@ -659,7 +659,7 @@ select option { background: var(--surface); color: var(--text); }
       <label>Técnicos</label>
       <label class="tec-item"><input type="checkbox" value="Joseilto da Silva Melo|05770641428" onchange="gerarTexto()"> Joseilto da Silva Melo — CPF 057.706.414-28</label>
       <label class="tec-item"><input type="checkbox" value="José Wesley Mendes da Silva|15417106496" onchange="gerarTexto()"> José Wesley Mendes da Silva — CPF 154.171.064-96</label>
-      <label class="tec-item"><input type="checkbox" value="Caio|" onchange="gerarTexto()"> Caio</label>
+      <label class="tec-item"><input type="checkbox" value="Caio Molon|30170217850" onchange="gerarTexto()"> Caio Molon — CPF 301.702.178-50</label>
       <label class="tec-item" id="outro-tec-label" style="display:none">
         <input type="checkbox" id="outro-tec-check" onchange="gerarTexto()">
         <span id="outro-tec-span"></span>
@@ -1696,7 +1696,7 @@ select option { background: var(--surface); color: var(--text); }
       <label>Técnicos</label>
       <label class="tec-item"><input type="checkbox" id="ev-tec-joseilto" value="Joseilto da Silva Melo|05770641428"> Joseilto da Silva Melo — CPF 057.706.414-28</label>
       <label class="tec-item"><input type="checkbox" id="ev-tec-wesley" value="José Wesley Mendes da Silva|15417106496"> José Wesley Mendes da Silva — CPF 154.171.064-96</label>
-      <label class="tec-item"><input type="checkbox" id="ev-tec-caio" value="Caio|"> Caio</label>
+      <label class="tec-item"><input type="checkbox" id="ev-tec-caio" value="Caio Molon|30170217850"> Caio Molon — CPF 301.702.178-50</label>
       <label class="tec-item" id="ev-outro-tec-label" style="display:none">
         <input type="checkbox" id="ev-outro-tec-check">
         <span id="ev-outro-tec-span"></span>
@@ -2503,8 +2503,8 @@ function abrirEditarVisita(id) {
   document.getElementById('ev-tec-joseilto').checked = (v.tecnicos||[]).includes('Joseilto da Silva Melo|05770641428');
   document.getElementById('ev-tec-wesley').checked = (v.tecnicos||[]).includes('José Wesley Mendes da Silva|15417106496');
   const _ckCaio = document.getElementById('ev-tec-caio');
-  if (_ckCaio) _ckCaio.checked = (v.tecnicos||[]).some(t => String(t).split('|')[0] === 'Caio');
-  const outroTec = (v.tecnicos||[]).find(t => t !== 'Joseilto da Silva Melo|05770641428' && t !== 'José Wesley Mendes da Silva|15417106496' && String(t).split('|')[0] !== 'Caio');
+  if (_ckCaio) _ckCaio.checked = (v.tecnicos||[]).some(t => String(t).split('|')[0] === 'Caio Molon');
+  const outroTec = (v.tecnicos||[]).find(t => t !== 'Joseilto da Silva Melo|05770641428' && t !== 'José Wesley Mendes da Silva|15417106496' && String(t).split('|')[0] !== 'Caio Molon');
   if (outroTec) {
     const [n, c] = outroTec.split('|');
     document.getElementById('ev-outro-tec-span').textContent = n + (c ? ' — CPF ' + c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '');
@@ -2675,11 +2675,11 @@ function clonarVisita(id) {
   document.getElementById('ev-tec-joseilto').checked = (v.tecnicos||[]).includes('Joseilto da Silva Melo|05770641428');
   document.getElementById('ev-tec-wesley').checked = (v.tecnicos||[]).includes('José Wesley Mendes da Silva|15417106496');
   const _ckCaio2 = document.getElementById('ev-tec-caio');
-  if (_ckCaio2) _ckCaio2.checked = (v.tecnicos||[]).some(t => String(t).split('|')[0] === 'Caio');
+  if (_ckCaio2) _ckCaio2.checked = (v.tecnicos||[]).some(t => String(t).split('|')[0] === 'Caio Molon');
   const outroTec = (v.tecnicos||[]).find(t =>
     t !== 'Joseilto da Silva Melo|05770641428' &&
     t !== 'José Wesley Mendes da Silva|15417106496' &&
-    String(t).split('|')[0] !== 'Caio'
+    String(t).split('|')[0] !== 'Caio Molon'
   );
   if (outroTec) {
     const [n, c] = outroTec.split('|');
