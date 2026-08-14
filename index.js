@@ -2259,18 +2259,30 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
       leads.push({ lead_id: lid, campanha: campanhaDe(msg), tel: info?.tel || '', nome: info?.nome || lead?.name || '' });
     }
 
-    // 4. Vendas: equipamento = propostas aprovadas com lead; capa = pedidos Tiny
-    const aprov = db.prepare(
-      "SELECT lead_id, valor FROM aprovacoes WHERE status='aprovado' AND COALESCE(aprovado_em,criado_em) >= ? AND COALESCE(aprovado_em,criado_em) <= ?"
-    ).all(de, ate + ' 23:59:59');
-    const aprovPorLead = {};
-    for (const a of aprov) {
-      const k = String(a.lead_id || '').trim();
-      if (k) aprovPorLead[k] = (aprovPorLead[k] || 0) + (a.valor || 0);
+    // 4. Vendas de equipamento por lead. Duas fontes, unidas pelo lead:
+    //    instalações (onde o lead é preenchido na prática) e propostas aprovadas.
+    //    Sem filtro de data na venda: mede a safra de leads do período — um contato de
+    //    agosto que fecha em setembro continua contando como conversão daquela campanha.
+    const vendaPorLead = {};
+    const marcarVenda = (leadId, valor, fonte) => {
+      const k = String(leadId || '').trim();
+      if (!k) return;
+      if (!vendaPorLead[k]) vendaPorLead[k] = { valor: 0, fontes: [] };
+      vendaPorLead[k].valor += valor || 0;
+      if (!vendaPorLead[k].fontes.includes(fonte)) vendaPorLead[k].fontes.push(fonte);
+    };
+    for (const i of db.prepare("SELECT lead_id, valor FROM instalacoes WHERE TRIM(COALESCE(lead_id,'')) != ''").all()) {
+      marcarVenda(i.lead_id, i.valor, 'instalacao');
+    }
+    for (const a of db.prepare("SELECT lead_id, valor FROM aprovacoes WHERE status='aprovado' AND TRIM(COALESCE(lead_id,'')) != ''").all()) {
+      // Só soma o valor se esse lead ainda não veio de uma instalação (evita contar a mesma venda duas vezes)
+      const k = String(a.lead_id).trim();
+      if (vendaPorLead[k]?.fontes.includes('instalacao')) continue;
+      marcarVenda(a.lead_id, a.valor, 'proposta');
     }
     const pedCapa = db.prepare(
-      "SELECT telefone, cliente, valor FROM tiny_pedidos WHERE tem_capa=1 AND data >= ? AND data <= ?"
-    ).all(de, ate);
+      "SELECT telefone, cliente, valor FROM tiny_pedidos WHERE tem_capa=1"
+    ).all();
     const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
 
     const base = { leads: 0, vendas: 0, valor: 0 };
@@ -2278,15 +2290,16 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
     for (const l of leads) {
       const c = porCampanha[l.campanha] || porCampanha.outros;
       c.leads++;
-      if (l.campanha === 'capa') {
-        const achado = pedCapa.find(p =>
-          (p.telefone && telCombina(p.telefone, l.tel)) ||
-          (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome))
-        );
-        if (achado) { c.vendas++; c.valor += achado.valor || 0; }
-      } else {
-        const v = aprovPorLead[String(l.lead_id)];
-        if (v) { c.vendas++; c.valor += v; }
+      // Venda de equipamento: instalação ou proposta aprovada com esse lead
+      const vEquip = vendaPorLead[String(l.lead_id)];
+      // Venda de capa: pedido do Tiny casado por telefone ou nome completo
+      const pCapa = pedCapa.find(p =>
+        (p.telefone && telCombina(p.telefone, l.tel)) ||
+        (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome))
+      );
+      if (vEquip || pCapa) {
+        c.vendas++;
+        c.valor += (vEquip?.valor || 0) + (!vEquip && pCapa ? (pCapa.valor || 0) : 0);
       }
     }
     const rotulos = { s12: 'Ortum S12', prime: 'Prime Full Inverter', capa: 'Capa térmica', outros: 'Outras mensagens', sem_origem: 'Sem origem registrada' };
