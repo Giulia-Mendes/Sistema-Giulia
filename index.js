@@ -2355,6 +2355,27 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ── TINY: debug da busca de telefone no cadastro do contato ──
+app.get('/api/tiny/debug-contato', auth, adminOnly, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token não configurado.' });
+  const termo = String(req.query.q || '').trim();
+  if (!termo) return res.status(400).json({ erro: 'Informe ?q=nome ou cpf' });
+  try {
+    const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', pesquisa: termo }).toString();
+    const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+    const d = await r.json();
+    const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
+    res.json({
+      status_api: d?.retorno?.status,
+      erros: d?.retorno?.erros,
+      qtd: lista.length,
+      primeiro_bruto: lista[0] || null,
+      chaves_primeiro: lista[0] ? Object.keys(lista[0].contato || lista[0]) : [],
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── TINY: diagnóstico de itens de capa já sincronizados ──
 app.get('/api/tiny/capas', auth, (req, res) => {
   try {
