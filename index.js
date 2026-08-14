@@ -1307,7 +1307,9 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     situacao=excluded.situacao, marcadores=excluded.marcadores,
     itens=COALESCE(excluded.itens, tiny_pedidos.itens),
     telefone=COALESCE(NULLIF(excluded.telefone,''), tiny_pedidos.telefone),
-    tem_capa=excluded.tem_capa,
+    -- Só reavalia a marcação de capa quando o detalhe do pedido veio nesta sincronização.
+    -- Se a API falhou (itens nulos), preserva o que já estava salvo em vez de zerar.
+    tem_capa=CASE WHEN excluded.itens IS NOT NULL THEN excluded.tem_capa ELSE tiny_pedidos.tem_capa END,
     vendedora=CASE WHEN tiny_pedidos.vendedora IS NULL OR tiny_pedidos.vendedora='' THEN excluded.vendedora ELSE tiny_pedidos.vendedora END,
     sincronizado_em=datetime('now','localtime')`);
   let total = 0, pagina = 1, totalPags = 1;
@@ -1375,14 +1377,18 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     for (let i = 0; i < candidatos.length; i += BATCH) {
       const batch = candidatos.slice(i, i + BATCH);
       const detalhes = await Promise.all(batch.map(item => fetchDetalhe(String(item.id)).catch(() => null)));
-      // Pedidos de capa sem telefone: busca no cadastro do contato (poucos por lote)
-      const telsExtras = await Promise.all(detalhes.map(async d => {
+      // Pedidos de capa sem telefone: busca no cadastro do contato.
+      // Em série e com pausa, porque são 2 chamadas por contato e o Tiny limita a taxa.
+      const telsExtras = [];
+      for (const d of detalhes) {
         const ped = d?.retorno?.pedido || d?.retorno?.pedidos?.[0]?.pedido;
         const det = extrairDetalhePedido(ped);
-        if (!det.temCapa || det.telefone) return '';
+        if (!det.temCapa || det.telefone) { telsExtras.push(''); continue; }
         const cli = ped?.cliente || {};
-        return fetchTelefoneContato(cli.cpf_cnpj, cli.nome || ped?.nome).catch(() => '');
-      }));
+        const tel = await fetchTelefoneContato(cli.cpf_cnpj, cli.nome || ped?.nome).catch(() => '');
+        telsExtras.push(tel);
+        await new Promise(r => setTimeout(r, 400));
+      }
       detalhes.forEach((d, idx) => {
         const listItem = batch[idx];
         const ped = d?.retorno?.pedido || d?.retorno?.pedidos?.[0]?.pedido;
