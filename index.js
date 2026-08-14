@@ -1234,6 +1234,60 @@ db.exec(`
 `);
 // Garante colunas extras em DBs antigos
 try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN lead_id TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN itens TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN telefone TEXT DEFAULT NULL').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE tiny_pedidos ADD COLUMN tem_capa INTEGER DEFAULT 0').run(); } catch(e) {}
+
+// ── Identificação de produtos de capa térmica ──
+// Regra por nome: produtos cadastrados no Tiny têm "Capa Térmica" no título. A comparação
+// ignora acentos e maiúsculas, e também aceita as duas palavras separadas ("Capa de Piscina
+// Térmica"). Cobre cadastros futuros sem precisar manter lista de SKU.
+// Se algum produto fugir do padrão de nome, basta incluir o SKU em CAPA_SKUS.
+const CAPA_SKUS = []; // ex.: ['CAPA500', 'GEOCOVER12']
+function _normTxt(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+function itemEhCapa(descricao, sku) {
+  if (sku && CAPA_SKUS.includes(String(sku).trim().toUpperCase())) return true;
+  const t = _normTxt(descricao);
+  return t.includes('capa termica') || (t.includes('capa') && t.includes('termic'));
+}
+// Telefone comparável. Os últimos 8 dígitos são estáveis mesmo com DDI e com o "9" extra
+// do celular (que entra à frente do número), então servem de chave. O DDD, quando existe
+// nos dois lados, é usado para desempatar e evitar casar clientes de estados diferentes.
+function telPartes(tel) {
+  const d = String(tel || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  if (d.length < 8) return null;
+  return { base: d.slice(-8), ddd: d.length >= 10 ? d.slice(0, 2) : '' };
+}
+function telKey(tel) {
+  const p = telPartes(tel);
+  return p ? p.base : '';
+}
+function telCombina(a, b) {
+  const pa = telPartes(a), pb = telPartes(b);
+  if (!pa || !pb || pa.base !== pb.base) return false;
+  if (pa.ddd && pb.ddd && pa.ddd !== pb.ddd) return false; // mesmo final, estados diferentes
+  return true;
+}
+// Extrai itens e telefone do detalhe de um pedido da API Tiny
+function extrairDetalhePedido(ped) {
+  if (!ped) return { itens: [], telefone: '', temCapa: 0 };
+  const brutos = Array.isArray(ped.itens) ? ped.itens : [];
+  const itens = brutos.map(x => {
+    const it = x.item || x;
+    return {
+      sku: String(it.codigo || '').trim(),
+      descricao: String(it.descricao || '').trim(),
+      qtd: parseFloat(String(it.quantidade || '0').replace(',', '.')) || 0,
+      valor: parseFloat(String(it.valor_unitario || it.valor || '0').replace(',', '.')) || 0,
+    };
+  }).filter(i => i.descricao || i.sku);
+  const cli = ped.cliente || {};
+  const telefone = String(cli.fone || cli.celular || ped.fone || '').trim();
+  const temCapa = itens.some(i => itemEhCapa(i.descricao, i.sku)) ? 1 : 0;
+  return { itens, telefone, temCapa };
+}
 
 function detectarVendedoraTiny(tags) {
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -1247,10 +1301,13 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
   const { dataInicial, dataFinal } = req.body;
   if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
-  const stmt = db.prepare(`INSERT INTO tiny_pedidos (tiny_id,numero,cliente,valor,data,vendedora,marcadores,situacao)
-    VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(tiny_id) DO UPDATE SET
+  const stmt = db.prepare(`INSERT INTO tiny_pedidos (tiny_id,numero,cliente,valor,data,vendedora,marcadores,situacao,itens,telefone,tem_capa)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(tiny_id) DO UPDATE SET
     numero=excluded.numero, cliente=excluded.cliente, valor=excluded.valor, data=excluded.data,
     situacao=excluded.situacao, marcadores=excluded.marcadores,
+    itens=COALESCE(excluded.itens, tiny_pedidos.itens),
+    telefone=COALESCE(NULLIF(excluded.telefone,''), tiny_pedidos.telefone),
+    tem_capa=excluded.tem_capa,
     vendedora=CASE WHEN tiny_pedidos.vendedora IS NULL OR tiny_pedidos.vendedora='' THEN excluded.vendedora ELSE tiny_pedidos.vendedora END,
     sincronizado_em=datetime('now','localtime')`);
   let total = 0, pagina = 1, totalPags = 1;
@@ -1308,7 +1365,12 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
         const numero = String(listItem.numero || ped?.numero || '');
         const cliente = listItem.nome || ped?.nome || '';
         const situacao = listItem.situacao || ped?.situacao || '';
-        if (tinyId) { stmt.run(tinyId, numero, cliente, valor, data, vendedora, JSON.stringify(tags), situacao); total++; }
+        const det = extrairDetalhePedido(ped);
+        if (tinyId) {
+          stmt.run(tinyId, numero, cliente, valor, data, vendedora, JSON.stringify(tags), situacao,
+            det.itens.length ? JSON.stringify(det.itens) : null, det.telefone || null, det.temCapa);
+          total++;
+        }
       });
       if (i + BATCH < candidatos.length) await new Promise(r => setTimeout(r, 500));
     }
@@ -1978,6 +2040,75 @@ app.post('/api/kommo/funil', auth, (req, res) => {
       });
     }
     res.json({ visitas, propostas });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── KOMMO: cruza leads de capa térmica com vendas do Tiny (por telefone) ──
+// Recebe [{lead_id, tel}] e devolve quem comprou capa, casando pelos últimos 8 dígitos do telefone.
+app.post('/api/kommo/vendas-capa', auth, (req, res) => {
+  try {
+    const leads = Array.isArray(req.body?.leads) ? req.body.leads.slice(0, 3000) : [];
+    const pedidos = db.prepare(
+      "SELECT id,numero,cliente,valor,data,telefone,itens,tem_capa,lead_id FROM tiny_pedidos WHERE tem_capa=1"
+    ).all();
+
+    // Índice por telefone; um mesmo telefone pode ter comprado mais de uma vez
+    const porTel = {};
+    for (const p of pedidos) {
+      const k = telKey(p.telefone);
+      if (!k) continue;
+      (porTel[k] = porTel[k] || []).push(p);
+    }
+
+    const casados = {};
+    let comCompra = 0;
+    for (const l of leads) {
+      const k = telKey(l.tel);
+      const achados = [];
+      if (k && porTel[k]) achados.push(...porTel[k].filter(p => telCombina(p.telefone, l.tel)));
+      // Vínculo manual pelo lead também vale
+      for (const p of pedidos) {
+        if (p.lead_id && String(p.lead_id).trim() === String(l.lead_id).trim() && !achados.includes(p)) achados.push(p);
+      }
+      if (achados.length) {
+        comCompra++;
+        casados[String(l.lead_id)] = achados.map(p => ({
+          numero: p.numero, cliente: p.cliente, valor: p.valor, data: p.data,
+          itens: (() => { try { return JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)); } catch { return []; } })(),
+        }));
+      }
+    }
+
+    const valorTotal = Object.values(casados).flat().reduce((s, p) => s + (p.valor || 0), 0);
+    res.json({
+      leads_consultados: leads.length,
+      leads_que_compraram: comCompra,
+      valor_total: valorTotal,
+      pedidos_capa_no_sistema: pedidos.length,
+      pedidos_capa_com_telefone: Object.values(porTel).flat().length,
+      por_lead: casados,
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── TINY: diagnóstico de itens de capa já sincronizados ──
+app.get('/api/tiny/capas', auth, (req, res) => {
+  try {
+    const tot = db.prepare('SELECT COUNT(*) n FROM tiny_pedidos').get().n;
+    const comItens = db.prepare('SELECT COUNT(*) n FROM tiny_pedidos WHERE itens IS NOT NULL').get().n;
+    const comTel = db.prepare("SELECT COUNT(*) n FROM tiny_pedidos WHERE telefone IS NOT NULL AND telefone != ''").get().n;
+    const capas = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(valor),0) v FROM tiny_pedidos WHERE tem_capa=1').get();
+    const exemplos = db.prepare('SELECT numero,cliente,data,valor,itens FROM tiny_pedidos WHERE tem_capa=1 ORDER BY data DESC LIMIT 5').all()
+      .map(p => ({ ...p, itens: (() => { try { return JSON.parse(p.itens || '[]'); } catch { return []; } })() }));
+    res.json({
+      pedidos_no_sistema: tot,
+      com_itens_sincronizados: comItens,
+      com_telefone: comTel,
+      pedidos_com_capa: capas.n,
+      valor_capas: capas.v,
+      exemplos,
+      aviso: comItens === 0 ? 'Nenhum pedido tem itens ainda — rode a sincronização do Tiny para o período desejado.' : null,
+    });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 

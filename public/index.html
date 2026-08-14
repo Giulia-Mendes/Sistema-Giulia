@@ -1250,10 +1250,15 @@ select option { background: var(--surface); color: var(--text); }
   </div>
 
   <!-- Funil do dia: cruzamento com Alery -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
     <div class="stat"><div class="lbl">📅 Visitas marcadas</div><div class="val" id="ks-visitas" style="color:#7c3aed">—</div></div>
     <div class="stat"><div class="lbl">📝 Propostas feitas</div><div class="val" id="ks-propostas" style="color:#0e7490">—</div></div>
     <div class="stat"><div class="lbl">✅ Propostas aprovadas</div><div class="val" id="ks-aprovadas" style="color:#2e7d32">—</div></div>
+    <div class="stat" title="Leads que compraram capa térmica, casados pelo telefone com os pedidos do Tiny">
+      <div class="lbl">🧊 Capas vendidas</div>
+      <div class="val" id="ks-capas" style="color:#00897B">—</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" id="ks-capas-valor"></div>
+    </div>
   </div>
 
   <!-- Seção S12 -->
@@ -6563,6 +6568,7 @@ async function toggleUsuario(id, ativo) {
 // ─── KOMMO: página de primeiros contatos ───
 let _kommoLeadsCache = [];
 let _kommoFunil = { visitas: {}, propostas: {} };
+let _kommoCapas = { por_lead: {} };
 
 // Erros JS silenciosos viram aviso visível (facilita suporte)
 window.addEventListener('error', ev => {
@@ -6644,11 +6650,15 @@ function renderKommoSecao(sec, leads, corBg, corText) {
     const lidKey = String(l.lead_id).trim();
     const temVisita = (_kommoFunil.visitas || {})[lidKey] > 0;
     const prop = (_kommoFunil.propostas || {})[lidKey];
+    const compras = (_kommoCapas.por_lead || {})[lidKey];
+    const totalCapa = compras ? compras.reduce((s, c) => s + (c.valor || 0), 0) : 0;
     const funilBadges =
       (temVisita ? '<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📅 Visita</span>' : '') +
       (prop && prop.aprovadas > 0
         ? '<span style="background:#e8f5e9;color:#2e7d32;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">✅ Aprovada</span>'
-        : (prop && prop.total > 0 ? '<span style="background:#e0f2f1;color:#0e7490;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📝 Proposta</span>' : ''));
+        : (prop && prop.total > 0 ? '<span style="background:#e0f2f1;color:#0e7490;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📝 Proposta</span>' : '')) +
+      (compras ? '<span title="Pedido ' + compras.map(c => c.numero).join(', ') + '" style="background:#B2DFDB;color:#00695C;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">🧊 Comprou capa'
+        + (totalCapa > 0 ? ' · R$ ' + totalCapa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '') + '</span>' : '');
     return `<div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
       <div style="width:34px;height:34px;border-radius:50%;background:${corBg};color:${corText};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;margin-top:2px">${ini}</div>
       <div style="flex:1;min-width:0">
@@ -6715,6 +6725,27 @@ async function carregarKommo() {
     if (document.getElementById('ks-visitas'))   document.getElementById('ks-visitas').textContent   = nVisitas;
     if (document.getElementById('ks-propostas')) document.getElementById('ks-propostas').textContent = nPropostas;
     if (document.getElementById('ks-aprovadas')) document.getElementById('ks-aprovadas').textContent = nAprovadas;
+
+    // Vendas de capa térmica: cruza os leads com os pedidos do Tiny pelo telefone
+    _kommoCapas = { por_lead: {} };
+    try {
+      const rc = await fetch('/api/kommo/vendas-capa', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel })) })
+      });
+      if (rc.ok) _kommoCapas = await rc.json();
+    } catch(e) {}
+    const elCapas = document.getElementById('ks-capas');
+    if (elCapas) {
+      elCapas.textContent = _kommoCapas.leads_que_compraram ?? 0;
+      const elv = document.getElementById('ks-capas-valor');
+      if (elv) {
+        const v = _kommoCapas.valor_total || 0;
+        elv.textContent = v > 0
+          ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+          : (_kommoCapas.pedidos_capa_no_sistema ? '' : 'sincronize o Tiny');
+      }
+    }
 
     // Formata data para exibição
     const fmtBR = s => s.split('-').reverse().join('/');
