@@ -2366,12 +2366,22 @@ app.get('/api/tiny/debug-contato', auth, adminOnly, async (req, res) => {
     const r = await fetch('https://api.tiny.com.br/api2/contatos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
     const d = await r.json();
     const lista = Array.isArray(d?.retorno?.contatos) ? d.retorno.contatos : [];
+    // A pesquisa devolve resumo (fone costuma vir vazio). Busca o detalhe pelo id.
+    let detalhe = null;
+    const c0 = lista[0]?.contato || lista[0];
+    if (c0?.id) {
+      const b2 = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: String(c0.id) }).toString();
+      const r2 = await fetch('https://api.tiny.com.br/api2/contato.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b2 });
+      const d2 = await r2.json();
+      const ct = d2?.retorno?.contato;
+      detalhe = ct ? { status: d2?.retorno?.status, fone: ct.fone, celular: ct.celular, fax: ct.fax, chaves: Object.keys(ct) } : { status: d2?.retorno?.status, erros: d2?.retorno?.erros };
+    }
     res.json({
       status_api: d?.retorno?.status,
       erros: d?.retorno?.erros,
       qtd: lista.length,
-      primeiro_bruto: lista[0] || null,
-      chaves_primeiro: lista[0] ? Object.keys(lista[0].contato || lista[0]) : [],
+      pesquisa_fone: c0?.fone ?? null,
+      detalhe_contato: detalhe,
     });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
