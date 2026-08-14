@@ -6115,13 +6115,26 @@ function renderConversaoFech(d) {
       + '<span style="font-size:12px;color:var(--text2)">venda direta · sem visita nem proposta</span>'
     + '</div>'
     + etapa(cp.leads, 'contatos recebidos', cp.leads, '#00897B')
-    + etapa(cp.vendas, 'compraram', cp.leads, '#00695C')
+    + etapa(cp.vendas, 'compraram (rastreado até a campanha)', cp.leads, '#00695C')
     + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--surface2,#f5f0eb);border-radius:8px;padding:10px 14px;margin-top:10px">'
-      + '<span style="font-size:12.5px;font-weight:600">Conversão</span>'
+      + '<span style="font-size:12.5px;font-weight:600">Conversão da campanha</span>'
       + '<span style="font-size:20px;font-weight:700;color:' + corPct(cp.conversao || 0) + '">' + pctTxt(cp.conversao || 0) + '</span>'
       + '<span style="font-size:12px;color:var(--text2)">' + (cp.vendas || 0) + ' de ' + cp.leads + ' contatos</span>'
       + (cp.valor > 0 ? '<span style="margin-left:auto;font-size:13px;font-weight:600">' + fmtR(cp.valor) + '</span>' : '')
     + '</div>'
+    // Total vendido no período — inclui capas que vieram por outros caminhos
+    + (cp.pedidos_no_periodo > 0
+      ? '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-top:8px">'
+        + '<span style="font-size:12.5px;font-weight:600">🧾 Vendidas no período</span>'
+        + '<span style="font-size:18px;font-weight:700;color:#00695C">' + cp.pedidos_no_periodo + '</span>'
+        + '<span style="font-size:12px;color:var(--text2)">pedido' + (cp.pedidos_no_periodo !== 1 ? 's' : '') + ' com capa'
+        + (cp.sem_origem_identificada > 0 ? ' · ' + cp.sem_origem_identificada + ' sem origem identificada' : '') + '</span>'
+        + (cp.valor_no_periodo > 0 ? '<span style="margin-left:auto;font-size:13px;font-weight:600">' + fmtR(cp.valor_no_periodo) + '</span>' : '')
+      + '</div>'
+      + (cp.sem_origem_identificada > 0
+        ? '<div style="font-size:11.5px;color:var(--text2);margin-top:6px">Capas sem origem identificada vieram de clientes de equipamento, de contatos anteriores ao registro de campanha, ou de cadastros do Tiny sem telefone.</div>'
+        : '')
+      : '')
   + '</div>';
 
   // ── Outras mensagens ──
@@ -6958,19 +6971,26 @@ async function carregarKommo() {
     try {
       const rc = await fetch('/api/kommo/vendas-capa', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel, nome: l.nome })) })
+        body: JSON.stringify({ de: data, ate: dataFim, leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel, nome: l.nome })) })
       });
       if (rc.ok) _kommoCapas = await rc.json();
     } catch(e) {}
     const elCapas = document.getElementById('ks-capas');
     if (elCapas) {
-      elCapas.textContent = _kommoCapas.leads_que_compraram ?? 0;
+      // Mostra o total vendido no período; o vínculo com a campanha vai no subtexto
+      const vendidas = _kommoCapas.capas_vendidas_periodo ?? 0;
+      const pedidos  = _kommoCapas.pedidos_periodo ?? 0;
+      const casados  = _kommoCapas.leads_que_compraram ?? 0;
+      elCapas.textContent = vendidas || pedidos || 0;
       const elv = document.getElementById('ks-capas-valor');
       if (elv) {
-        const v = _kommoCapas.valor_total || 0;
-        elv.textContent = v > 0
-          ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-          : (_kommoCapas.pedidos_capa_no_sistema ? '' : 'sincronize o Tiny');
+        const v = _kommoCapas.valor_periodo || 0;
+        if (pedidos > 0) {
+          elv.textContent = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+            + ' · ' + casados + ' de ' + pedidos + ' ligados a lead';
+        } else {
+          elv.textContent = _kommoCapas.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny';
+        }
       }
     }
 

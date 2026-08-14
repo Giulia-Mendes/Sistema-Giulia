@@ -2101,6 +2101,16 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
     const pedidos = db.prepare(
       "SELECT id,numero,cliente,valor,data,telefone,itens,tem_capa,lead_id FROM tiny_pedidos WHERE tem_capa=1"
     ).all();
+    // Total vendido no período, independente de conseguir ligar ao lead
+    const de  = /^\d{4}-\d{2}-\d{2}$/.test(req.body?.de  || '') ? req.body.de  : null;
+    const ate = /^\d{4}-\d{2}-\d{2}$/.test(req.body?.ate || '') ? req.body.ate : null;
+    const noPeriodo = (de && ate)
+      ? pedidos.filter(p => p.data >= de && p.data <= ate)
+      : pedidos;
+    const capasVendidas = noPeriodo.reduce((s, p) => {
+      try { return s + JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)).reduce((a, i) => a + (i.qtd || 0), 0); }
+      catch { return s; }
+    }, 0);
 
     // Índice por telefone; um mesmo telefone pode ter comprado mais de uma vez
     const porTel = {};
@@ -2157,6 +2167,11 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
       casados_por_telefone: viaTelefone,
       casados_por_nome: viaNome,
       valor_total: valorTotal,
+      // Vendas de capa no período, mesmo as que não foi possível ligar a um lead
+      pedidos_periodo: noPeriodo.length,
+      capas_vendidas_periodo: capasVendidas,
+      valor_periodo: noPeriodo.reduce((s, p) => s + (p.valor || 0), 0),
+      sem_vinculo: noPeriodo.length - comCompra,
       pedidos_capa_no_sistema: pedidos.length,
       pedidos_capa_com_telefone: Object.values(porTel).flat().length,
       por_lead: casados,
@@ -2305,6 +2320,10 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
     const pedCapa = db.prepare(
       "SELECT telefone, cliente, valor FROM tiny_pedidos WHERE tem_capa=1"
     ).all();
+    // Vendas de capa do próprio período — mostradas mesmo quando não dá para ligar ao lead
+    const capasNoPeriodo = db.prepare(
+      "SELECT COUNT(*) n, COALESCE(SUM(valor),0) v FROM tiny_pedidos WHERE tem_capa=1 AND data >= ? AND data <= ?"
+    ).get(de, ate);
     const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
 
     // Visitas e propostas por lead (etapas do funil de equipamento)
@@ -2371,7 +2390,13 @@ app.get('/api/fechamentos/conversao', auth, async (req, res) => {
           campanha: k, rotulo: rotulos[k] || k, ...v, conversao: pct(v.aprovadas, v.leads),
         })),
       },
-      capa: { ...capa, conversao: pct(capa.vendas, capa.leads) },
+      capa: {
+        ...capa,
+        conversao: pct(capa.vendas, capa.leads),
+        pedidos_no_periodo: capasNoPeriodo.n,       // total vendido, venha de onde vier
+        valor_no_periodo: capasNoPeriodo.v,
+        sem_origem_identificada: Math.max(capasNoPeriodo.n - capa.vendas, 0),
+      },
       outros: { ...outros, conversao: pct(outros.vendas, outros.leads) },
     });
   } catch (e) { res.status(500).json({ erro: e.message }); }
