@@ -1343,7 +1343,35 @@ select option { background: var(--surface); color: var(--text); }
       <button class="btn btn-branco" onclick="limparFiltrosFech()" style="font-size:12px;padding:3px 8px">✕ limpar</button>
       <span id="fech-contagem" style="font-size:12px;color:var(--text2);margin-left:auto"></span>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:8px">
+      <span style="font-size:12px;color:var(--text2)">Tipo:</span>
+      <button id="fech-tipo-todos" class="btn btn-preto"  onclick="setFechTipo('todos')"  style="font-size:12px;padding:3px 10px">Todos</button>
+      <button id="fech-tipo-equip" class="btn btn-branco" onclick="setFechTipo('equip')"  style="font-size:12px;padding:3px 10px">🔧 Equipamento</button>
+      <button id="fech-tipo-capa"  class="btn btn-branco" onclick="setFechTipo('capa')"   style="font-size:12px;padding:3px 10px">🧊 Capa térmica</button>
+      <button class="btn btn-branco" onclick="carregarConversaoFech(true)" style="font-size:12px;padding:3px 10px;margin-left:auto">📊 Conversão por campanha</button>
+    </div>
   </div>
+
+  <!-- Gráfico de conversão por campanha -->
+  <div class="card" id="fech-conversao" style="display:none;margin-bottom:8px;padding:16px 18px">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <strong style="font-size:15px">📊 Conversão por campanha</strong>
+      <span id="fech-conv-periodo" style="font-size:12px;color:var(--text2)"></span>
+      <button class="btn btn-branco" onclick="document.getElementById('fech-conversao').style.display='none'" style="font-size:11px;padding:2px 8px;margin-left:auto">✕ fechar</button>
+    </div>
+    <div id="fech-conv-corpo"><p style="font-size:13px;color:var(--text2);text-align:center;padding:12px 0">Carregando…</p></div>
+  </div>
+
+  <!-- Resumo de capas (quando o filtro é capa térmica) -->
+  <div class="card" id="fech-capa-resumo" style="display:none;margin-bottom:8px;padding:12px 16px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+      <div class="stat"><div class="lbl">Pedidos com capa</div><div class="val" id="fech-capa-qtd" style="color:#00897B">—</div></div>
+      <div class="stat"><div class="lbl">Capas vendidas</div><div class="val" id="fech-capa-un" style="color:#00897B">—</div></div>
+      <div class="stat"><div class="lbl">Valor em capas</div><div class="val" id="fech-capa-valor" style="font-size:14px">—</div></div>
+      <div class="stat"><div class="lbl">Valor total dos pedidos</div><div class="val" id="fech-capa-total" style="font-size:14px">—</div></div>
+    </div>
+  </div>
+
   <!-- Lista -->
   <div id="lista-fechamentos"></div>
 </div>
@@ -5912,10 +5940,12 @@ function onFechMesChange() {
     document.getElementById('fech-filtro-de').value  = mes + '-01';
     document.getElementById('fech-filtro-ate').value = mes + '-' + String(ultimo).padStart(2,'0');
   }
+  _fechCapas = null; // período mudou: recarrega os pedidos de capa
   renderFechamentos();
 }
 function onFechDataChange() {
   document.getElementById('fech-filtro-mes').value = '';
+  _fechCapas = null;
   renderFechamentos();
 }
 function limparFiltrosFech() {
@@ -5923,14 +5953,156 @@ function limparFiltrosFech() {
   document.getElementById('fech-filtro-mes').value  = '';
   document.getElementById('fech-filtro-de').value   = '';
   document.getElementById('fech-filtro-ate').value  = '';
+  _fechCapas = null;
   renderFechamentos();
 }
+let fechTipo = 'todos';           // todos | equip | capa
+let _fechCapas = null;            // cache dos pedidos de capa do período
+
+// Lista os pedidos de capa térmica vindos do Tiny
+function renderFechCapas() {
+  const d = _fechCapas || { pedidos: [] };
+  const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('fech-capa-qtd',   d.total || 0);
+  set('fech-capa-un',    d.qtd_capas || 0);
+  set('fech-capa-valor', d.valor_capas ? fmt(d.valor_capas) : '—');
+  set('fech-capa-total', d.valor_total ? fmt(d.valor_total) : '—');
+
+  // Zera os indicadores de margem, que não se aplicam a pedidos do Tiny
+  ['fech-fat-prod','fech-fat-mat','fech-fat','fech-ticket','fech-lucro-prod','fech-lucro-mat','fech-lucro'].forEach(id => set(id, '—'));
+  ['fech-margem-prod','fech-margem-mat','fech-margem'].forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = '—'; el.style.color = ''; } });
+  set('fech-count', d.total || '—');
+  set('fech-contagem', (d.total || 0) + ' pedido' + ((d.total || 0) !== 1 ? 's' : '') + ' com capa');
+
+  const lista = document.getElementById('lista-fechamentos');
+  if (!lista) return;
+  if (!d.pedidos || !d.pedidos.length) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text2);padding:2rem 0">Nenhum pedido de capa térmica no período.<br>'
+      + '<span style="font-size:12px">Se esperava resultados, rode a sincronização do Tiny para este período — é ela que traz os produtos de cada pedido.</span></p>';
+    return;
+  }
+  lista.innerHTML = d.pedidos.map(p => {
+    const dataFmt = (p.data || '').split('-').reverse().join('/');
+    return '<div class="item-card">'
+      + '<div class="item-header">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap;align-items:center">'
+            + '<span class="badge" style="background:#B2DFDB;color:#00695C">🧊 Capa térmica</span>'
+            + '<span style="font-size:12px;color:var(--text2)">Pedido ' + (p.numero || '—') + ' · ' + dataFmt + '</span>'
+            + (p.vendedora ? '<span style="font-size:12px;color:var(--text2)">· ' + p.vendedora + '</span>' : '')
+            + (p.situacao ? '<span class="badge badge-cinza" style="font-size:11px">' + p.situacao + '</span>' : '')
+          + '</div>'
+          + '<p style="font-size:15px;font-weight:500;margin:0 0 2px">' + (p.cliente || '—') + '</p>'
+          + '<p style="font-size:12.5px;color:var(--text2);margin:0">' + (p.produtos || []).join(' · ') + '</p>'
+        + '</div>'
+        + '<div style="text-align:right;flex-shrink:0">'
+          + '<p style="font-size:16px;font-weight:500;margin:0 0 2px">' + fmt(p.valor) + '</p>'
+          + (p.qtd_capas ? '<p style="font-size:12px;color:var(--text2);margin:0">' + p.qtd_capas + ' capa' + (p.qtd_capas !== 1 ? 's' : '') + '</p>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+function setFechTipo(t) {
+  fechTipo = t;
+  ['todos','equip','capa'].forEach(k => {
+    const b = document.getElementById('fech-tipo-' + k);
+    if (b) b.className = 'btn ' + (k === t ? 'btn-preto' : 'btn-branco');
+  });
+  renderFechamentos();
+}
+
+// Busca os pedidos de capa térmica do período e redesenha
+async function carregarCapasFech() {
+  const de  = document.getElementById('fech-filtro-de')?.value  || '';
+  const ate = document.getElementById('fech-filtro-ate')?.value || '';
+  const qs = [];
+  if (de)  qs.push('de='  + de);
+  if (ate) qs.push('ate=' + ate);
+  try {
+    const r = await fetch('/api/fechamentos/capas' + (qs.length ? '?' + qs.join('&') : ''));
+    _fechCapas = r.ok ? await r.json() : { pedidos: [], total: 0 };
+  } catch(e) { _fechCapas = { pedidos: [], total: 0 }; }
+  renderFechamentos();
+}
+
+// Gráfico de conversão: leads por campanha × vendas fechadas
+async function carregarConversaoFech(mostrar) {
+  const box = document.getElementById('fech-conversao');
+  if (!box) return;
+  if (mostrar) box.style.display = '';
+  const hoje = new Date().toISOString().slice(0,10);
+  const de  = document.getElementById('fech-filtro-de')?.value  || hoje.slice(0,8) + '01';
+  const ate = document.getElementById('fech-filtro-ate')?.value || hoje;
+  const corpo = document.getElementById('fech-conv-corpo');
+  const perEl = document.getElementById('fech-conv-periodo');
+  const fmtBR = s => s.split('-').reverse().join('/');
+  if (perEl) perEl.textContent = fmtBR(de) + ' a ' + fmtBR(ate);
+  if (corpo) corpo.innerHTML = '<p style="font-size:13px;color:var(--text2);text-align:center;padding:12px 0">Carregando… (consulta o Kommo, pode levar alguns segundos)</p>';
+  try {
+    const r = await fetch('/api/fechamentos/conversao?de=' + de + '&ate=' + ate);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erro || 'Erro ao carregar');
+    renderConversaoFech(d);
+  } catch(e) {
+    if (corpo) corpo.innerHTML = '<p style="font-size:13px;color:var(--terra-txt);text-align:center;padding:12px 0">Erro: ' + e.message + '</p>';
+  }
+}
+
+function renderConversaoFech(d) {
+  const corpo = document.getElementById('fech-conv-corpo');
+  if (!corpo) return;
+  const camps = (d.campanhas || []).filter(c => c.campanha !== 'sem_origem' || c.leads > 0);
+  if (!camps.length) {
+    corpo.innerHTML = '<p style="font-size:13px;color:var(--text2);text-align:center;padding:12px 0">Nenhum lead no período.</p>';
+    return;
+  }
+  const maxLeads = Math.max(...camps.map(c => c.leads), 1);
+  const cores = { s12:'#1976D2', prime:'#E64A19', capa:'#00897B', outros:'#9A8F80', sem_origem:'#C0B6A6' };
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  corpo.innerHTML = camps.map(c => {
+    const cor = cores[c.campanha] || '#9A8F80';
+    const lgLeads  = (c.leads  / maxLeads) * 100;
+    const lgVendas = (c.vendas / maxLeads) * 100;
+    const pct = (c.conversao * 100).toFixed(1).replace('.', ',');
+    return '<div style="margin-bottom:14px">'
+      + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
+        + '<strong style="font-size:13.5px">' + c.rotulo + '</strong>'
+        + '<span style="font-size:12px;color:var(--text2)">' + c.leads + ' leads · ' + c.vendas + ' venda' + (c.vendas !== 1 ? 's' : '') + '</span>'
+        + '<span style="margin-left:auto;font-size:13px;font-weight:700;color:' + (c.conversao >= 0.05 ? 'var(--mineral-txt)' : c.conversao > 0 ? 'var(--bronze-txt)' : 'var(--text2)') + '">' + pct + '%</span>'
+      + '</div>'
+      + '<div style="position:relative;height:10px;background:var(--surface2,#efe9e0);border-radius:5px;overflow:hidden;margin-bottom:3px">'
+        + '<div style="position:absolute;inset:0 auto 0 0;width:' + lgLeads + '%;background:' + cor + ';opacity:.28"></div>'
+        + '<div style="position:absolute;inset:0 auto 0 0;width:' + lgVendas + '%;background:' + cor + '"></div>'
+      + '</div>'
+      + (c.valor > 0 ? '<div style="font-size:11.5px;color:var(--text2)">' + fmtR(c.valor) + ' faturados</div>' : '')
+    + '</div>';
+  }).join('')
+  + '<div style="font-size:11.5px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px;margin-top:4px">'
+  + 'Barra clara = leads recebidos · barra cheia = vendas fechadas. '
+  + 'Equipamento conta propostas aprovadas com lead vinculado; capa térmica conta pedidos do Tiny casados pelo telefone.'
+  + '</div>';
+}
+
 function renderFechamentos() {
   const vend = document.getElementById('fech-filtro-vend')?.value || '';
   const de   = document.getElementById('fech-filtro-de')?.value  || '';
   const ate  = document.getElementById('fech-filtro-ate')?.value || '';
 
+  // Capa térmica: lista os pedidos do Tiny em vez das propostas aprovadas
+  const boxCapa = document.getElementById('fech-capa-resumo');
+  if (fechTipo === 'capa') {
+    if (boxCapa) boxCapa.style.display = '';
+    if (!_fechCapas) { carregarCapasFech(); return; }
+    renderFechCapas();
+    return;
+  }
+  if (boxCapa) boxCapa.style.display = 'none';
+
   let lista = aprovacoes.filter(a => a.status === 'aprovado');
+  if (fechTipo === 'equip') lista = lista.filter(a => !/capa\s*t[ée]rmica/i.test(a.equip || ''));
   if (vend) lista = lista.filter(a => a.vendedora === vend);
   // Filtra pelo mês de aprovação (aprovado_em), com fallback para criado_em em registros antigos
   if (de)   lista = lista.filter(a => ((a.aprovado_em || a.criado_em) || '') >= de);

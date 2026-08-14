@@ -2142,6 +2142,163 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ── FECHAMENTOS: pedidos de capa térmica do período ──
+app.get('/api/fechamentos/capas', auth, (req, res) => {
+  try {
+    const de  = /^\d{4}-\d{2}-\d{2}$/.test(req.query.de  || '') ? req.query.de  : '0000-01-01';
+    const ate = /^\d{4}-\d{2}-\d{2}$/.test(req.query.ate || '') ? req.query.ate : '9999-12-31';
+    const rows = db.prepare(
+      "SELECT id,numero,cliente,valor,data,vendedora,telefone,itens,situacao FROM tiny_pedidos " +
+      "WHERE tem_capa=1 AND data >= ? AND data <= ? ORDER BY data DESC"
+    ).all(de, ate);
+    const pedidos = rows.map(p => {
+      let itens = [];
+      try { itens = JSON.parse(p.itens || '[]'); } catch {}
+      const itensCapa = itens.filter(i => itemEhCapa(i.descricao, i.sku));
+      return {
+        id: p.id, numero: p.numero, cliente: p.cliente, data: p.data,
+        vendedora: p.vendedora || '', valor: p.valor || 0, situacao: p.situacao || '',
+        telefone: p.telefone || '',
+        qtd_capas: itensCapa.reduce((s, i) => s + (i.qtd || 0), 0),
+        valor_capas: itensCapa.reduce((s, i) => s + (i.qtd || 0) * (i.valor || 0), 0),
+        produtos: itensCapa.map(i => i.descricao),
+      };
+    });
+    res.json({
+      total: pedidos.length,
+      valor_total: pedidos.reduce((s, p) => s + p.valor, 0),
+      valor_capas: pedidos.reduce((s, p) => s + p.valor_capas, 0),
+      qtd_capas: pedidos.reduce((s, p) => s + p.qtd_capas, 0),
+      pedidos,
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── FECHAMENTOS: conversão por campanha (leads do Kommo × vendas) ──
+app.get('/api/fechamentos/conversao', auth, async (req, res) => {
+  try {
+    const de  = /^\d{4}-\d{2}-\d{2}$/.test(req.query.de  || '') ? req.query.de  : null;
+    const ate = /^\d{4}-\d{2}-\d{2}$/.test(req.query.ate || '') ? req.query.ate : null;
+    if (!de || !ate) return res.status(400).json({ erro: 'Informe o período (de/ate).' });
+    const inicio = Math.floor(new Date(de  + 'T00:00:00-03:00').getTime() / 1000);
+    const fim    = Math.floor(new Date(ate + 'T23:59:59-03:00').getTime() / 1000);
+
+    // 1. Leads do Kommo no período (o Kommo ignora filtro de data em /talks — filtramos aqui)
+    let talks = [];
+    for (let pg = 1; pg <= 20; pg++) {
+      const { status, body } = await kommoGet(`/talks?limit=250&page=${pg}`);
+      if (status === 204) break;
+      if (status !== 200) { if (pg === 1) return res.status(status).json({ erro: `Kommo retornou ${status}` }); break; }
+      const page = body._embedded?.talks || [];
+      talks = talks.concat(page.filter(t => t.created_at >= inicio && t.created_at <= fim));
+      if (page.length < 250) break;
+    }
+    const leadMap = {};
+    for (const t of talks) {
+      if (!t.entity_id || t.entity_type !== 'lead') continue;
+      if (!leadMap[t.entity_id] || t.created_at < leadMap[t.entity_id].created_at) {
+        leadMap[t.entity_id] = { created_at: t.created_at, contact_id: t.contact_id };
+      }
+    }
+    const leadIds = Object.keys(leadMap).map(Number);
+
+    // 2. Origem de cada lead: nota "Primeira mensagem" gravada pelo Salesbot no contato
+    const contactIds = new Set();
+    const leadsById = {};
+    for (let i = 0; i < leadIds.length; i += 50) {
+      const q = leadIds.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&');
+      try {
+        const { status, body } = await kommoGet(`/leads?${q}&with=contacts&limit=250`);
+        if (status === 200) for (const l of body._embedded?.leads || []) {
+          leadsById[l.id] = l;
+          for (const c of l._embedded?.contacts || []) contactIds.add(c.id);
+        }
+      } catch {}
+    }
+    for (const [lid, tk] of Object.entries(leadMap)) if (tk.contact_id) contactIds.add(tk.contact_id);
+    const contatoInfo = {};
+    const cIds = [...contactIds];
+    for (let i = 0; i < cIds.length; i += 50) {
+      const q = cIds.slice(i, i + 50).map(id => `filter[entity_id][]=${id}`).join('&');
+      try {
+        const { status, body } = await kommoGet(`/contacts/notes?${q}&limit=250`);
+        if (status === 200) for (const n of body._embedded?.notes || []) {
+          const m = String(n.params?.text || '').match(/^Primeira mensagem:\s*([\s\S]+)/i);
+          if (m && !contatoInfo[n.entity_id]) contatoInfo[n.entity_id] = m[1].trim();
+        }
+      } catch {}
+    }
+    const telPorContato = {};
+    for (let i = 0; i < cIds.length; i += 50) {
+      const q = cIds.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&');
+      try {
+        const { status, body } = await kommoGet(`/contacts?${q}&limit=250`);
+        if (status === 200) for (const c of body._embedded?.contacts || []) {
+          const ph = (c.custom_fields_values || []).find(f => f.field_code === 'PHONE');
+          telPorContato[c.id] = { tel: ph?.values?.[0]?.value || '', nome: c.name || '' };
+        }
+      } catch {}
+    }
+
+    // 3. Classifica cada lead por campanha
+    const campanhaDe = txt => {
+      const t = _normTxt(txt);
+      if (!t) return 'sem_origem';
+      if (t.includes('s12')) return 's12';
+      if (t.includes('prime') || t.includes('inverter')) return 'prime';
+      if (t.includes('capa') || t.includes('termic') || t.includes('posso ter mais informa')) return 'capa';
+      return 'outros';
+    };
+    const leads = [];
+    for (const [lidStr, tk] of Object.entries(leadMap)) {
+      const lid = Number(lidStr);
+      const lead = leadsById[lid];
+      const cid = tk.contact_id || lead?._embedded?.contacts?.[0]?.id;
+      const info = cid ? telPorContato[cid] : null;
+      const msg = (cid && contatoInfo[cid]) || '';
+      leads.push({ lead_id: lid, campanha: campanhaDe(msg), tel: info?.tel || '', nome: info?.nome || lead?.name || '' });
+    }
+
+    // 4. Vendas: equipamento = propostas aprovadas com lead; capa = pedidos Tiny
+    const aprov = db.prepare(
+      "SELECT lead_id, valor FROM aprovacoes WHERE status='aprovado' AND COALESCE(aprovado_em,criado_em) >= ? AND COALESCE(aprovado_em,criado_em) <= ?"
+    ).all(de, ate + ' 23:59:59');
+    const aprovPorLead = {};
+    for (const a of aprov) {
+      const k = String(a.lead_id || '').trim();
+      if (k) aprovPorLead[k] = (aprovPorLead[k] || 0) + (a.valor || 0);
+    }
+    const pedCapa = db.prepare(
+      "SELECT telefone, cliente, valor FROM tiny_pedidos WHERE tem_capa=1 AND data >= ? AND data <= ?"
+    ).all(de, ate);
+    const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+
+    const base = { leads: 0, vendas: 0, valor: 0 };
+    const porCampanha = { s12: { ...base }, prime: { ...base }, capa: { ...base }, outros: { ...base }, sem_origem: { ...base } };
+    for (const l of leads) {
+      const c = porCampanha[l.campanha] || porCampanha.outros;
+      c.leads++;
+      if (l.campanha === 'capa') {
+        const achado = pedCapa.find(p =>
+          (p.telefone && telCombina(p.telefone, l.tel)) ||
+          (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome))
+        );
+        if (achado) { c.vendas++; c.valor += achado.valor || 0; }
+      } else {
+        const v = aprovPorLead[String(l.lead_id)];
+        if (v) { c.vendas++; c.valor += v; }
+      }
+    }
+    const rotulos = { s12: 'Ortum S12', prime: 'Prime Full Inverter', capa: 'Capa térmica', outros: 'Outras mensagens', sem_origem: 'Sem origem registrada' };
+    const resultado = Object.entries(porCampanha).map(([k, v]) => ({
+      campanha: k, rotulo: rotulos[k], leads: v.leads, vendas: v.vendas, valor: v.valor,
+      conversao: v.leads ? v.vendas / v.leads : 0,
+    })).filter(c => c.leads > 0);
+
+    res.json({ periodo: { de, ate }, total_leads: leads.length, campanhas: resultado });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── TINY: diagnóstico de itens de capa já sincronizados ──
 app.get('/api/tiny/capas', auth, (req, res) => {
   try {
