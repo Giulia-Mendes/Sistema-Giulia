@@ -1657,9 +1657,19 @@ select option { background: var(--surface); color: var(--text); }
 
     <p class="sec" style="margin-top:4px">Infraestrutura</p>
     <div class="g3">
-      <div class="campo"><label>Distância casa máquinas (m)</label><input type="number" id="l-dist" step="0.5"></div>
+      <div class="campo"><label>Distância casa máquinas (m)</label><input type="number" id="l-dist" step="0.5" placeholder="tubulação"></div>
       <div class="campo"><label>Tensão elétrica</label>
         <select id="l-tensao"><option value="">Selecione</option><option>110V</option><option>220V</option></select>
+      </div>
+      <div class="campo"><label>Distância quadro elétrico (m)</label><input type="number" id="l-dist-quadro" step="0.5" placeholder="cabo elétrico"></div>
+      <div class="campo"><label>Tubulação existente</label>
+        <select id="l-tubo"><option value="">Selecione</option><option>50mm</option><option>60mm</option><option>75mm</option><option>Outro</option></select>
+      </div>
+      <div class="campo"><label>Percurso do cabo</label>
+        <select id="l-percurso"><option value="">Selecione</option><option>Aparente</option><option>Enterrado</option><option>Parede/alvenaria</option></select>
+      </div>
+      <div class="campo" style="display:flex;align-items:flex-end">
+        <label class="tec-item" style="margin:0"><input type="checkbox" id="l-disj-livre"> Tem disjuntor livre no quadro</label>
       </div>
       <div class="campo">
         <label>Dias p/ instalação</label>
@@ -2822,6 +2832,13 @@ function abrirLaudo(id) {
   document.getElementById('l-prainha-prof').value = l.prainha_prof || '';
   document.getElementById('l-tipo').value = l.tipo || '';
   document.getElementById('l-tensao').value = l.tensao || '';
+  // Infraestrutura para o cálculo de materiais
+  const _sv = (id, v) => { const e = document.getElementById(id); if (e) e.value = v || ''; };
+  _sv('l-dist-quadro', l.dist_quadro);
+  _sv('l-tubo', l.tubo);
+  _sv('l-percurso', l.percurso);
+  const _ckDisj = document.getElementById('l-disj-livre');
+  if (_ckDisj) _ckDisj.checked = !!l.disj_livre;
   document.getElementById('l-obs').value = l.obs || '';
   document.getElementById('l-material').value = l.material || '';
   setMoedaInput('l-valor-mat', l.valorMat);
@@ -4285,7 +4302,12 @@ async function salvarLaudo() {
     vol: document.getElementById('l-vol').value,
     tipo: document.getElementById('l-tipo').value, dist: document.getElementById('l-dist').value,
     tensao: document.getElementById('l-tensao').value, obs: document.getElementById('l-obs').value,
-    material: document.getElementById('l-material').value, valorMat: document.getElementById('l-valor-mat').value, dias
+    material: document.getElementById('l-material').value, valorMat: document.getElementById('l-valor-mat').value, dias,
+    // Dados de infraestrutura usados no cálculo automático de materiais
+    dist_quadro: document.getElementById('l-dist-quadro')?.value || '',
+    tubo: document.getElementById('l-tubo')?.value || '',
+    percurso: document.getElementById('l-percurso')?.value || '',
+    disj_livre: !!document.getElementById('l-disj-livre')?.checked
   };
   await fetch('/api/visitas/' + laudoVisitaId + '/laudo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ laudo, fotos: fotosTmp }) });
   fecharModal('modal-laudo'); laudoVisitaId = null; fotosTmp = [];
