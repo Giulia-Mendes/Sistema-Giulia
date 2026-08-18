@@ -1671,6 +1671,15 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo" style="display:flex;align-items:flex-end">
         <label class="tec-item" style="margin:0"><input type="checkbox" id="l-disj-livre"> Tem disjuntor livre no quadro</label>
       </div>
+      <div class="campo" style="display:flex;align-items:flex-end">
+        <label class="tec-item" style="margin:0"><input type="checkbox" id="l-suporte"> Precisa de suporte de parede</label>
+      </div>
+    </div>
+    <p class="sec" style="margin-top:10px">Conexões necessárias <span style="font-weight:400;color:var(--text2);font-size:12px">— conforme o percurso da tubulação</span></p>
+    <div class="g3">
+      <div class="campo"><label>Curvas 90° (un)</label><input type="number" id="l-curva90" min="0" step="1" placeholder="0"></div>
+      <div class="campo"><label>Joelhos 90° (un)</label><input type="number" id="l-joelho90" min="0" step="1" placeholder="0"></div>
+      <div class="campo"><label>Joelhos 45° (un)</label><input type="number" id="l-joelho45" min="0" step="1" placeholder="0"></div>
       <div class="campo">
         <label>Dias p/ instalação</label>
         <select id="l-dias" onchange="document.getElementById('l-dias-outro').style.display=this.value==='outro'?'':'none'">
@@ -2837,8 +2846,13 @@ function abrirLaudo(id) {
   _sv('l-dist-quadro', l.dist_quadro);
   _sv('l-tubo', l.tubo);
   _sv('l-percurso', l.percurso);
+  _sv('l-curva90', l.curva90);
+  _sv('l-joelho90', l.joelho90);
+  _sv('l-joelho45', l.joelho45);
   const _ckDisj = document.getElementById('l-disj-livre');
   if (_ckDisj) _ckDisj.checked = !!l.disj_livre;
+  const _ckSup = document.getElementById('l-suporte');
+  if (_ckSup) _ckSup.checked = !!l.suporte;
   document.getElementById('l-obs').value = l.obs || '';
   document.getElementById('l-material').value = l.material || '';
   setMoedaInput('l-valor-mat', l.valorMat);
@@ -4307,7 +4321,11 @@ async function salvarLaudo() {
     dist_quadro: document.getElementById('l-dist-quadro')?.value || '',
     tubo: document.getElementById('l-tubo')?.value || '',
     percurso: document.getElementById('l-percurso')?.value || '',
-    disj_livre: !!document.getElementById('l-disj-livre')?.checked
+    disj_livre: !!document.getElementById('l-disj-livre')?.checked,
+    suporte: !!document.getElementById('l-suporte')?.checked,
+    curva90: document.getElementById('l-curva90')?.value || '',
+    joelho90: document.getElementById('l-joelho90')?.value || '',
+    joelho45: document.getElementById('l-joelho45')?.value || ''
   };
   await fetch('/api/visitas/' + laudoVisitaId + '/laudo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ laudo, fotos: fotosTmp }) });
   fecharModal('modal-laudo'); laudoVisitaId = null; fotosTmp = [];
