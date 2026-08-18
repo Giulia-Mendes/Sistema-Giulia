@@ -2172,6 +2172,26 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
       capas_vendidas_periodo: capasVendidas,
       valor_periodo: noPeriodo.reduce((s, p) => s + (p.valor || 0), 0),
       sem_vinculo: noPeriodo.length - comCompra,
+      // Lista detalhada para exibir ao clicar no card
+      lista_periodo: noPeriodo.map(p => {
+        let itensCapa = [];
+        try { itensCapa = JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)); } catch {}
+        // Qual lead do Kommo corresponde a este pedido (se algum)
+        const leadCasado = leads.find(l =>
+          (p.telefone && telCombina(p.telefone, l.tel)) ||
+          (nomeKey(p.cliente) && nomeKey(p.cliente).includes(' ') && nomeKey(p.cliente) === nomeKey(l.nome)) ||
+          (p.lead_id && String(p.lead_id).trim() === String(l.lead_id).trim())
+        );
+        return {
+          numero: p.numero, cliente: p.cliente, data: p.data, valor: p.valor || 0,
+          telefone: p.telefone || '',
+          qtd: itensCapa.reduce((s, i) => s + (i.qtd || 0), 0),
+          produtos: itensCapa.map(i => i.descricao),
+          lead_id: leadCasado ? String(leadCasado.lead_id) : (p.lead_id || ''),
+          lead_nome: leadCasado ? (leadCasado.nome || '') : '',
+          motivo_sem_lead: leadCasado ? '' : (p.telefone ? 'telefone não bate com nenhum contato do período' : 'cadastro do Tiny sem telefone'),
+        };
+      }),
       pedidos_capa_no_sistema: pedidos.length,
       pedidos_capa_com_telefone: Object.values(porTel).flat().length,
       por_lead: casados,

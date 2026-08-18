@@ -1254,7 +1254,7 @@ select option { background: var(--surface); color: var(--text); }
     <div class="stat"><div class="lbl">📅 Visitas marcadas</div><div class="val" id="ks-visitas" style="color:#7c3aed">—</div></div>
     <div class="stat"><div class="lbl">📝 Propostas feitas</div><div class="val" id="ks-propostas" style="color:#0e7490">—</div></div>
     <div class="stat"><div class="lbl">✅ Propostas aprovadas</div><div class="val" id="ks-aprovadas" style="color:#2e7d32">—</div></div>
-    <div class="stat" title="Leads que compraram capa térmica, casados pelo telefone com os pedidos do Tiny">
+    <div class="stat" id="ks-capas-card" onclick="abrirDetalheCapas()" title="Clique para ver quem comprou" style="cursor:pointer">
       <div class="lbl">🧊 Capas vendidas</div>
       <div class="val" id="ks-capas" style="color:#00897B">—</div>
       <div style="font-size:11px;color:var(--text2);margin-top:2px" id="ks-capas-valor"></div>
@@ -6847,6 +6847,51 @@ function toggleKommoSec(sec) {
   if (seta)  seta.textContent = _kommoSecs[sec] ? '▼' : '▶';
 }
 
+// Abre o detalhamento das capas vendidas: quem comprou e de qual lead veio
+function abrirDetalheCapas() {
+  const modal = document.getElementById('modal-capas-detalhe');
+  const body  = document.getElementById('modal-capas-body');
+  const sub   = document.getElementById('modal-capas-sub');
+  if (!modal || !body) return;
+  const lista = (_kommoCapas && _kommoCapas.lista_periodo) || [];
+  const fmtR = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtD = s => (s||'').split('-').reverse().join('/');
+
+  if (sub) {
+    const casados = lista.filter(p => p.lead_id).length;
+    sub.textContent = lista.length
+      ? `${lista.length} pedido${lista.length !== 1 ? 's' : ''} · ${casados} ligado${casados !== 1 ? 's' : ''} a um lead do Kommo`
+      : '';
+  }
+  if (!lista.length) {
+    body.innerHTML = '<p style="font-size:13px;color:var(--text2);text-align:center;padding:16px 0">Nenhuma capa vendida no período selecionado.<br>'
+      + '<span style="font-size:12px">Se esperava resultados, rode a sincronização do Tiny para este período.</span></p>';
+    modal.style.display = 'flex';
+    return;
+  }
+  body.innerHTML = lista.map(p => {
+    const temLead = !!p.lead_id;
+    return '<div style="border:1px solid var(--border);border-left:3px solid ' + (temLead ? '#00897B' : '#C0B6A6') + ';border-radius:8px;padding:11px 14px">'
+      + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
+        + '<strong style="font-size:14px">' + (p.cliente || '—') + '</strong>'
+        + '<span style="font-size:12px;color:var(--text2)">Pedido ' + (p.numero || '—') + ' · ' + fmtD(p.data) + '</span>'
+        + '<span style="margin-left:auto;font-size:14px;font-weight:600">' + fmtR(p.valor) + '</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'
+        + (p.qtd ? p.qtd + ' capa' + (p.qtd !== 1 ? 's' : '') + ' · ' : '')
+        + (p.produtos || []).join(' · ')
+      + '</div>'
+      + (p.telefone ? '<div style="font-size:12px;color:var(--text2)">📱 ' + p.telefone + '</div>' : '')
+      + (temLead
+        ? '<div style="margin-top:6px"><a href="https://capelato.kommo.com/leads/detail/' + p.lead_id + '" target="_blank" '
+          + 'style="display:inline-block;background:#B2DFDB;color:#00695C;border-radius:99px;padding:2px 10px;font-size:11.5px;font-weight:600;text-decoration:none">'
+          + '🔗 Lead ' + p.lead_id + (p.lead_nome ? ' · ' + p.lead_nome : '') + ' ↗</a></div>'
+        : '<div style="margin-top:6px;font-size:11.5px;color:var(--bronze-txt)">⚠ Sem lead vinculado — ' + (p.motivo_sem_lead || 'origem não identificada') + '</div>')
+    + '</div>';
+  }).join('');
+  modal.style.display = 'flex';
+}
+
 function detectarModelo(texto) {
   if (!texto) return 'outros';
   const t = texto.toLowerCase();
@@ -6986,8 +7031,9 @@ async function carregarKommo() {
       if (elv) {
         const v = _kommoCapas.valor_periodo || 0;
         if (pedidos > 0) {
-          elv.textContent = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-            + ' · ' + casados + ' de ' + pedidos + ' ligados a lead';
+          elv.innerHTML = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+            + ' em ' + pedidos + ' pedido' + (pedidos !== 1 ? 's' : '')
+            + '<br><span style="text-decoration:underline">ver quem comprou →</span>';
         } else {
           elv.textContent = _kommoCapas.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny';
         }
@@ -8827,6 +8873,18 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
       <button onclick="document.getElementById('modal-visita-detalhe').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
     </div>
     <div id="modal-visita-detalhe-body" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE DAS CAPAS VENDIDAS -->
+<div class="modal-bg" id="modal-capas-detalhe" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:640px;width:96%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <h3 style="margin:0;font-size:15px">🧊 Capas vendidas no período</h3>
+      <button onclick="document.getElementById('modal-capas-detalhe').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <p id="modal-capas-sub" style="font-size:12px;color:var(--text2);margin:0 0 14px"></p>
+    <div id="modal-capas-body" style="display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
