@@ -14,6 +14,23 @@ const FOLGA_PCT = 0.10;        // folga sobre o comprimento medido
 const METROS_POR_BARRA = 3;    // tubo soldável vem em barras de 3m
 const TERRA_MIN_M = 20;        // terra: mínimo praticado nas obras de referência
 
+// ── Aquex Inverter: nome comercial × código da tabela de cabos ──
+// O nome comercial usa uma numeração própria (AQ 7) enquanto a tabela de cabos usa
+// o BTU/1000 (AQ 24 IN). Cuidado: "AQ 24" comercial é 82.000 BTU, mas "AQ 24 IN" na
+// tabela é 24.000 BTU — são equipamentos diferentes com número parecido.
+const AQUEX_INV_COMERCIAL = {
+  4:  { btu: 14000,  tabela: 'AQ 14 IN' },
+  7:  { btu: 24000,  tabela: 'AQ 24 IN' },
+  9:  { btu: 30000,  tabela: 'AQ 30 IN' },
+  12: { btu: 43000,  tabela: 'AQ 43 IN' },
+  14: { btu: 50000,  tabela: 'AQ 50 IN' },
+  17: { btu: 60000,  tabela: 'AQ 60 IN' },
+  19: { btu: 71000,  tabela: 'AQ 71 IN' },
+  24: { btu: 82000,  tabela: 'AQ 82 IN' },
+  32: { btu: 110000, tabela: 'AQ 110 IN' },
+  38: { btu: 130000, tabela: 'AQ 130 IN' },
+};
+
 // Descobre a chave da tabela a partir do nome comercial do equipamento.
 // Ex.: "Trocador De Calor Sibrape Mini Ortum S12 220v" → "S 12"
 //      "SB130", "Ortum Prime S110", "AQ 28" → "SB 130", "S 110", "AQ 28"
@@ -25,6 +42,23 @@ function _chaveModelo(nome) {
   // Igualdade direta (o usuário digitou o código exato)
   const exato = tabela.find(k => norm(k) === norm(txt));
   if (exato) return exato;
+
+  // Aquex: o BTU no próprio nome é a informação mais confiável ("AQ7INV ... 24.000BTUs")
+  if (/AQ/.test(txt)) {
+    const mBtu = txt.match(/(\d{2,3})[.\s]?(\d{3})\s*BTU/);
+    if (mBtu) {
+      const btu = parseInt(mBtu[1] + mBtu[2], 10);
+      const porBtu = Object.values(AQUEX_INV_COMERCIAL).find(v => v.btu === btu);
+      if (porBtu && tabela.includes(porBtu.tabela)) return porBtu.tabela;
+    }
+    // Sem BTU no nome: usa o de/para comercial, só quando for da linha Inverter
+    const ehInverter = /\bINV|INVERTER\b/.test(txt);
+    const mAq = txt.match(/\bAQ\s*[-]?\s*(\d{1,3})\b/);
+    if (ehInverter && mAq) {
+      const eq = AQUEX_INV_COMERCIAL[parseInt(mAq[1], 10)];
+      if (eq && tabela.includes(eq.tabela)) return eq.tabela;
+    }
+  }
 
   // Procura códigos no texto: prefixo (S, SB, SU, AQ) + número + sufixo IN opcional.
   // "220V"/"12.000BTU" não casam porque exigimos o prefixo de letras colado ao número.
