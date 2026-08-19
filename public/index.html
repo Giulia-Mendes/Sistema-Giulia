@@ -2671,6 +2671,7 @@ function renderVisitas() {
         '<div class="txt-agend">' + montarTextoVisita(v) + '</div>' +
         laudoHtml +
         '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">' +
+        '<button class="btn ' + (v.laudo ? 'btn-branco' : 'btn-preto') + '" onclick="abrirLaudo(' + v.id + ')">📋 ' + (v.laudo ? 'Editar laudo' : 'Preencher laudo') + '</button>' +
         '<button class="btn btn-branco" onclick="abrirEditarVisita(' + v.id + ')">✏️ Editar</button>' +
         '<button class="btn btn-branco" onclick="copiarAgend(' + v.id + ', event)">📋 Copiar</button>' +
         '<button class="btn btn-branco" onclick="clonarVisita(' + v.id + ')">🔁 Clonar</button>' +
