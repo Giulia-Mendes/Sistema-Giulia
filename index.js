@@ -2199,6 +2199,66 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ── MATERIAIS: calcula a lista de instalação a partir do laudo + modelo ──
+const { calcularMateriais, REGRAS: REGRAS_INST } = require('./calc_materiais');
+
+// Lista os modelos disponíveis na tabela de cabos (para o seletor da vendedora)
+app.get('/api/materiais/modelos', auth, (req, res) => {
+  const mods = Object.entries(REGRAS_INST.cabos_por_modelo)
+    .map(([nome, v]) => ({ nome, potencia_w: v.potencia_w }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }));
+  res.json({ total: mods.length, modelos: mods });
+});
+
+// Calcula a lista de materiais. Aceita visita_id (usa o laudo salvo) ou o laudo direto.
+app.post('/api/materiais/calcular', auth, (req, res) => {
+  try {
+    const { visita_id, modelo } = req.body || {};
+    let laudo = req.body?.laudo || null;
+    if (!laudo && visita_id) {
+      const v = db.prepare('SELECT laudo FROM visitas WHERE id=?').get(visita_id);
+      if (v?.laudo) { try { laudo = JSON.parse(v.laudo); } catch {} }
+    }
+    if (!laudo) return res.status(400).json({ erro: 'Informe visita_id (com laudo salvo) ou o laudo.' });
+    if (!modelo) return res.status(400).json({ erro: 'Informe o modelo do trocador.' });
+
+    const r = calcularMateriais(laudo, modelo);
+
+    // Casa cada item com o catálogo para trazer preço e SKU
+    const catalogo = db.prepare('SELECT sku,nome,unidade,preco_venda FROM materiais_catalogo WHERE ativo=1').all();
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+    const itens = r.itens.map(it => {
+      const alvo = norm(it.nome);
+      // Procura o item do catálogo com maior sobreposição de texto
+      let melhor = null, melhorScore = 0;
+      for (const c of catalogo) {
+        const nc = norm(c.nome);
+        if (!nc) continue;
+        let score = 0;
+        if (nc === alvo) score = 1000;
+        else if (nc.includes(alvo) || alvo.includes(nc)) score = Math.min(nc.length, alvo.length);
+        if (score > melhorScore) { melhorScore = score; melhor = c; }
+      }
+      const preco = melhor?.preco_venda || 0;
+      return {
+        ...it,
+        sku: melhor?.sku || null,
+        nome_catalogo: melhor?.nome || null,
+        unidade: melhor?.unidade || it.unidade,
+        preco_unit: preco,
+        preco_total: Math.round(preco * it.quantidade * 100) / 100,
+        encontrado_no_catalogo: !!melhor,
+      };
+    });
+    const total = itens.reduce((s, i) => s + (i.preco_total || 0), 0);
+    const semPreco = itens.filter(i => !i.encontrado_no_catalogo).map(i => i.nome);
+    const avisos = [...r.avisos];
+    if (semPreco.length) avisos.push(`Sem correspondência no catálogo (preço zerado): ${semPreco.join(', ')}`);
+
+    res.json({ ...r, itens, valor_total: Math.round(total * 100) / 100, avisos });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── FECHAMENTOS: pedidos de capa térmica do período ──
 app.get('/api/fechamentos/capas', auth, (req, res) => {
   try {
