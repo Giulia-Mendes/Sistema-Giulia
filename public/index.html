@@ -7434,6 +7434,11 @@ function orcmatNovoOrcamento() {
   _orcmatAtualizarTotal();
   _popularClientesOrcmat();
   _orcmatPreencherLaudo(null);
+  orcmatCarregarModelos();
+  const _selMod = document.getElementById('orcmat-modelo');
+  if (_selMod) _selMod.value = '';
+  const _msgGer = document.getElementById('orcmat-gerar-msg');
+  if (_msgGer) _msgGer.style.display = 'none';
   document.getElementById('orcmat-lista-view').style.display = 'none';
   document.getElementById('orcmat-form-view').style.display = '';
 }
@@ -7446,6 +7451,9 @@ function orcmatEditarOrcamento(id) {
   document.getElementById('orcmat-cliente').value = o.cliente || '';
   document.getElementById('orcmat-obs').value = o.obs || '';
   _popularClientesOrcmat();
+  orcmatCarregarModelos();
+  const _mg = document.getElementById('orcmat-gerar-msg');
+  if (_mg) _mg.style.display = 'none';
   // Restaura visita vinculada (se houver)
   document.getElementById('orcmat-visita-id').value = o.visita_id || '';
   document.getElementById('orcmat-cliente-drop').style.display = 'none';
@@ -7534,6 +7542,87 @@ function _orcmatCriarLinha(livre) {
       style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--terra);font-size:14px">✕</button>`;
   document.getElementById('orcmat-linhas').appendChild(div);
   return div;
+}
+
+// ── Gerador automático de materiais (laudo + modelo do trocador) ──
+let _orcmatModelosCarregados = false;
+
+async function orcmatCarregarModelos() {
+  if (_orcmatModelosCarregados) return;
+  const sel = document.getElementById('orcmat-modelo');
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/materiais/modelos');
+    const d = await r.json();
+    (d.modelos || []).forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.nome;
+      o.textContent = m.nome + (m.potencia_w ? ` — ${m.potencia_w}W` : '');
+      sel.appendChild(o);
+    });
+    _orcmatModelosCarregados = true;
+  } catch(e) {}
+}
+
+async function orcmatGerarLista() {
+  const msg = document.getElementById('orcmat-gerar-msg');
+  const modelo = document.getElementById('orcmat-modelo')?.value || '';
+  const visitaId = document.getElementById('orcmat-visita-id')?.value || '';
+  const mostra = (txt, cor) => {
+    if (!msg) return;
+    msg.style.display = 'block';
+    msg.style.color = cor || 'var(--text2)';
+    msg.innerHTML = txt;
+  };
+  if (!modelo) return mostra('⚠️ Escolha o modelo do trocador de calor.', 'var(--bronze-txt)');
+  if (!visitaId) return mostra('⚠️ Vincule a visita técnica primeiro — é dela que vêm as medidas do laudo.', 'var(--bronze-txt)');
+
+  mostra('Calculando…');
+  try {
+    const r = await fetch('/api/materiais/calcular', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ visita_id: parseInt(visitaId), modelo })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erro || 'Falha ao calcular');
+
+    // Substitui as linhas atuais pelas calculadas
+    const cont = document.getElementById('orcmat-linhas');
+    const tinha = cont.querySelectorAll('.orcmat-linha').length;
+    if (tinha > 0 && !confirm(`O orçamento já tem ${tinha} item(ns). Substituir pela lista calculada?`)) {
+      return mostra('Cancelado — nada foi alterado.');
+    }
+    cont.innerHTML = '';
+    (d.itens || []).forEach(item => {
+      const livre = !item.sku;
+      const linha = _orcmatCriarLinha(livre);
+      if (!livre) {
+        linha.querySelector('.orcmat-nome-display').textContent = item.nome_catalogo || item.nome;
+        linha.querySelector('.orcmat-sku-display').textContent = item.sku || '';
+        linha.dataset.sku = item.sku || '';
+      } else {
+        linha.querySelector('input.orcmat-nome-livre').value = item.nome || '';
+      }
+      linha.querySelector('.orcmat-un').value = item.unidade || 'UN';
+      linha.querySelector('.orcmat-qtd').value = String(item.quantidade || 1).replace('.', ',');
+      setMoedaInput_el(linha.querySelector('.orcmat-preco'), item.preco_unit || 0);
+    });
+    _orcmatAtualizarTotal();
+
+    const res = d.resumo || {};
+    let txt = `✅ ${(d.itens||[]).length} itens gerados`;
+    if (res.modelo_tabela) {
+      txt += ` · ${res.modelo_tabela}`;
+      if (res.bitola_mm2) txt += ` · cabo ${String(res.bitola_mm2).replace('.',',')}mm² para ${res.distancia_cabo_m}m`;
+      if (res.disjuntor_a) txt += ` · disjuntor ${res.disjuntor_a}A`;
+    }
+    if (d.avisos && d.avisos.length) {
+      txt += '<br><span style="color:var(--bronze-txt)">⚠ ' + d.avisos.join('<br>⚠ ') + '</span>';
+    }
+    mostra(txt, 'var(--mineral-txt)');
+  } catch(e) {
+    mostra('Erro: ' + e.message, 'var(--terra-txt)');
+  }
 }
 
 function orcmatAddLinha(livre) {
@@ -8723,6 +8812,22 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           <span>🗓 Visita vinculada: <strong id="orcmat-visita-label"></strong></span>
           <button type="button" onclick="orcmatLimparVisita()" style="border:none;background:none;cursor:pointer;color:var(--terra);font-size:13px;padding:0 4px" title="Desvincular visita">✕</button>
         </div>
+      </div>
+
+      <!-- Gerador automático de lista a partir do laudo + modelo -->
+      <div class="campo" style="background:var(--surface2,#f5f0eb);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+        <label style="display:block;margin-bottom:6px">⚙️ Gerar lista automática</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="orcmat-modelo" style="flex:1;min-width:190px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px">
+            <option value="">Escolha o trocador de calor…</option>
+          </select>
+          <button type="button" class="btn btn-preto" onclick="orcmatGerarLista()" style="font-size:13px;white-space:nowrap">Gerar materiais</button>
+        </div>
+        <p style="font-size:11.5px;color:var(--text2);margin:7px 0 0">
+          Usa as medidas do laudo da visita vinculada (distâncias, conexões, suporte) e a tabela de cabos do fabricante.
+          Os itens gerados podem ser editados antes de salvar.
+        </p>
+        <div id="orcmat-gerar-msg" style="font-size:12px;margin-top:8px;display:none"></div>
       </div>
       <div class="campo">
         <label>Observação geral</label>
