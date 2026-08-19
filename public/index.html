@@ -7554,11 +7554,17 @@ async function orcmatCarregarModelos() {
   try {
     const r = await fetch('/api/materiais/modelos');
     const d = await r.json();
-    (d.modelos || []).forEach(m => {
-      const o = document.createElement('option');
-      o.value = m.nome;
-      o.textContent = m.nome + (m.potencia_w ? ` — ${m.potencia_w}W` : '');
-      sel.appendChild(o);
+    // Agrupa por linha comercial (Ortum Inverter, Sibrape Inverter, Aquex…)
+    (d.grupos || []).forEach(g => {
+      const grp = document.createElement('optgroup');
+      grp.label = g.linha;
+      (g.modelos || []).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.nome;
+        o.textContent = m.nome + (m.potencia_w ? ` — ${m.potencia_w}W` : '');
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
     });
     _orcmatModelosCarregados = true;
   } catch(e) {}

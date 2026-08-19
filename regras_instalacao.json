@@ -58,6 +58,7 @@
  },
  "cabos_por_modelo": {
   "S 24": {
+   "linha": "Ortum Inverter",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -73,6 +74,7 @@
    }
   },
   "SU 17": {
+   "linha": "Ultragold",
    "potencia_w": 1200,
    "bitola": {
     "10": 1.5,
@@ -88,6 +90,7 @@
    }
   },
   "S 31": {
+   "linha": "Ortum Inverter",
    "potencia_w": 2000,
    "bitola": {
     "10": 1.5,
@@ -103,6 +106,7 @@
    }
   },
   "SU 24": {
+   "linha": "Ultragold",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -118,6 +122,7 @@
    }
   },
   "S 38": {
+   "linha": "Ortum Inverter",
    "potencia_w": 2000,
    "bitola": {
     "10": 1.5,
@@ -133,6 +138,7 @@
    }
   },
   "SU 31": {
+   "linha": "Ultragold",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -148,6 +154,7 @@
    }
   },
   "S 44": {
+   "linha": "Ortum Inverter",
    "potencia_w": 2800,
    "bitola": {
     "10": 1.5,
@@ -163,6 +170,7 @@
    }
   },
   "SU 38": {
+   "linha": "Ultragold",
    "potencia_w": 2200,
    "bitola": {
     "10": 1.5,
@@ -178,6 +186,7 @@
    }
   },
   "S 51": {
+   "linha": "Ortum Inverter",
    "potencia_w": 3000,
    "bitola": {
     "10": 1.5,
@@ -193,6 +202,7 @@
    }
   },
   "SU 44": {
+   "linha": "Ultragold",
    "potencia_w": 2800,
    "bitola": {
     "10": 1.5,
@@ -208,6 +218,7 @@
    }
   },
   "S 58": {
+   "linha": "Ortum Inverter",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -223,6 +234,7 @@
    }
   },
   "SU 51": {
+   "linha": "Ultragold",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -238,6 +250,7 @@
    }
   },
   "S 72": {
+   "linha": "Ortum Inverter",
    "potencia_w": 4500,
    "bitola": {
     "10": 1.5,
@@ -253,6 +266,7 @@
    }
   },
   "SU 58": {
+   "linha": "Ultragold",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -268,6 +282,7 @@
    }
   },
   "S 90": {
+   "linha": "Ortum Inverter",
    "potencia_w": 6200,
    "bitola": {
     "10": 2.5,
@@ -283,6 +298,7 @@
    }
   },
   "SU 72": {
+   "linha": "Ultragold",
    "potencia_w": 4500,
    "bitola": {
     "10": 1.5,
@@ -298,6 +314,7 @@
    }
   },
   "S 110": {
+   "linha": "Ortum Inverter",
    "potencia_w": 7000,
    "bitola": {
     "10": 2.5,
@@ -313,6 +330,7 @@
    }
   },
   "SU 90": {
+   "linha": "Ultragold",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -328,6 +346,7 @@
    }
   },
   "SU 110": {
+   "linha": "Ultragold",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -343,6 +362,7 @@
    }
   },
   "S 12": {
+   "linha": "Ortum",
    "potencia_w": 700,
    "bitola": {
     "10": 1.5,
@@ -358,6 +378,7 @@
    }
   },
   "SB 14": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 800,
    "bitola": {
     "10": 1.5,
@@ -373,6 +394,7 @@
    }
   },
   "S 15": {
+   "linha": "Ortum",
    "potencia_w": 900,
    "bitola": {
     "10": 1.5,
@@ -388,6 +410,7 @@
    }
   },
   "SB 24": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -403,6 +426,7 @@
    }
   },
   "S 21": {
+   "linha": "Ortum",
    "potencia_w": 1300,
    "bitola": {
     "10": 1.5,
@@ -418,6 +442,7 @@
    }
   },
   "SB 30": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -433,6 +458,7 @@
    }
   },
   "S 28": {
+   "linha": "Ortum",
    "potencia_w": 1700,
    "bitola": {
     "10": 1.5,
@@ -448,6 +474,7 @@
    }
   },
   "SB 43": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 2800,
    "bitola": {
     "10": 1.5,
@@ -463,6 +490,7 @@
    }
   },
   "S 42": {
+   "linha": "Ortum",
    "potencia_w": 2500,
    "bitola": {
     "10": 1.5,
@@ -478,6 +506,7 @@
    }
   },
   "SB 50": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -493,6 +522,7 @@
    }
   },
   "S 50": {
+   "linha": "Ortum",
    "potencia_w": 3200,
    "bitola": {
     "10": 1.5,
@@ -508,6 +538,7 @@
    }
   },
   "SB 60": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -523,6 +554,7 @@
    }
   },
   "S 70": {
+   "linha": "Ortum",
    "potencia_w": 4400,
    "bitola": {
     "10": 2.5,
@@ -538,6 +570,7 @@
    }
   },
   "SB 71": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 4500,
    "bitola": {
     "10": 1.5,
@@ -553,6 +586,7 @@
    }
   },
   "S 80": {
+   "linha": "Ortum",
    "potencia_w": 5000,
    "bitola": {
     "10": 2.5,
@@ -568,6 +602,7 @@
    }
   },
   "SB 82": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -583,6 +618,7 @@
    }
   },
   "SB 110": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -598,6 +634,7 @@
    }
   },
   "SB 130": {
+   "linha": "Sibrape Inverter",
    "potencia_w": 7000,
    "bitola": {
     "10": 2.5,
@@ -613,6 +650,7 @@
    }
   },
   "AQ 12": {
+   "linha": "Aquex",
    "potencia_w": 700,
    "bitola": {
     "10": 1.5,
@@ -628,6 +666,7 @@
    }
   },
   "AQ 15": {
+   "linha": "Aquex",
    "potencia_w": 900,
    "bitola": {
     "10": 1.5,
@@ -643,6 +682,7 @@
    }
   },
   "AQ 14 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 800,
    "bitola": {
     "10": 1.5,
@@ -658,6 +698,7 @@
    }
   },
   "AQ 21": {
+   "linha": "Aquex",
    "potencia_w": 1300,
    "bitola": {
     "10": 1.5,
@@ -673,6 +714,7 @@
    }
   },
   "AQ 24 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -688,6 +730,7 @@
    }
   },
   "AQ 28": {
+   "linha": "Aquex",
    "potencia_w": 1700,
    "bitola": {
     "10": 1.5,
@@ -703,6 +746,7 @@
    }
   },
   "AQ 30 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 1800,
    "bitola": {
     "10": 1.5,
@@ -718,6 +762,7 @@
    }
   },
   "AQ42": {
+   "linha": "Aquex",
    "potencia_w": 2500,
    "bitola": {
     "10": 1.5,
@@ -733,6 +778,7 @@
    }
   },
   "AQ 43 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 2800,
    "bitola": {
     "10": 1.5,
@@ -748,6 +794,7 @@
    }
   },
   "AQ 50": {
+   "linha": "Aquex",
    "potencia_w": 3200,
    "bitola": {
     "10": 1.5,
@@ -763,6 +810,7 @@
    }
   },
   "AQ 50 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -778,6 +826,7 @@
    }
   },
   "AQ 70": {
+   "linha": "Aquex",
    "potencia_w": 4400,
    "bitola": {
     "10": 2.5,
@@ -793,6 +842,7 @@
    }
   },
   "AQ 60 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 3500,
    "bitola": {
     "10": 1.5,
@@ -808,6 +858,7 @@
    }
   },
   "AQ 80": {
+   "linha": "Aquex",
    "potencia_w": 5000,
    "bitola": {
     "10": 2.5,
@@ -823,6 +874,7 @@
    }
   },
   "AQ 71 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 4500,
    "bitola": {
     "10": 1.5,
@@ -838,6 +890,7 @@
    }
   },
   "AQ 90": {
+   "linha": "Aquex",
    "potencia_w": 5900,
    "bitola": {
     "10": 2.5,
@@ -853,6 +906,7 @@
    }
   },
   "AQ 82 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -868,6 +922,7 @@
    }
   },
   "AQ 110": {
+   "linha": "Aquex",
    "potencia_w": 7000,
    "bitola": {
     "10": 2.5,
@@ -883,6 +938,7 @@
    }
   },
   "AQ 110 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 6000,
    "bitola": {
     "10": 2.5,
@@ -898,6 +954,7 @@
    }
   },
   "AQ 130": {
+   "linha": "Aquex",
    "potencia_w": 8100,
    "bitola": {
     "10": 4,
@@ -913,6 +970,7 @@
    }
   },
   "AQ 130 IN": {
+   "linha": "Aquex Inverter",
    "potencia_w": 7000,
    "bitola": {
     "10": 2.5,
@@ -927,5 +985,13 @@
     "60": 16
    }
   }
- }
+ },
+ "ordem_linhas": [
+  "Ortum Inverter",
+  "Sibrape Inverter",
+  "Aquex Inverter",
+  "Ultragold",
+  "Ortum",
+  "Aquex"
+ ]
 }

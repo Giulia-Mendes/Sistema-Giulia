@@ -2202,12 +2202,28 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
 // ── MATERIAIS: calcula a lista de instalação a partir do laudo + modelo ──
 const { calcularMateriais, REGRAS: REGRAS_INST } = require('./calc_materiais');
 
-// Lista os modelos disponíveis na tabela de cabos (para o seletor da vendedora)
+// Lista os modelos agrupados por linha comercial (para o seletor da vendedora)
 app.get('/api/materiais/modelos', auth, (req, res) => {
-  const mods = Object.entries(REGRAS_INST.cabos_por_modelo)
-    .map(([nome, v]) => ({ nome, potencia_w: v.potencia_w }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }));
-  res.json({ total: mods.length, modelos: mods });
+  const ordem = REGRAS_INST.ordem_linhas || [];
+  const grupos = {};
+  for (const [nome, v] of Object.entries(REGRAS_INST.cabos_por_modelo)) {
+    const linha = v.linha || 'Outros';
+    (grupos[linha] = grupos[linha] || []).push({ nome, potencia_w: v.potencia_w });
+  }
+  // Dentro de cada linha, ordena pela capacidade (número do modelo)
+  const numDe = s => parseInt(String(s).replace(/[^0-9]/g, ''), 10) || 0;
+  const lista = Object.entries(grupos)
+    .sort((a, b) => {
+      const ia = ordem.indexOf(a[0]), ib = ordem.indexOf(b[0]);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    })
+    .map(([linha, modelos]) => ({
+      linha,
+      modelos: modelos.sort((a, b) => numDe(a.nome) - numDe(b.nome)),
+    }));
+  const total = Object.keys(REGRAS_INST.cabos_por_modelo).length;
+  // modelos[] mantido para compatibilidade com versões antigas da tela
+  res.json({ total, grupos: lista, modelos: lista.flatMap(g => g.modelos) });
 });
 
 // Calcula a lista de materiais. Aceita visita_id (usa o laudo salvo) ou o laudo direto.
