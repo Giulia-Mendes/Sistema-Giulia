@@ -6919,7 +6919,9 @@ function abrirDetalheCapas() {
         + '<span style="margin-left:auto;font-size:14px;font-weight:600">' + fmtR(p.valor) + '</span>'
       + '</div>'
       + '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'
-        + (p.qtd ? p.qtd + ' capa' + (p.qtd !== 1 ? 's' : '') + ' · ' : '')
+        + (p.qtd ? p.qtd + ' capa' + (p.qtd !== 1 ? 's' : '') : '')
+        + (p.metros ? ' · ' + String(p.metros).replace('.', ',') + ' m²' : '')
+        + ((p.qtd || p.metros) ? ' · ' : '')
         + (p.produtos || []).join(' · ')
       + '</div>'
       + (p.telefone ? '<div style="font-size:12px;color:var(--text2)">📱 ' + p.telefone + '</div>' : '')
@@ -7072,8 +7074,10 @@ async function carregarKommo() {
       if (elv) {
         const v = _kommoCapas.valor_periodo || 0;
         if (pedidos > 0) {
+          const m2 = _kommoCapas.metros_capa_periodo || 0;
           elv.innerHTML = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
             + ' em ' + pedidos + ' pedido' + (pedidos !== 1 ? 's' : '')
+            + (m2 ? ' · ' + m2.toLocaleString('pt-BR') + ' m²' : '')
             + '<br><span style="text-decoration:underline">ver quem comprou →</span>';
         } else {
           elv.textContent = _kommoCapas.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny';

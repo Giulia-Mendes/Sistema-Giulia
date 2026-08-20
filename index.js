@@ -1250,6 +1250,8 @@ function _normTxt(s) {
 function itemEhCapa(descricao, sku) {
   if (sku && CAPA_SKUS.includes(String(sku).trim().toUpperCase())) return true;
   const t = _normTxt(descricao);
+  // Acessórios que citam "capa térmica" no nome mas não são a capa em si
+  if (/enrolador|carretel|suporte|reparo|emenda/.test(t)) return false;
   return t.includes('capa termica') || (t.includes('capa') && t.includes('termic'));
 }
 // Telefone comparável. Os últimos 8 dígitos são estáveis mesmo com DDI e com o "9" extra
@@ -2107,10 +2109,16 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
     const noPeriodo = (de && ate)
       ? pedidos.filter(p => p.data >= de && p.data <= ate)
       : pedidos;
-    const capasVendidas = noPeriodo.reduce((s, p) => {
-      try { return s + JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)).reduce((a, i) => a + (i.qtd || 0), 0); }
-      catch { return s; }
-    }, 0);
+    // A capa é vendida por m², então somar as quantidades daria metragem, não peças.
+    // Conta uma capa por item de capa do pedido, e a metragem à parte.
+    let capasVendidas = 0, metrosCapa = 0;
+    for (const p of noPeriodo) {
+      try {
+        const itensCapa = JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku));
+        capasVendidas += itensCapa.length;
+        metrosCapa += itensCapa.reduce((a, i) => a + (i.qtd || 0), 0);
+      } catch {}
+    }
 
     // Índice por telefone; um mesmo telefone pode ter comprado mais de uma vez
     const porTel = {};
@@ -2170,6 +2178,7 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
       // Vendas de capa no período, mesmo as que não foi possível ligar a um lead
       pedidos_periodo: noPeriodo.length,
       capas_vendidas_periodo: capasVendidas,
+      metros_capa_periodo: Math.round(metrosCapa * 100) / 100,
       valor_periodo: noPeriodo.reduce((s, p) => s + (p.valor || 0), 0),
       sem_vinculo: noPeriodo.length - comCompra,
       // Lista detalhada para exibir ao clicar no card
@@ -2185,7 +2194,8 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
         return {
           numero: p.numero, cliente: p.cliente, data: p.data, valor: p.valor || 0,
           telefone: p.telefone || '',
-          qtd: itensCapa.reduce((s, i) => s + (i.qtd || 0), 0),
+          qtd: itensCapa.length,                                                   // peças
+          metros: Math.round(itensCapa.reduce((s, i) => s + (i.qtd || 0), 0) * 100) / 100,  // m²
           produtos: itensCapa.map(i => i.descricao),
           lead_id: leadCasado ? String(leadCasado.lead_id) : (p.lead_id || ''),
           lead_nome: leadCasado ? (leadCasado.nome || '') : '',
@@ -2324,7 +2334,9 @@ app.get('/api/fechamentos/capas', auth, (req, res) => {
         id: p.id, numero: p.numero, cliente: p.cliente, data: p.data,
         vendedora: p.vendedora || '', valor: p.valor || 0, situacao: p.situacao || '',
         telefone: p.telefone || '',
-        qtd_capas: itensCapa.reduce((s, i) => s + (i.qtd || 0), 0),
+        // A capa é vendida por m²: qtd_capas conta peças, metros_capa guarda a metragem
+        qtd_capas: itensCapa.length,
+        metros_capa: Math.round(itensCapa.reduce((s, i) => s + (i.qtd || 0), 0) * 100) / 100,
         valor_capas: itensCapa.reduce((s, i) => s + (i.qtd || 0) * (i.valor || 0), 0),
         produtos: itensCapa.map(i => i.descricao),
       };
@@ -2334,6 +2346,7 @@ app.get('/api/fechamentos/capas', auth, (req, res) => {
       valor_total: pedidos.reduce((s, p) => s + p.valor, 0),
       valor_capas: pedidos.reduce((s, p) => s + p.valor_capas, 0),
       qtd_capas: pedidos.reduce((s, p) => s + p.qtd_capas, 0),
+      metros_capa: Math.round(pedidos.reduce((s, p) => s + (p.metros_capa || 0), 0) * 100) / 100,
       pedidos,
     });
   } catch (e) { res.status(500).json({ erro: e.message }); }
