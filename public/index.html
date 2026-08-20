@@ -1255,7 +1255,7 @@ select option { background: var(--surface); color: var(--text); }
     <div class="stat"><div class="lbl">📝 Propostas feitas</div><div class="val" id="ks-propostas" style="color:#0e7490">—</div></div>
     <div class="stat"><div class="lbl">✅ Propostas aprovadas</div><div class="val" id="ks-aprovadas" style="color:#2e7d32">—</div></div>
     <div class="stat" id="ks-capas-card" onclick="abrirDetalheCapas()" title="Clique para ver quem comprou" style="cursor:pointer">
-      <div class="lbl">🧊 Capas vendidas</div>
+      <div class="lbl">🧊 Vendas de capa</div>
       <div class="val" id="ks-capas" style="color:#00897B">—</div>
       <div style="font-size:11px;color:var(--text2);margin-top:2px" id="ks-capas-valor"></div>
     </div>
@@ -5611,6 +5611,7 @@ function _orcmatPreencherLaudo(laudo) {
   }
   set('ol-comp', laudo.comp); set('ol-larg', laudo.larg);
   set('ol-prof', laudo.prof); set('ol-prof-min', laudo.prof_min);
+  set('ol-vol', laudo.vol);
   set('ol-tipo', laudo.tipo); set('ol-dist', laudo.dist);
   set('ol-tensao', laudo.tensao); set('ol-dias', laudo.dias);
   set('ol-dias-outro', laudo.dias_outro); set('ol-obs', laudo.obs);
@@ -6919,9 +6920,9 @@ function abrirDetalheCapas() {
         + '<span style="margin-left:auto;font-size:14px;font-weight:600">' + fmtR(p.valor) + '</span>'
       + '</div>'
       + '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'
-        + (p.qtd ? p.qtd + ' capa' + (p.qtd !== 1 ? 's' : '') : '')
-        + (p.metros ? ' · ' + String(p.metros).replace('.', ',') + ' m²' : '')
-        + ((p.qtd || p.metros) ? ' · ' : '')
+        + (p.qtd ? '<strong>' + p.qtd + ' item' + (p.qtd !== 1 ? 'ns' : '') + ' de capa</strong>' : '')
+        + (p.metros ? ' · <strong>' + String(p.metros).replace('.', ',') + ' m²</strong>' : '')
+        + ((p.qtd || p.metros) ? '<br>' : '')
         + (p.produtos || []).join(' · ')
       + '</div>'
       + (p.telefone ? '<div style="font-size:12px;color:var(--text2)">📱 ' + p.telefone + '</div>' : '')
@@ -7065,19 +7066,15 @@ async function carregarKommo() {
     } catch(e) {}
     const elCapas = document.getElementById('ks-capas');
     if (elCapas) {
-      // Mostra o total vendido no período; o vínculo com a campanha vai no subtexto
-      const vendidas = _kommoCapas.capas_vendidas_periodo ?? 0;
+      // O card mostra VENDAS (pedidos). A composição (peças, m²) fica no detalhe.
       const pedidos  = _kommoCapas.pedidos_periodo ?? 0;
       const casados  = _kommoCapas.leads_que_compraram ?? 0;
-      elCapas.textContent = vendidas || pedidos || 0;
+      elCapas.textContent = pedidos;
       const elv = document.getElementById('ks-capas-valor');
       if (elv) {
         const v = _kommoCapas.valor_periodo || 0;
         if (pedidos > 0) {
-          const m2 = _kommoCapas.metros_capa_periodo || 0;
           elv.innerHTML = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-            + ' em ' + pedidos + ' pedido' + (pedidos !== 1 ? 's' : '')
-            + (m2 ? ' · ' + m2.toLocaleString('pt-BR') + ' m²' : '')
             + '<br><span style="text-decoration:underline">ver quem comprou →</span>';
         } else {
           elv.textContent = _kommoCapas.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny';
@@ -7380,6 +7377,13 @@ function orcmatSelecionarVisita(id) {
   const dataFmt = (v.data || '').split('-').reverse().join('/');
   document.getElementById('orcmat-visita-label').textContent = `${v.nome || '—'} · ${dataFmt}${v.hora_ini ? ' às ' + v.hora_ini : ''}`;
   document.getElementById('orcmat-visita-selecionada').style.display = 'flex';
+  // Traz os dados técnicos do laudo que o técnico preencheu na visita
+  _orcmatPreencherLaudo(v.laudo || null);
+  const _avisoL = document.getElementById('orcmat-laudo-aviso');
+  if (_avisoL) {
+    _avisoL.style.display = v.laudo ? 'none' : 'block';
+    _avisoL.textContent = '⚠ Esta visita ainda não tem laudo preenchido — o técnico precisa preencher para o cálculo automático funcionar.';
+  }
 }
 
 function orcmatLimparVisita() {
@@ -8856,6 +8860,7 @@ window.addEventListener('DOMContentLoaded', verificarSessao);
           Usa as medidas do laudo da visita vinculada (distâncias, conexões, suporte) e a tabela de cabos do fabricante.
           Os itens gerados podem ser editados antes de salvar.
         </p>
+        <div id="orcmat-laudo-aviso" style="font-size:12px;margin-top:8px;display:none;color:#B45309"></div>
         <div id="orcmat-gerar-msg" style="font-size:12px;margin-top:8px;display:none"></div>
       </div>
       <div class="campo">
