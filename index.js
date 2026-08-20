@@ -2240,22 +2240,48 @@ app.post('/api/materiais/calcular', auth, (req, res) => {
 
     const r = calcularMateriais(laudo, modelo);
 
-    // Casa cada item com o catálogo para trazer preço e SKU
-    const catalogo = db.prepare('SELECT sku,nome,unidade,preco_venda FROM materiais_catalogo WHERE ativo=1').all();
-    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+    // Fonte de materiais: catálogo local + itens já usados em orçamentos anteriores.
+    // O histórico é a melhor referência — traz o nome, SKU e preço exatos que a equipe usa.
+    const catalogo = db.prepare('SELECT sku,nome,unidade,preco_venda AS preco FROM materiais_catalogo WHERE ativo=1').all();
+    const historico = db.prepare(`
+      SELECT sku, nome, unidade, preco_unit AS preco, MAX(id) AS ult
+      FROM orcamentos_mat_itens
+      WHERE TRIM(COALESCE(sku,'')) != '' AND preco_unit > 0
+      GROUP BY UPPER(TRIM(sku))
+      ORDER BY ult DESC
+    `).all();
+    const fontes = [...historico, ...catalogo];
+
+    const norm = s => String(s || '').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const palavras = s => norm(s).split(' ').filter(p => p.length > 2);
+
     const itens = r.itens.map(it => {
-      const alvo = norm(it.nome);
-      // Procura o item do catálogo com maior sobreposição de texto
+      // "busca" é o termo de procura; quando ausente usa o próprio nome
+      const termo = it.busca || it.nome;
+      const alvoP = palavras(termo);
+      // Números são decisivos: "joelho 45" não pode casar com "joelho 90",
+      // nem "fio 2,50mm" com "fio 4,00mm". Todos precisam estar no nome do produto.
+      const numsAlvo = (norm(termo).match(/\b\d+\b/g) || []);
       let melhor = null, melhorScore = 0;
-      for (const c of catalogo) {
+      for (const c of fontes) {
         const nc = norm(c.nome);
         if (!nc) continue;
-        let score = 0;
-        if (nc === alvo) score = 1000;
-        else if (nc.includes(alvo) || alvo.includes(nc)) score = Math.min(nc.length, alvo.length);
+        const numsProd = (nc.match(/\d+/g) || []);
+        if (numsAlvo.some(n => !numsProd.includes(n))) continue;
+        const cP = palavras(c.nome);
+        // Pontua pela fração de palavras do termo encontradas no nome do produto
+        let achou = 0;
+        for (const p of alvoP) if (nc.includes(p)) achou++;
+        if (!achou) continue;
+        let score = achou / alvoP.length;
+        // Exige boa cobertura para evitar casar "Tubo" com qualquer coisa que tenha tubo
+        if (score < 0.6) continue;
+        // Desempate: prefere nomes mais curtos (mais específicos) e do histórico
+        score += 0.2 * (1 / (1 + Math.abs(cP.length - alvoP.length)));
         if (score > melhorScore) { melhorScore = score; melhor = c; }
       }
-      const preco = melhor?.preco_venda || 0;
+      const preco = melhor?.preco || 0;
       return {
         ...it,
         sku: melhor?.sku || null,

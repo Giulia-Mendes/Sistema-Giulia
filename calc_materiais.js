@@ -141,51 +141,57 @@ function calcularMateriais(laudo = {}, modelo = '') {
   const prot = corrente ? protecaoPara(corrente) : null;
 
   const itens = [];
-  // Materiais são comprados em unidades inteiras (barras, metros), então sempre arredonda para cima
-  const add = (nome, qtd, unidade = 'UN', obs = '') => {
+  // Materiais são comprados em unidades inteiras (barras, metros), então sempre arredonda para cima.
+  // "busca" são as palavras usadas para localizar o produto no Tiny/histórico — separadas do
+  // nome exibido porque o cadastro traz marca e detalhes ("Contator POT Trip 1NA 9A 220V JNG").
+  const add = (nome, qtd, unidade = 'UN', obs = '', busca = '') => {
     const q = Math.ceil(qtd);
-    if (q > 0) itens.push({ nome, quantidade: q, unidade, obs });
+    if (q > 0) itens.push({ nome, quantidade: q, unidade, obs, busca: busca || nome });
   };
 
   // ── HIDRÁULICA ──
   // Dois trechos (ida e volta) entre o trocador e a casa de máquinas, com folga
   const metrosTubo = distTubo * 2 * (1 + FOLGA_PCT);
-  add('Tubo Soldável 50x3m', metrosTubo / METROS_POR_BARRA, 'UN', `${distTubo}m ida e volta + ${FOLGA_PCT * 100}% folga`);
-  add('Registro de Esfera Soldável 50mm C/ União', 3, 'UN', 'by-pass (entrada, saída e desvio)');
-  add('TE Soldável 50mm', 2, 'UN', 'by-pass');
-  add('Curva 90 Soldável 50mm', curva90, 'UN', 'informado no laudo');
-  add('Joelho 90 Soldável 50mm', joelho90, 'UN', 'informado no laudo');
-  add('Joelho 45 Soldável 50mm', joelho45, 'UN', 'informado no laudo');
-  add('Adesivo CPVC - Amanco 175gr', 1);
-  add('Lixa 120', 1);
-  add('Mangueira Cristal 1/2 - dreno', 5, 'UN', 'dreno do condensado');
+  add('Tubo Soldável 50x3m', metrosTubo / METROS_POR_BARRA, 'UN', `${distTubo}m ida e volta + ${FOLGA_PCT * 100}% folga`, 'tubo soldavel 50');
+  add('Registro de Esfera Soldável 50mm C/ União', 3, 'UN', 'by-pass (entrada, saída e desvio)', 'registro esfera soldavel 50 uniao');
+  add('TE Soldável 50mm', 2, 'UN', 'by-pass', 'te soldavel 50');
+  add('Curva 90 Soldável 50mm', curva90, 'UN', 'informado no laudo', 'curva 90 soldavel 50');
+  add('Joelho 90 Soldável 50mm', joelho90, 'UN', 'informado no laudo', 'joelho 90 soldavel 50');
+  add('Joelho 45 Soldável 50mm', joelho45, 'UN', 'informado no laudo', 'joelho 45 soldavel 50');
+  add('Adesivo CPVC 175gr', 1, 'UN', '', 'adesivo cpvc');
+  add('Lixa 120', 1, 'UN', '', 'lixa 120');
+  add('Mangueira Cristal 1/2 - dreno', 5, 'UN', 'dreno do condensado', 'mangueira cristal dreno');
+  add('Serra Manual', 1, 'UN', '', 'serra manual');
 
   // ── ELÉTRICA ──
   if (bitola) {
     // Fase + neutro percorrem o trecho duas vezes; terra uma vez
     const mFase  = distCabo * 2 * (1 + FOLGA_PCT);
     const mTerra = Math.max(distCabo * (1 + FOLGA_PCT), TERRA_MIN_M);
-    add(`Fio Flexível ${String(bitola).replace('.', ',')}mm Preto 1m`, mFase, 'M', `${distCabo}m × 2 (fase e neutro) + folga`);
-    add(`Fio Flexível ${String(bitola).replace('.', ',')}mm Verde 1m`, mTerra, 'M', 'aterramento');
+    // O cadastro usa duas casas ("2,50mm"); a busca cobre as duas grafias
+    const bit2 = Number(bitola).toFixed(2).replace('.', ',');
+    add(`Fio Flexível ${bit2}mm Preto 1m`, mFase, 'M', `${distCabo}m × 2 (fase e neutro) + folga`, `fio flexivel ${bit2} preto`);
+    add(`Fio Flexível ${bit2}mm Verde 1m`, mTerra, 'M', 'aterramento', `fio flexivel ${bit2} verde`);
   }
   if (prot) {
     add(`Disjuntor Curva C ${prot.disjuntor_a}A`, temDisj ? 1 : 2, 'UN',
-      temDisj ? 'quadro já tem disjuntor livre' : 'bomba de calor + motobomba');
-    add(`IDR/DR ${prot.dr_ma}mA`, 1, 'UN', 'obrigatório pelo manual');
+      temDisj ? 'quadro já tem disjuntor livre' : 'bomba de calor + motobomba',
+      `disjuntor curva c ${prot.disjuntor_a}a`);
+    add(`IDR/DR ${prot.dr_ma}mA`, 1, 'UN', 'obrigatório pelo manual', 'idr dr diferencial');
   }
-  add('Contator 9A 220V', 2, 'UN', 'bomba de calor + motobomba');
-  add('Relé de Sobrecarga', 1, 'UN', corrente ? `faixa compatível com ${corrente}A` : 'obrigatório pelo manual');
-  add('DPS - Dispositivo de Proteção contra Surtos', 1, 'UN', 'obrigatório pelo manual');
-  add('Caixa de Passagem/Comando', 1);
-  add('Trilho DIN', 1);
-  add('Fita Isolante', 1);
-  add('Kit Terminais Ilhós', 1);
-  if (distCabo > 0) add('Conduíte Espiral 3/4 1m', distCabo * (1 + FOLGA_PCT), 'M', 'proteção do cabo');
+  add('Contator 9A 220V', 2, 'UN', 'bomba de calor + motobomba', 'contator 9a 220v');
+  add('Relé de Sobrecarga', 1, 'UN', corrente ? `faixa compatível com ${corrente}A` : 'obrigatório pelo manual', 'rele sobrecarga');
+  add('DPS - Proteção contra Surtos', 1, 'UN', 'obrigatório pelo manual', 'dps surto');
+  add('Caixa de Passagem/Comando', 1, 'UN', '', 'caixa rohdbox');
+  add('Trilho DIN', 1, 'UN', '', 'trilho disjuntor din');
+  add('Fita Isolante', 1, 'UN', '', 'fita isolante');
+  add('Kit Terminais Ilhós', 1, 'UN', '', 'terminal ilhos');
+  if (distCabo > 0) add('Conduíte Espiral 3/4 1m', distCabo * (1 + FOLGA_PCT), 'M', 'proteção do cabo', 'conduite espiral 3 4');
 
   // ── FIXAÇÃO ──
   if (precisaSup) {
-    add('Suporte Ar Cond. Split 50cm Reforçado', 1, 'UN', 'informado no laudo');
-    add('Parafuso S10 c/ Bucha e Arruela', 6);
+    add('Suporte Ar Cond. Split 50cm Reforçado', 1, 'UN', 'informado no laudo', 'suporte ar cond split');
+    add('Parafuso S10 c/ Bucha e Arruela', 6, 'UN', '', 'parafuso s10 bucha arruela');
   }
 
   return {
