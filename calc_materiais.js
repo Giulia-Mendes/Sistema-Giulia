@@ -10,7 +10,11 @@
 // ══════════════════════════════════════════════════════════════
 const REGRAS = require('./regras_instalacao.json');
 
-const FOLGA_PCT = 0.10;        // folga sobre o comprimento medido
+// ── Parâmetros definidos pela equipe (Giulia + técnico, 19/08/2026) ──
+// · Bitola: seguir a tabela do fabricante, sem piso mínimo próprio.
+//   (Numa obra antiga usou-se 2,5mm² onde a tabela pedia 1,5mm² — decidiu-se seguir o manual.)
+// · Folga: 10% de margem de segurança sobre o comprimento medido.
+const FOLGA_PCT = 0.10;        // margem de segurança sobre o medido
 const METROS_POR_BARRA = 3;    // tubo soldável vem em barras de 3m
 const TERRA_MIN_M = 20;        // terra: mínimo praticado nas obras de referência
 
