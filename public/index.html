@@ -6922,9 +6922,21 @@ function abrirDetalheCapas() {
       + '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'
         + (p.qtd ? '<strong>' + p.qtd + ' item' + (p.qtd !== 1 ? 'ns' : '') + ' de capa</strong>' : '')
         + (p.metros ? ' · <strong>' + String(p.metros).replace('.', ',') + ' m²</strong>' : '')
-        + ((p.qtd || p.metros) ? '<br>' : '')
-        + (p.produtos || []).join(' · ')
       + '</div>'
+      // Composição da venda: capa e acessórios, para conferir o valor do pedido
+      + ((p.itens && p.itens.length)
+        ? '<div style="background:var(--surface2,#f5f0eb);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
+          + p.itens.map(i =>
+              '<div style="display:flex;gap:8px;font-size:12px;padding:2px 0">'
+              + '<span style="color:' + (i.eh_capa ? 'var(--text)' : 'var(--text2)') + '">'
+                + (i.eh_capa ? '🧊 ' : '• ')
+                + (i.qtd ? String(i.qtd).replace('.', ',') + '× ' : '')
+                + i.descricao
+              + '</span>'
+              + '<span style="margin-left:auto;white-space:nowrap;color:var(--text2)">' + fmtR(i.total) + '</span>'
+            + '</div>').join('')
+        + '</div>'
+        : '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">' + (p.produtos || []).join(' · ') + '</div>')
       + (p.telefone ? '<div style="font-size:12px;color:var(--text2)">📱 ' + p.telefone + '</div>' : '')
       + (temLead
         ? '<div style="margin-top:6px"><a href="https://capelato.kommo.com/leads/detail/' + p.lead_id + '" target="_blank" '

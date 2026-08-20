@@ -2183,8 +2183,11 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
       sem_vinculo: noPeriodo.length - comCompra,
       // Lista detalhada para exibir ao clicar no card
       lista_periodo: noPeriodo.map(p => {
-        let itensCapa = [];
-        try { itensCapa = JSON.parse(p.itens || '[]').filter(i => itemEhCapa(i.descricao, i.sku)); } catch {}
+        let todosItens = [], itensCapa = [];
+        try {
+          todosItens = JSON.parse(p.itens || '[]');
+          itensCapa = todosItens.filter(i => itemEhCapa(i.descricao, i.sku));
+        } catch {}
         // Qual lead do Kommo corresponde a este pedido (se algum)
         const leadCasado = leads.find(l =>
           (p.telefone && telCombina(p.telefone, l.tel)) ||
@@ -2194,9 +2197,17 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
         return {
           numero: p.numero, cliente: p.cliente, data: p.data, valor: p.valor || 0,
           telefone: p.telefone || '',
-          qtd: itensCapa.length,                                                   // peças
+          qtd: itensCapa.length,                                                   // peças de capa
           metros: Math.round(itensCapa.reduce((s, i) => s + (i.qtd || 0), 0) * 100) / 100,  // m²
           produtos: itensCapa.map(i => i.descricao),
+          // Todos os itens do pedido (capa e acessórios), para conferir o valor total
+          itens: todosItens.map(i => ({
+            descricao: i.descricao,
+            qtd: i.qtd || 0,
+            valor: i.valor || 0,
+            total: Math.round((i.qtd || 0) * (i.valor || 0) * 100) / 100,
+            eh_capa: itemEhCapa(i.descricao, i.sku),
+          })),
           lead_id: leadCasado ? String(leadCasado.lead_id) : (p.lead_id || ''),
           lead_nome: leadCasado ? (leadCasado.nome || '') : '',
           motivo_sem_lead: leadCasado ? '' : (p.telefone ? 'telefone não bate com nenhum contato do período' : 'cadastro do Tiny sem telefone'),
