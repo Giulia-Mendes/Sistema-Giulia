@@ -2282,9 +2282,13 @@ app.post('/api/materiais/calcular', auth, (req, res) => {
         if (score > melhorScore) { melhorScore = score; melhor = c; }
       }
       const preco = melhor?.preco || 0;
+      // Item sem correspondência entra na lista mesmo assim, marcado para cadastro
+      const obs = melhor ? (it.obs || '') : ['CADASTRAR', it.obs].filter(Boolean).join(' · ');
       return {
         ...it,
+        obs,
         sku: melhor?.sku || null,
+        sku_display: melhor?.sku || '⚠ CADASTRAR',
         nome_catalogo: melhor?.nome || null,
         unidade: melhor?.unidade || it.unidade,
         preco_unit: preco,
@@ -2295,7 +2299,9 @@ app.post('/api/materiais/calcular', auth, (req, res) => {
     const total = itens.reduce((s, i) => s + (i.preco_total || 0), 0);
     const semPreco = itens.filter(i => !i.encontrado_no_catalogo).map(i => i.nome);
     const avisos = [...r.avisos];
-    if (semPreco.length) avisos.push(`Sem correspondência no catálogo (preço zerado): ${semPreco.join(', ')}`);
+    if (semPreco.length) {
+      avisos.push(`${semPreco.length} item(ns) não encontrado(s) no Tiny — entraram na lista marcados como CADASTRAR, com preço a preencher: ${semPreco.join(', ')}`);
+    }
 
     res.json({ ...r, itens, valor_total: Math.round(total * 100) / 100, avisos });
   } catch (e) { res.status(500).json({ erro: e.message }); }

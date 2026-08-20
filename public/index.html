@@ -7608,11 +7608,29 @@ async function orcmatGerarLista() {
         linha.querySelector('.orcmat-sku-display').textContent = item.sku || '';
         linha.dataset.sku = item.sku || '';
       } else {
-        linha.querySelector('input.orcmat-nome-livre').value = item.nome || '';
+        // Não encontrado no Tiny: entra como item livre, sinalizado para cadastro.
+        // A linha livre não tem coluna de SKU, então o aviso vai na coluna de estoque.
+        const inp = linha.querySelector('input.orcmat-nome-livre');
+        inp.value = item.nome || '';
+        inp.style.borderColor = '#B45309';
+        inp.title = 'Produto não localizado no Tiny — cadastrar e informar o preço';
+        const flag = linha.querySelector('.orcmat-estoque');
+        if (flag) {
+          flag.textContent = '⚠ CADASTRAR';
+          flag.style.color = '#B45309';
+          flag.style.fontWeight = '600';
+          flag.style.fontSize = '10px';
+          flag.title = 'Sem SKU no Tiny — cadastrar este produto';
+        }
       }
       linha.querySelector('.orcmat-un').value = item.unidade || 'UN';
       linha.querySelector('.orcmat-qtd').value = String(item.quantidade || 1).replace('.', ',');
       setMoedaInput_el(linha.querySelector('.orcmat-preco'), item.preco_unit || 0);
+      const obsEl = linha.querySelector('.orcmat-obs-item');
+      if (obsEl && item.obs) {
+        obsEl.value = item.obs;
+        if (!item.encontrado_no_catalogo) obsEl.style.color = 'var(--bronze-txt, #B45309)';
+      }
     });
     _orcmatAtualizarTotal();
 
