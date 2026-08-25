@@ -1297,11 +1297,10 @@ function detectarVendedoraTiny(tags) {
   return tags.find(t => !excluir.some(e => norm(t).includes(e))) || '';
 }
 
-app.post('/api/tiny/sincronizar', auth, async (req, res) => {
-  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
-  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
-  const { dataInicial, dataFinal } = req.body;
-  if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
+// Sincroniza os pedidos de loja física do período.
+// Extraído do endpoint para poder rodar também no sync automático.
+async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
+  const tokenRow = { valor: tokenValorLF };
   const toDDMMYYYY = s => s.split('-').reverse().join('/');
   const stmt = db.prepare(`INSERT INTO tiny_pedidos (tiny_id,numero,cliente,valor,data,vendedora,marcadores,situacao,itens,telefone,tem_capa)
     VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(tiny_id) DO UPDATE SET
@@ -1370,7 +1369,10 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
       const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', dataInicial: toDDMMYYYY(dataInicial), dataFinal: toDDMMYYYY(dataFinal), pagina: String(pagina) }).toString();
       const resp = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
       const d = await resp.json();
-      if (d.retorno?.status !== 'OK') { if (pagina === 1) return res.status(400).json({ erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' }); break; }
+      if (d.retorno?.status !== 'OK') {
+        if (pagina === 1) throw new Error(d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.');
+        break;
+      }
       totalPags = parseInt(d.retorno?.numero_paginas || '1');
       (Array.isArray(d.retorno?.pedidos) ? d.retorno.pedidos : []).forEach(p => {
         const item = p.pedido || p;
@@ -1434,10 +1436,23 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
     } else {
       db.prepare('DELETE FROM tiny_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
     }
+    return { total };
+  } catch(e) {
+    throw new Error('Erro de conexão com Tiny: ' + e.message);
+  }
+}
+
+app.post('/api/tiny/sincronizar', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+  const { dataInicial, dataFinal } = req.body;
+  if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
+  try {
+    const { total } = await doSyncLojaFisica(dataInicial, dataFinal, tokenRow.valor);
     audit(req, 'SYNC_TINY', 'tiny_pedidos', 0, null, { dataInicial, dataFinal, total });
     res.json({ sucesso: true, total });
   } catch(e) {
-    res.status(500).json({ erro: 'Erro de conexão com Tiny: ' + e.message });
+    res.status(500).json({ erro: e.message });
   }
 });
 
@@ -1632,9 +1647,22 @@ async function runAutoSyncMarketplace() {
   console.log(`[AutoSync] Iniciando ${dataInicial} → ${dataFinal}`);
   try {
     const result = await doSyncMarketplace(dataInicial, dataFinal, tokenRow.valor, null);
-    autoSyncState = { lastRun: startTime, status: 'done', total: result.total, breakdown: result.breakdown, erro: null };
+    // Loja física também entra no automático: antes só era sincronizada manualmente,
+    // e por isso pedidos recentes ficavam de fora do faturamento e das comissões.
+    let totalLF = 0;
+    try {
+      const lf = await doSyncLojaFisica(dataInicial, dataFinal, tokenRow.valor);
+      totalLF = lf.total || 0;
+      console.log(`[AutoSync] Loja física: ${totalLF} pedidos`);
+    } catch(eLF) {
+      console.error('[AutoSync] Falha na loja física:', eLF.message);
+    }
+    autoSyncState = {
+      lastRun: startTime, status: 'done', total: result.total + totalLF,
+      breakdown: [...result.breakdown, { canal: 'loja_fisica', total: totalLF }], erro: null,
+    };
     db.prepare("INSERT OR REPLACE INTO config(chave,valor) VALUES('auto_sync_last',?)").run(new Date().toISOString());
-    console.log(`[AutoSync] Concluído: ${result.total} pedidos`);
+    console.log(`[AutoSync] Concluído: ${result.total} marketplace + ${totalLF} loja física`);
   } catch(e) {
     autoSyncState = { lastRun: startTime, status: 'error', total: 0, breakdown: [], erro: e.message };
     console.error('[AutoSync] Erro:', e.message);
