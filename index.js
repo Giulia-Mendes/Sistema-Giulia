@@ -2594,6 +2594,92 @@ app.post('/api/tiny/completar-telefones', auth, async (req, res) => {
   res.json({ sucesso: true, processados: pend.length, atualizados: ok, ainda_sem_telefone: restam, falhas });
 });
 
+// ── TINY: concilia os pedidos do período entre o Tiny e o Alery ──
+// Mostra o que está em um lado e não no outro, e onde os valores divergem.
+app.get('/api/tiny/conciliacao', auth, async (req, res) => {
+  const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
+  if (!tokenRow) return res.status(400).json({ erro: 'Token Tiny não configurado.' });
+  const de  = /^\d{4}-\d{2}-\d{2}$/.test(req.query.de  || '') ? req.query.de  : null;
+  const ate = /^\d{4}-\d{2}-\d{2}$/.test(req.query.ate || '') ? req.query.ate : null;
+  if (!de || !ate) return res.status(400).json({ erro: 'Informe de e ate (YYYY-MM-DD).' });
+  const toDDMMYYYY = s => s.split('-').reverse().join('/');
+
+  try {
+    // 1. Todos os pedidos do Tiny no período
+    const doTiny = [];
+    let pagina = 1, totalPags = 1;
+    while (pagina <= totalPags) {
+      const body = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', dataInicial: toDDMMYYYY(de), dataFinal: toDDMMYYYY(ate), pagina: String(pagina) }).toString();
+      const r = await fetch('https://api.tiny.com.br/api2/pedidos.pesquisa.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+      const d = await r.json();
+      if (d.retorno?.status !== 'OK') {
+        if (pagina === 1) return res.status(400).json({ erro: d.retorno?.erros?.[0]?.erro || 'Erro na API Tiny.' });
+        break;
+      }
+      totalPags = parseInt(d.retorno?.numero_paginas || '1');
+      for (const p of (d.retorno?.pedidos || [])) {
+        const it = p.pedido || p;
+        doTiny.push({
+          id: String(it.id || ''), numero: String(it.numero || ''), cliente: it.nome || '',
+          valor: parseFloat(String(it.valor || '0').replace(',', '.')) || 0,
+          situacao: it.situacao || '',
+          numero_ecommerce: String(it.numero_ecommerce || '').trim(),
+        });
+      }
+      pagina++;
+      if (pagina <= totalPags) await new Promise(s => setTimeout(s, 300));
+    }
+
+    // 2. O que o Alery tem no mesmo período
+    const noAleryLF = db.prepare('SELECT tiny_id,numero,cliente,valor,situacao FROM tiny_pedidos WHERE data >= ? AND data <= ?').all(de, ate);
+    const noAleryEC = db.prepare('SELECT tiny_id,numero,cliente,valor,situacao,canal FROM ecommerce_pedidos WHERE data >= ? AND data <= ?').all(de, ate);
+    const mapaLF = new Map(noAleryLF.map(p => [String(p.tiny_id), p]));
+    const mapaEC = new Map(noAleryEC.map(p => [String(p.tiny_id), p]));
+
+    const ehCancelado = s => /cancel/i.test(s || '');
+    // Loja física no critério do Alery: pedido sem vínculo de e-commerce
+    const tinyLF = doTiny.filter(p => !p.numero_ecommerce);
+    const soma = arr => Math.round(arr.reduce((s, p) => s + (p.valor || 0), 0) * 100) / 100;
+
+    const faltamNoAlery = tinyLF.filter(p => !mapaLF.has(p.id) && !mapaEC.has(p.id));
+    const idsTiny = new Set(doTiny.map(p => p.id));
+    const sobramNoAlery = noAleryLF.filter(p => !idsTiny.has(String(p.tiny_id)));
+    const divergentes = [];
+    for (const p of tinyLF) {
+      const a = mapaLF.get(p.id);
+      if (a && Math.abs((a.valor || 0) - p.valor) > 0.01) {
+        divergentes.push({ numero: p.numero, cliente: p.cliente, valor_tiny: p.valor, valor_alery: a.valor });
+      }
+    }
+
+    res.json({
+      periodo: { de, ate },
+      tiny: {
+        total_pedidos: doTiny.length,
+        loja_fisica: { pedidos: tinyLF.length, valor: soma(tinyLF) },
+        loja_fisica_sem_cancelados: {
+          pedidos: tinyLF.filter(p => !ehCancelado(p.situacao)).length,
+          valor: soma(tinyLF.filter(p => !ehCancelado(p.situacao))),
+        },
+        com_ecommerce: doTiny.filter(p => p.numero_ecommerce).length,
+      },
+      alery: {
+        loja_fisica: { pedidos: noAleryLF.length, valor: soma(noAleryLF) },
+        loja_fisica_sem_cancelados: {
+          pedidos: noAleryLF.filter(p => !ehCancelado(p.situacao)).length,
+          valor: soma(noAleryLF.filter(p => !ehCancelado(p.situacao))),
+        },
+        ecommerce: { pedidos: noAleryEC.length, valor: soma(noAleryEC) },
+      },
+      diferencas: {
+        faltam_no_alery: faltamNoAlery.map(p => ({ numero: p.numero, cliente: p.cliente, valor: p.valor, situacao: p.situacao })),
+        sobram_no_alery: sobramNoAlery.map(p => ({ numero: p.numero, cliente: p.cliente, valor: p.valor, situacao: p.situacao })),
+        valores_divergentes: divergentes,
+      },
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ── TINY: debug da busca de telefone no cadastro do contato ──
 app.get('/api/tiny/debug-contato', auth, adminOnly, async (req, res) => {
   const tokenRow = db.prepare("SELECT valor FROM config WHERE chave='tiny_token'").get();
