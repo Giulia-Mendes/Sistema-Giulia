@@ -6962,7 +6962,9 @@ function detectarModelo(texto) {
 function fmtHoraKommo(ts) {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
-  return d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  const dia = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+  const hora = d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  return dia + ' · ' + hora;
 }
 
 function fmtTelBR(tel) {
