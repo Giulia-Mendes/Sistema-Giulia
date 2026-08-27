@@ -1314,6 +1314,7 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
     vendedora=CASE WHEN tiny_pedidos.vendedora IS NULL OR tiny_pedidos.vendedora='' THEN excluded.vendedora ELSE tiny_pedidos.vendedora END,
     sincronizado_em=datetime('now','localtime')`);
   let total = 0, pagina = 1, totalPags = 1;
+  const ignorados = []; // sem o marcador de loja física — não entram no faturamento
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const isLojaFisica = tags => tags.some(t => normS(t).includes('loja') && normS(t).includes('fisica'));
   const getVendedoraMarcador = tags => tags.find(t => !normS(t).includes('loja') && !normS(t).includes('1') && t.trim()) || '';
@@ -1410,6 +1411,9 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
           if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m).toLowerCase());
           else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',').map(s => s.trim().toLowerCase());
         }
+        // Só é loja física quando o pedido tem o marcador correspondente no Tiny.
+        // Sem essa checagem entravam vendas de distribuidor, multiempresa etc.
+        if (!isLojaFisica(tags)) { ignorados.push(String(listItem.id || ped?.id || '')); return; }
         const vendedora = resolveVend(getVendedoraMarcador(tags));
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
         if (data.includes('/')) { const pts = data.split('/'); data = `${pts[2]}-${pts[1]}-${pts[0]}`; }
@@ -1428,15 +1432,19 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
       });
       if (i + BATCH < candidatos.length) await new Promise(r => setTimeout(r, 500));
     }
-    // Remove do DB pedidos que não existem mais no Tiny para o período sincronizado
-    const tinyIdsAtivos = candidatos.map(c => String(c.id || '')).filter(Boolean);
+    // Limpa o período: saem os que não existem mais no Tiny e os que perderam
+    // (ou nunca tiveram) o marcador de loja física.
+    const ignoradosSet = new Set(ignorados.filter(Boolean));
+    const tinyIdsAtivos = candidatos
+      .map(c => String(c.id || ''))
+      .filter(id => id && !ignoradosSet.has(id));
     if (tinyIdsAtivos.length > 0) {
       const ph = tinyIdsAtivos.map(() => '?').join(',');
       db.prepare(`DELETE FROM tiny_pedidos WHERE data >= ? AND data <= ? AND tiny_id NOT IN (${ph})`).run(dataInicial, dataFinal, ...tinyIdsAtivos);
     } else {
       db.prepare('DELETE FROM tiny_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
     }
-    return { total };
+    return { total, ignorados_sem_marcador: ignoradosSet.size };
   } catch(e) {
     throw new Error('Erro de conexão com Tiny: ' + e.message);
   }
@@ -2665,8 +2673,31 @@ app.get('/api/tiny/conciliacao', auth, async (req, res) => {
     const mapaEC = new Map(noAleryEC.map(p => [String(p.tiny_id), p]));
 
     const ehCancelado = s => /cancel/i.test(s || '');
-    // Loja física no critério do Alery: pedido sem vínculo de e-commerce
-    const tinyLF = doTiny.filter(p => !p.numero_ecommerce);
+    // Loja física = pedido sem vínculo de e-commerce E com o marcador "Loja Física".
+    // O marcador vem no detalhe do pedido, então busca só os candidatos.
+    const semEc = doTiny.filter(p => !p.numero_ecommerce);
+    const normM = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const temMarcadorLF = tags => tags.some(t => normM(t).includes('loja') && normM(t).includes('fisica'));
+    const tinyLF = [];
+    for (let i = 0; i < semEc.length; i += 5) {
+      const lote = semEc.slice(i, i + 5);
+      const dets = await Promise.all(lote.map(async p => {
+        try {
+          const b = new URLSearchParams({ token: tokenRow.valor, formato: 'JSON', id: p.id }).toString();
+          const r = await fetch('https://api.tiny.com.br/api2/pedido.obter.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: b });
+          return (await r.json())?.retorno?.pedido || null;
+        } catch { return null; }
+      }));
+      dets.forEach((ped, k) => {
+        let tags = [];
+        if (ped) {
+          if (Array.isArray(ped.marcadores)) tags = ped.marcadores.map(m => String(m.marcador?.descricao || m.descricao || m));
+          else if (typeof ped.marcadores === 'string' && ped.marcadores) tags = ped.marcadores.split(',');
+        }
+        if (temMarcadorLF(tags)) tinyLF.push({ ...lote[k], marcadores: tags });
+      });
+      if (i + 5 < semEc.length) await new Promise(s => setTimeout(s, 400));
+    }
     const soma = arr => Math.round(arr.reduce((s, p) => s + (p.valor || 0), 0) * 100) / 100;
 
     const faltamNoAlery = tinyLF.filter(p => !mapaLF.has(p.id) && !mapaEC.has(p.id));
@@ -2682,8 +2713,11 @@ app.get('/api/tiny/conciliacao', auth, async (req, res) => {
 
     res.json({
       periodo: { de, ate },
+      criterio_loja_fisica: 'sem vínculo de e-commerce + marcador "Loja Física" no Tiny',
       tiny: {
         total_pedidos: doTiny.length,
+        sem_ecommerce: semEc.length,
+        sem_ecommerce_sem_marcador: semEc.length - tinyLF.length,
         loja_fisica: { pedidos: tinyLF.length, valor: soma(tinyLF) },
         loja_fisica_sem_cancelados: {
           pedidos: tinyLF.filter(p => !ehCancelado(p.situacao)).length,
