@@ -9279,10 +9279,8 @@ function renderComissConfigTable() {
   const mesLabel = mes ? new Date(mes + '-02').toLocaleDateString('pt-BR', {month:'long', year:'numeric'}) : '';
   const metaMarket = comissaoMetas.find(m => m.tipo === 'marketplace' && m.mes === mes)?.valor || 0;
   const metaLojaF  = comissaoMetas.find(m => m.tipo === 'loja_fisica'  && m.mes === mes)?.valor || 0;
-  const superMarket = comissaoMetas.find(m => m.tipo === 'marketplace_super' && m.mes === mes)?.valor || 0;
   const superLojaF  = comissaoMetas.find(m => m.tipo === 'loja_fisica_super' && m.mes === mes)?.valor || 0;
-  const metadeMarket = comissaoMetas.find(m => m.tipo === 'marketplace_metade' && m.mes === mes)?.valor || 0;
-  const metadeLojaF  = comissaoMetas.find(m => m.tipo === 'loja_fisica_metade' && m.mes === mes)?.valor || 0;
+  const metadeLojaF = comissaoMetas.find(m => m.tipo === 'loja_fisica_metade' && m.mes === mes)?.valor || 0;
   const vends = comissaoNomesConfig.length ? comissaoNomesConfig : getVendedoras();
   const campoMeta = (rot, tipo, val, passo) => `<div class="campo" style="margin:0">
         <label style="font-size:12px">${rot}</label>
@@ -9293,13 +9291,11 @@ function renderComissConfigTable() {
 
   let html = `<div style="margin-bottom:20px">
     <p style="font-size:13px;font-weight:600;margin:0 0 6px">Meta do mês — ${mesLabel}</p>
-    <p style="font-size:12px;color:#e65100;font-weight:600;margin:0 0 6px">🛍️ Marketplace</p>
+    <p style="font-size:12px;color:#e65100;font-weight:600;margin:0 0 6px">🛍️ Marketplace <span style="font-weight:400;color:var(--text2)">— meta única</span></p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-      ${campoMeta('Metade da meta (R$)', 'marketplace_metade', metadeMarket, 100)}
       ${campoMeta('Meta (R$)', 'marketplace', metaMarket, 100)}
-      ${campoMeta('Super meta (R$)', 'marketplace_super', superMarket, 100)}
     </div>
-    <p style="font-size:12px;color:#1565c0;font-weight:600;margin:0 0 6px">🏪 Loja Física</p>
+    <p style="font-size:12px;color:#1565c0;font-weight:600;margin:0 0 6px">🏪 Loja Física <span style="font-weight:400;color:var(--text2)">— três faixas</span></p>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       ${campoMeta('Metade da meta (R$)', 'loja_fisica_metade', metadeLojaF, 1000)}
       ${campoMeta('Meta (R$)', 'loja_fisica', metaLojaF, 1000)}
@@ -9308,7 +9304,7 @@ function renderComissConfigTable() {
     <p style="font-size:12px;color:var(--text2);margin:8px 0 0">As metas são coletivas: valem para o time todo.</p>
   </div>
   <p style="font-size:13px;font-weight:600;margin:0 0 4px">% de comissão por vendedora e faixa</p>
-  <p style="font-size:12px;color:var(--text2);margin:0 0 12px">Padrão da empresa: <strong>0,5%</strong> na metade da meta, <strong>1%</strong> na meta e <strong>1,5%</strong> na super meta. Deixando as colunas Metade e Super em branco, o sistema usa metade e uma vez e meia o % da meta.</p>`;
+  <p style="font-size:12px;color:var(--text2);margin:0 0 12px">Marketplace tem um percentual só, liberado ao bater a meta. Loja física segue as três faixas — padrão da empresa: <strong>0,5%</strong> na metade da meta, <strong>1%</strong> na meta e <strong>1,5%</strong> na super meta. Deixando Metade e Super em branco, o sistema usa metade e uma vez e meia o % da meta.</p>`;
 
   if (!vends.length) {
     html += '<p style="color:var(--text2);font-size:13px">Nenhuma vendedora cadastrada.</p>';
@@ -9321,12 +9317,11 @@ function renderComissConfigTable() {
       <tr>
         <th rowspan="2" style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Vendedora</th>
         <th rowspan="2" style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">Membro</th>
-        <th colspan="3" style="text-align:center;padding:6px 10px;color:#e65100;font-size:12px">🛍️ Marketplace</th>
+        <th rowspan="2" style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#e65100;font-size:12px;white-space:nowrap">🛍️ % Marketplace</th>
         <th colspan="3" style="text-align:center;padding:6px 10px;color:#1565c0;font-size:12px;${sep}">🏪 Loja Física</th>
         <th rowspan="2" style="text-align:center;padding:6px 10px;border-bottom:1px solid var(--border);color:#2e7d32;white-space:nowrap;${sep}">R$/Instal.</th>
       </tr>
       <tr>
-        ${thF('#e65100','Metade')}${thF('#e65100','Meta')}${thF('#e65100','Super')}
         ${thF('#1565c0','Metade',true)}${thF('#1565c0','Meta')}${thF('#1565c0','Super')}
       </tr>
       </thead><tbody>`;
@@ -9354,7 +9349,7 @@ function renderComissConfigTable() {
         <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">
           <input type="checkbox" ${isMembro?'checked':''} onchange="toggleMembroComiss('${v}',this.checked)" style="width:16px;height:16px;cursor:pointer">
         </td>
-        ${inputFaixa(v, vk, 'marketplace', 'metade')}${inputFaixa(v, vk,'marketplace', 'meta')}${inputFaixa(v, vk, 'marketplace', 'super')}
+        ${inputFaixa(v, vk, 'marketplace', 'meta')}
         ${inputFaixa(v, vk, 'loja_fisica', 'metade')}${inputFaixa(v, vk,'loja_fisica', 'meta')}${inputFaixa(v, vk, 'loja_fisica', 'super')}
         <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center;border-left:1px solid var(--border)">
           <div style="display:flex;align-items:center;justify-content:center;gap:4px">
@@ -9429,15 +9424,13 @@ function renderComissionamento() {
 
   // Metas do mês
   const metaMarket = comissaoMetas.find(m => m.tipo === 'marketplace' && m.mes === mes)?.valor || 0;
-  const superMarket = comissaoMetas.find(m => m.tipo === 'marketplace_super' && m.mes === mes)?.valor || 0;
-  const metadeMarket = comissaoMetas.find(m => m.tipo === 'marketplace_metade' && m.mes === mes)?.valor || 0;
 
   // Totais globais para comparar com meta (sem filtro de vendedora/canal)
   const semCancelados = p => showCancelados || !/cancelad/i.test(p.situacao||'');
   const totalMarketGlobal = todos.filter(p => semCancelados(p) && isMarketCanal(p.canal)).reduce((s,p) => s+(p.valor||0), 0);
   const totalLojaFGlobal  = todos.filter(p => semCancelados(p) && p.canal === 'loja_fisica').reduce((s,p) => s+(p.valor||0), 0);
-  const faixaMarket = comissaoFaixa(totalMarketGlobal, metaMarket, superMarket, metadeMarket);
-  const metaAtingidaMarket = !!faixaMarket;
+  // Marketplace continua com meta única: bateu, libera o percentual cadastrado.
+  const metaAtingidaMarket = metaMarket > 0 && totalMarketGlobal >= metaMarket;
   const gerenteNomesSet = new Set(comissaoSupervisores);
   // Exibe quem está marcado como membro — derivado direto do comissaoConfig (independe de allUsers)
   const membrosVends = comissaoConfig
@@ -9465,7 +9458,22 @@ function renderComissionamento() {
   // ── Cards de meta (marketplace + loja física) ──
   const geralEl = document.getElementById('comiss-resumo-geral');
   if (geralEl) {
-    // Barra com os três degraus: metade da meta, meta e super meta.
+    // Barra de meta única — usada pelo marketplace, que não tem faixas.
+    const fmtBarSimples = (total, meta) => {
+      if (!meta) return '<p style="font-size:12px;color:var(--text2);margin:6px 0 0">Meta não configurada</p>';
+      const pct = Math.min(100, (total/meta)*100);
+      const cor = pct >= 100 ? '#2e7d32' : pct >= 70 ? '#f57c00' : '#c62828';
+      return `<div style="margin-top:8px">
+        <div style="background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden">
+          <div style="width:${pct.toFixed(1)}%;height:100%;background:${cor}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:11px;color:var(--text2)">${fmtR(total)} de ${fmtR(meta)}</span>
+          <span style="font-size:11px;font-weight:700;color:${cor}">${pct.toFixed(1)}%</span>
+        </div>
+      </div>`;
+    };
+    // Barra com os três degraus: metade da meta, meta e super meta (loja física).
     // A escala vai até a super meta (ou até a meta, quando não houver super).
     const fmtBar = (total, meta, superMeta, metadeMeta) => {
       if (!meta) return '<p style="font-size:12px;color:var(--text2);margin:6px 0 0">Meta não configurada</p>';
@@ -9494,11 +9502,11 @@ function renderComissionamento() {
     const cardMkt = `<div class="card" style="flex:1;min-width:240px;padding:16px;border-top:3px solid #e65100">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
         <span style="font-size:14px;font-weight:700;color:#e65100">🛍️ Marketplace</span>
-        ${metaMarket > 0 ? `<span class="badge" style="background:${faixaMarket?'#e8f5e9':'#fff3e0'};color:${faixaMarket?'#2e7d32':'#e65100'}">${faixaMarket ? '✅ ' + COMISS_FAIXA_LABEL[faixaMarket] : '⏳ Em andamento'}</span>` : ''}
+        ${metaMarket > 0 ? `<span class="badge" style="background:${metaAtingidaMarket?'#e8f5e9':'#fff3e0'};color:${metaAtingidaMarket?'#2e7d32':'#e65100'}">${metaAtingidaMarket ? '✅ Meta atingida' : '⏳ Em andamento'}</span>` : ''}
       </div>
       <p style="font-size:26px;font-weight:700;margin:4px 0">${fmtR(totalMarketGlobal)}</p>
-      ${fmtBar(totalMarketGlobal, metaMarket, superMarket, metadeMarket)}
-      ${faixaMarket ? '<p style="font-size:12px;color:#2e7d32;margin:6px 0 0;font-weight:600">🎉 Comissões liberadas na faixa ' + COMISS_FAIXA_LABEL[faixaMarket].toLowerCase() + '.</p>' : ''}
+      ${fmtBarSimples(totalMarketGlobal, metaMarket)}
+      ${metaAtingidaMarket ? '<p style="font-size:12px;color:#2e7d32;margin:6px 0 0;font-weight:600">🎉 Comissões liberadas!</p>' : ''}
     </div>`;
     const cardLF = '<div class="card" style="flex:1;min-width:240px;padding:16px;border-top:3px solid #1565c0">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">'
@@ -9596,10 +9604,9 @@ function renderComissionamento() {
       const isGerente = gerenteNomesSet.has(v);
       const lojaFiltrada = isGerente ? lojaFisicaLista : lojaFisicaLista.filter(p => p.vendedora === v);
       const lojaValor    = lojaFiltrada.reduce((s,p) => s+(p.valor||0), 0);
-      const mktPctBase   = getComissaoPct(v, 'mercado_livre');
-      const mktPct       = faixaMarket ? getComissaoPctFaixa(v, 'marketplace', faixaMarket) : 0;
-      const mktBase      = mktPctBase > 0 ? totalMarketplace : 0;
-      const mktComiss    = mktBase * (mktPct / 100);
+      const mktPct       = getComissaoPct(v, 'mercado_livre');
+      const mktBase      = mktPct > 0 ? totalMarketplace : 0;
+      const mktComiss    = metaAtingidaMarket ? mktBase * (mktPct / 100) : 0;
       const lojaPct      = faixaLF ? getComissaoPctFaixa(v, 'loja_fisica', faixaLF) : 0;
       const lojaComiss   = lojaValor * (lojaPct / 100);
       const valorPorInstal = comissaoConfig.find(c => c.vendedora === v && c.canal === 'instalacao')?.percentual || 0;
@@ -9630,7 +9637,7 @@ function renderComissionamento() {
             return `<tr>
               <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">${v}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.marketplace ? fmtR(d.marketplace) : '<span style="color:var(--text2)">—</span>'}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${d.comissMarket ? fmtR(d.comissMarket) + pctFaixaNota(d.mktPct, faixaMarket) : '<span style="color:var(--text2)">—</span>'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#e65100">${d.comissMarket ? fmtR(d.comissMarket) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${d.loja_fisica ? fmtR(d.loja_fisica) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;color:#1565c0">${d.comissLoja ? fmtR(d.comissLoja) + pctFaixaNota(d.lojaPct, faixaLF) : '<span style="color:var(--text2)">—</span>'}</td>
               <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${instalCell}</td>
@@ -9681,9 +9688,12 @@ function renderComissionamento() {
   listaEl.innerHTML = lista.map(p => {
     const dataFmt = (p.data||'').slice(0,10).split('-').reverse().join('/') || '—';
     const cs = canalStyle[p.canal] || { bg:'#f5f5f5', color:'#666', label: p.canal || '—' };
-    const faixaPed = isMarketCanal(p.canal) ? faixaMarket : faixaLF;
-    const pct = getComissaoPct(p.vendedora, p.canal, faixaPed);
-    const comissVal = faixaPed ? (p.valor||0) * (pct/100) : 0;
+    // Só a loja física tem faixas; no marketplace vale a meta única.
+    const ehMkt = isMarketCanal(p.canal);
+    const faixaPed = ehMkt ? null : faixaLF;
+    const liberado = ehMkt ? metaAtingidaMarket : !!faixaLF;
+    const pct = ehMkt ? getComissaoPct(p.vendedora, p.canal) : getComissaoPct(p.vendedora, p.canal, faixaLF);
+    const comissVal = liberado ? (p.valor||0) * (pct/100) : 0;
     const isEcomm = p.canal !== 'loja_fisica';
     return `<div class="card" style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
@@ -9710,8 +9720,8 @@ function renderComissionamento() {
         </div>
         <div style="text-align:right;flex-shrink:0">
           <p style="font-size:20px;font-weight:600;margin:0">${fmtR(p.valor||0)}</p>
-          ${faixaPed && pct > 0
-            ? `<p style="font-size:13px;font-weight:600;color:var(--accent2);margin:2px 0 0">Comissão (${String(Number(pct.toFixed(2))).replace('.',',')}% · ${COMISS_FAIXA_LABEL[faixaPed].toLowerCase()}): ${fmtR(comissVal)}</p>`
+          ${liberado && pct > 0
+            ? `<p style="font-size:13px;font-weight:600;color:var(--accent2);margin:2px 0 0">Comissão (${String(Number(pct.toFixed(2))).replace('.',',')}%${faixaPed ? ' · ' + COMISS_FAIXA_LABEL[faixaPed].toLowerCase() : ''}): ${fmtR(comissVal)}</p>`
             : (getComissaoPct(p.vendedora, p.canal) > 0
               ? `<p style="font-size:11px;color:var(--text2);margin:2px 0 0">meta não atingida</p>` : '')}
           ${isEcomm && usuarioLogado && usuarioLogado.role === 'admin' ? `<button class="btn btn-vermelho" style="font-size:11px;padding:2px 8px;margin-top:4px" onclick="removerPedidoEcomm(${p.id})">Remover</button>` : ''}
