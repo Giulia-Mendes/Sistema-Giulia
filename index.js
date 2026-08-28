@@ -1314,7 +1314,8 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
     vendedora=CASE WHEN tiny_pedidos.vendedora IS NULL OR tiny_pedidos.vendedora='' THEN excluded.vendedora ELSE tiny_pedidos.vendedora END,
     sincronizado_em=datetime('now','localtime')`);
   let total = 0, pagina = 1, totalPags = 1;
-  const ignorados = []; // sem o marcador de loja física — não entram no faturamento
+  const ignorados = [];      // sem o marcador de loja física — não entram no faturamento
+  const indeterminados = []; // detalhe não retornou: preserva o que já existe no banco
   const normS = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const isLojaFisica = tags => tags.some(t => normS(t).includes('loja') && normS(t).includes('fisica'));
   const getVendedoraMarcador = tags => tags.find(t => !normS(t).includes('loja') && !normS(t).includes('1') && t.trim()) || '';
@@ -1389,7 +1390,15 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
     const BATCH = 5; // batch menor para respeitar rate limit da Tiny API
     for (let i = 0; i < candidatos.length; i += BATCH) {
       const batch = candidatos.slice(i, i + BATCH);
-      const detalhes = await Promise.all(batch.map(item => fetchDetalhe(String(item.id)).catch(() => null)));
+      // Uma tentativa extra por pedido: o limite da API do Tiny é a causa mais comum
+      // de falha, e sem o detalhe não dá para ler o marcador de loja física.
+      const buscarComRetry = async (id) => {
+        const r1 = await fetchDetalhe(id).catch(() => null);
+        if (r1?.retorno?.pedido || r1?.retorno?.pedidos?.[0]?.pedido) return r1;
+        await new Promise(s => setTimeout(s, 1200));
+        return fetchDetalhe(id).catch(() => null);
+      };
+      const detalhes = await Promise.all(batch.map(item => buscarComRetry(String(item.id))));
       // Pedidos de capa sem telefone: busca no cadastro do contato.
       // Em série e com pausa, porque são 2 chamadas por contato e o Tiny limita a taxa.
       const telsExtras = [];
@@ -1413,6 +1422,9 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
         }
         // Só é loja física quando o pedido tem o marcador correspondente no Tiny.
         // Sem essa checagem entravam vendas de distribuidor, multiempresa etc.
+        // Se o detalhe não veio (falha/limite da API), não dá para saber: o pedido fica
+        // como indeterminado e é preservado, em vez de sumir silenciosamente.
+        if (!ped) { indeterminados.push(String(listItem.id || '')); return; }
         if (!isLojaFisica(tags)) { ignorados.push(String(listItem.id || ped?.id || '')); return; }
         const vendedora = resolveVend(getVendedoraMarcador(tags));
         let data = String(listItem.data_pedido || listItem.data || ped?.data_pedido || '');
@@ -1435,6 +1447,9 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
     // Limpa o período: saem os que não existem mais no Tiny e os que perderam
     // (ou nunca tiveram) o marcador de loja física.
     const ignoradosSet = new Set(ignorados.filter(Boolean));
+    const indefSet = new Set(indeterminados.filter(Boolean));
+    // Mantém no período: os confirmados como loja física + os indeterminados
+    // (esses últimos só saem quando a API confirmar que não têm o marcador).
     const tinyIdsAtivos = candidatos
       .map(c => String(c.id || ''))
       .filter(id => id && !ignoradosSet.has(id));
@@ -1444,7 +1459,8 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
     } else {
       db.prepare('DELETE FROM tiny_pedidos WHERE data >= ? AND data <= ?').run(dataInicial, dataFinal);
     }
-    return { total, ignorados_sem_marcador: ignoradosSet.size };
+    if (indefSet.size) console.warn(`[SyncLF] ${indefSet.size} pedido(s) sem detalhe da API — preservados como indeterminados`);
+    return { total, ignorados_sem_marcador: ignoradosSet.size, indeterminados: indefSet.size };
   } catch(e) {
     throw new Error('Erro de conexão com Tiny: ' + e.message);
   }
