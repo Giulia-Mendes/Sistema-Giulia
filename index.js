@@ -1385,18 +1385,47 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
       if (pagina <= totalPags) await new Promise(r => setTimeout(r, 300));
     }
 
-    // Step 2: busca detalhe apenas dos candidatos (bem menos que o total)
-    // para pegar marcadores e detectar vendedora
+    // Step 2: busca detalhe dos candidatos para ler marcadores e vendedora.
+    // O detalhe é uma chamada por pedido e o Tiny limita a taxa: com o mês inteiro
+    // de candidatos, o limite estourava no meio e os últimos pedidos — justamente
+    // os mais novos — voltavam sem detalhe e não entravam. Por isso só busca
+    // detalhe de quem é novo ou mudou de valor/situação desde a última sync.
+    const jaNoBanco = new Map(
+      db.prepare('SELECT tiny_id, valor, situacao, marcadores FROM tiny_pedidos WHERE data >= ? AND data <= ?')
+        .all(dataInicial, dataFinal)
+        .map(r => [String(r.tiny_id), r])
+    );
+    const inalterado = (item) => {
+      const r = jaNoBanco.get(String(item.id || ''));
+      if (!r) return false;
+      let tagsSalvas = [];
+      try { tagsSalvas = JSON.parse(r.marcadores || '[]'); } catch (e) { return false; }
+      if (!isLojaFisica(tagsSalvas)) return false; // precisa reconfirmar pela API
+      const vNovo = parseFloat(String(item.valor || '0').replace(',', '.')) || 0;
+      const vAntigo = parseFloat(r.valor) || 0;
+      if (Math.abs(vNovo - vAntigo) > 0.009) return false;
+      return String(item.situacao || '') === String(r.situacao || '');
+    };
+    const jaOk = candidatos.filter(inalterado);
+    // Mais novos primeiro: se o limite da API estourar, quem fica de fora são os
+    // pedidos antigos (já conhecidos), não a venda que acabou de ser lançada.
+    const paraDetalhar = candidatos
+      .filter(c => !inalterado(c))
+      .sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
+    total += jaOk.length;
+
     const BATCH = 5; // batch menor para respeitar rate limit da Tiny API
-    for (let i = 0; i < candidatos.length; i += BATCH) {
-      const batch = candidatos.slice(i, i + BATCH);
-      // Uma tentativa extra por pedido: o limite da API do Tiny é a causa mais comum
-      // de falha, e sem o detalhe não dá para ler o marcador de loja física.
+    for (let i = 0; i < paraDetalhar.length; i += BATCH) {
+      const batch = paraDetalhar.slice(i, i + BATCH);
+      // Três tentativas com pausa crescente: o limite da API do Tiny é a causa mais
+      // comum de falha, e sem o detalhe não dá para ler o marcador de loja física.
       const buscarComRetry = async (id) => {
-        const r1 = await fetchDetalhe(id).catch(() => null);
-        if (r1?.retorno?.pedido || r1?.retorno?.pedidos?.[0]?.pedido) return r1;
-        await new Promise(s => setTimeout(s, 1200));
-        return fetchDetalhe(id).catch(() => null);
+        for (let tentativa = 0; tentativa < 3; tentativa++) {
+          if (tentativa > 0) await new Promise(s => setTimeout(s, 1200 * tentativa));
+          const r = await fetchDetalhe(id).catch(() => null);
+          if (r?.retorno?.pedido || r?.retorno?.pedidos?.[0]?.pedido) return r;
+        }
+        return null;
       };
       const detalhes = await Promise.all(batch.map(item => buscarComRetry(String(item.id))));
       // Pedidos de capa sem telefone: busca no cadastro do contato.
@@ -1442,7 +1471,7 @@ async function doSyncLojaFisica(dataInicial, dataFinal, tokenValorLF) {
           total++;
         }
       });
-      if (i + BATCH < candidatos.length) await new Promise(r => setTimeout(r, 500));
+      if (i + BATCH < paraDetalhar.length) await new Promise(r => setTimeout(r, 500));
     }
     // Limpa o período: saem os que não existem mais no Tiny e os que perderam
     // (ou nunca tiveram) o marcador de loja física.
@@ -1472,9 +1501,11 @@ app.post('/api/tiny/sincronizar', auth, async (req, res) => {
   const { dataInicial, dataFinal } = req.body;
   if (!dataInicial || !dataFinal) return res.status(400).json({ erro: 'Informe o período.' });
   try {
-    const { total } = await doSyncLojaFisica(dataInicial, dataFinal, tokenRow.valor);
-    audit(req, 'SYNC_TINY', 'tiny_pedidos', 0, null, { dataInicial, dataFinal, total });
-    res.json({ sucesso: true, total });
+    const r = await doSyncLojaFisica(dataInicial, dataFinal, tokenRow.valor);
+    audit(req, 'SYNC_TINY', 'tiny_pedidos', 0, null, { dataInicial, dataFinal, total: r.total });
+    // indeterminados = a API não devolveu o detalhe. Precisa aparecer: antes o
+    // retorno só dizia "✓ N sincronizados" e a falha passava despercebida.
+    res.json({ sucesso: true, total: r.total, indeterminados: r.indeterminados, ignorados: r.ignorados_sem_marcador });
   } catch(e) {
     res.status(500).json({ erro: e.message });
   }

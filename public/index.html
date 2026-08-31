@@ -9241,8 +9241,10 @@ async function sincronizarLojaFisicaComiss(btn) {
     const r = await fetch('/api/tiny/sincronizar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataInicial: de, dataFinal: ate }) });
     const d = await r.json();
     if (d.sucesso) {
-      msg.style.cssText = 'display:inline;color:var(--mineral-txt)';
-      msg.textContent = '✓ ' + d.total + ' pedido(s) de loja física.';
+      const falhas = d.indeterminados || 0;
+      msg.style.cssText = 'display:inline;color:' + (falhas ? 'var(--terra-txt)' : 'var(--mineral-txt)');
+      msg.textContent = '✓ ' + d.total + ' pedido(s) de loja física.'
+        + (falhas ? ' ⚠️ ' + falhas + ' sem resposta do Tiny — sincronize de novo em 1 min.' : '');
       await carregarTinyPedidos();
       await carregarComissionamento();
       renderComissionamento();
