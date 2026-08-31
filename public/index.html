@@ -1015,7 +1015,9 @@ select option { background: var(--surface); color: var(--text); }
       <label for="comiss-show-cancelados" style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Mostrar cancelados</label>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-branco" style="font-size:12px;padding:5px 12px" onclick="sincronizarLojaFisicaComiss(this)">↓ Sincronizar Loja Física</button>
       <button class="btn btn-branco" style="font-size:12px;padding:5px 12px" onclick="abrirSyncMarketplace()">↓ Sincronizar ML/Shopee</button>
+      <span id="lf-sync-msg" style="font-size:12px;display:none"></span>
       <span id="auto-sync-status-label" style="font-size:11px;color:var(--text2)">Carregando...</span>
     </div>
   </div>
@@ -9198,7 +9200,10 @@ function initComissionamento() {
   // Mostrar config apenas para admin/gerente
   const adminWrap = document.getElementById('comiss-config-wrap');
   if (adminWrap && usuarioLogado && ['admin','gerente'].includes(usuarioLogado.role)) adminWrap.style.display = 'block';
-  Promise.all([carregarComissionamento(), carregarInstalacoes()]).then(() => renderComissionamento());
+  // carregarTinyPedidos é obrigatório aqui: sem ele a tela usa a lista carregada
+  // no login e não enxerga o que foi sincronizado depois.
+  Promise.all([carregarComissionamento(), carregarInstalacoes(), carregarTinyPedidos()])
+    .then(() => renderComissionamento());
   atualizarAutoSyncStatus();
 }
 
@@ -9221,6 +9226,35 @@ async function atualizarAutoSyncStatus() {
 function abrirSyncMarketplace() {
   const sp = document.getElementById('comiss-sync-panel');
   if (sp) sp.style.display = sp.style.display === 'none' ? 'block' : 'none';
+}
+
+// Sincroniza a loja física direto da tela de comissões, no período do filtro.
+// Antes só existia o botão de ML/Shopee aqui, e a loja física ficava desatualizada.
+async function sincronizarLojaFisicaComiss(btn) {
+  const de = document.getElementById('comiss-de')?.value;
+  const ate = document.getElementById('comiss-ate')?.value;
+  const msg = document.getElementById('lf-sync-msg');
+  if (!de || !ate) { msg.style.cssText='display:inline;color:var(--terra-txt)'; msg.textContent='Informe o período.'; return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sincronizando...';
+  msg.style.cssText = 'display:inline;color:var(--text2)'; msg.textContent = 'Buscando no Tiny...';
+  try {
+    const r = await fetch('/api/tiny/sincronizar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataInicial: de, dataFinal: ate }) });
+    const d = await r.json();
+    if (d.sucesso) {
+      msg.style.cssText = 'display:inline;color:var(--mineral-txt)';
+      msg.textContent = '✓ ' + d.total + ' pedido(s) de loja física.';
+      await carregarTinyPedidos();
+      await carregarComissionamento();
+      renderComissionamento();
+    } else {
+      msg.style.cssText = 'display:inline;color:var(--terra-txt)';
+      msg.textContent = d.erro || 'Erro ao sincronizar.';
+    }
+  } catch(e) {
+    msg.style.cssText = 'display:inline;color:var(--terra-txt)';
+    msg.textContent = 'Erro de conexão.';
+  }
+  btn.disabled = false; btn.textContent = orig;
 }
 
 async function sincronizarMarketplace(btn) {
