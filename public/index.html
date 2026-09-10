@@ -1985,6 +1985,21 @@ function irParaFinanceiro(id) {
   }, 250);
 }
 
+// Cláusula de Wi-Fi — ponto único de verdade, usado ao gerar e ao reexibir.
+const OBS_WIFI = '• O controle pelo aplicativo depende de o sinal de Wi-Fi alcançar o equipamento. A instalação e a conexão à rede são feitas pela nossa equipe; garantir a cobertura do sinal no local é de responsabilidade do cliente, não cabendo à empresa qualquer responsabilidade caso a rede não chegue até o ponto de instalação';
+
+// Propostas salvas antes da cláusula existir continuam com o texto antigo no banco.
+// Em vez de reescrever o que já foi enviado ao cliente, ela é acrescentada na hora
+// de exibir e de imprimir. Serve tanto para o texto puro quanto para o HTML salvo,
+// porque nos dois casos as observações são uma lista de linhas dentro de um <pre>.
+function comObsWifi(txt) {
+  if (!txt || txt.includes('sinal de Wi-Fi')) return txt;
+  const i = txt.indexOf('Observações importantes:');
+  if (i === -1) return txt;
+  const fim = txt.indexOf('\n\n', i);
+  return fim === -1 ? txt + '\n' + OBS_WIFI : txt.slice(0, fim) + '\n' + OBS_WIFI + txt.slice(fim);
+}
+
 // ═══ IMPRIMIR PROPOSTA ═══
 function _construirHtmlProposta(numProposta) {
   const cliente = document.getElementById('p-cliente').value.trim();
@@ -2129,7 +2144,7 @@ function _construirHtmlProposta(numProposta) {
 
 <div class="sec-label">Outros itens ou serviços</div>
 <div class="outros-box">
-  <pre style="white-space:pre-wrap;font-family:inherit;font-size:11px;margin:0;line-height:1.7">${(propModoEdit ? document.getElementById('prop-edit').value : (montarTexto() || getTextoFinal())).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+  <pre style="white-space:pre-wrap;font-family:inherit;font-size:11px;margin:0;line-height:1.7">${comObsWifi(propModoEdit ? document.getElementById('prop-edit').value : (montarTexto() || getTextoFinal())).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
 </div>
 
 <table class="tbl-data">
@@ -3234,7 +3249,7 @@ function montarTexto() {
   const temp = (document.getElementById('p-temp')?.value || '').trim();
   const validadeRawMT = (document.getElementById('p-validade').value || '').trim();
   const validadeMT = /^\d+$/.test(validadeRawMT) ? validadeRawMT + ' dias' : validadeRawMT;
-  return 'Para\n' + cliente + '\n\nItens da proposta:\n' + itens + descLinha + '\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + (temp ? '\n• Temperatura alvo do aquecimento: ' + temp + '°C' : '') + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n• O controle pelo aplicativo depende de o sinal de Wi-Fi alcançar o equipamento. A instalação e a conexão à rede são feitas pela nossa equipe; garantir a cobertura do sinal no local é de responsabilidade do cliente, não cabendo à empresa qualquer responsabilidade caso a rede não chegue até o ponto de instalação\n\nValidade da proposta: ' + validadeMT + '. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
+  return 'Para\n' + cliente + '\n\nItens da proposta:\n' + itens + descLinha + '\n\nEste orçamento contempla:\n• Instalação completa com mão de obra especializada\n• Todo o material necessário para execução do serviço\n• Prazo estimado para instalação: ' + prazo + (temp ? '\n• Temperatura alvo do aquecimento: ' + temp + '°C' : '') + '\n\nValores:\n' + lv + '\n\nObservações importantes:\n• A mão de obra refere-se exclusivamente à instalação do(s) equipamento(s) adquirido(s)\n• Não estão incluídas alterações em equipamentos previamente instalados\n• O prazo de instalação poderá ser ajustado em caso de mau tempo ou imprevistos técnicos\n' + OBS_WIFI + '\n\nValidade da proposta: ' + validadeMT + '. Após esse período, os valores poderão ser revisados.\n\nAtenciosamente,\nDepartamento de vendas — Capellato do Brasil';
 }
 function gerarProposta() { if (propModoEdit) return; const t = montarTexto(); document.getElementById('prop-preview').textContent = t || 'Preencha os dados acima para gerar a proposta.'; }
 function syncProp() { document.getElementById('prop-preview').textContent = document.getElementById('prop-edit').value; }
@@ -3366,7 +3381,7 @@ function renderAprovacao() {
         (a.status === 'rejeitado' && a.motivo_recusa ? '<div style="background:var(--terra-bg);border:1px solid var(--terra);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--terra)">Motivo da recusa:</span> <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span></div>' : '') +
         (a.status === 'objecao' ? '<div style="background:var(--slate-bg);border:1px solid var(--slate);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--slate-txt)">⏸ Objeção temporária' + (a.motivo_recusa ? ':' : '') + '</span>' + (a.motivo_recusa ? ' <span style="color:var(--text)">' + a.motivo_recusa.replace(/</g,'&lt;') + '</span>' : '') + '</div>' : '') +
         (a.temperatura_alvo ? '<div style="background:var(--surface2);border-radius:8px;padding:8px 14px;margin-top:10px;font-size:13px"><span style="font-weight:600;color:var(--text2)">🌡️ Temp. alvo:</span> <span>' + a.temperatura_alvo + '°C</span></div>' : '') +
-        '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">' + a.texto + '</div>' +
+        '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">' + comObsWifi(a.texto) + '</div>' +
         (Array.isArray(a.anexos) && a.anexos.length ? '<div style="margin-top:10px"><span style="font-size:12px;font-weight:600;color:var(--text2)">Arquivos anexados</span><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">' + a.anexos.map((ax, i) => { const isImg = ax.tipo && ax.tipo.startsWith('image/'); return '<a href="' + ax.dados + '" download="' + ax.nome + '" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2);width:80px;text-decoration:none">' + (isImg ? '<img src="' + ax.dados + '" style="width:80px;height:60px;object-fit:cover">' : '<div style="width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>') + '<span style="font-size:10px;color:var(--text2);padding:2px 4px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">' + ax.nome + '</span></a>'; }).join('') + '</div></div>' : '') +
         (function() {
           const _leadVal = a.lead_id || (_vLink && _vLink.lead_id ? _vLink.lead_id : '');
@@ -3729,7 +3744,7 @@ async function abrirEditarAprov(id, e) {
   const prev = document.getElementById('prop-preview');
   const ed = document.getElementById('prop-edit');
   const btnEdit = document.getElementById('btn-editar-prop');
-  if (ed) ed.value = a.texto || '';
+  if (ed) ed.value = comObsWifi(a.texto) || '';
   prev.style.display = 'none';
   if (ed) ed.style.display = '';
   if (btnEdit) btnEdit.textContent = '↺ Auto';
@@ -4427,7 +4442,7 @@ async function reimprimirAprov(id, e) {
       if (data.html_proposta) a.html_proposta = data.html_proposta; // cache local
     } catch(err) {}
   }
-  const htmlParaImprimir = a.html_proposta || _gerarHtmlSimplificado(a);
+  const htmlParaImprimir = comObsWifi(a.html_proposta) || _gerarHtmlSimplificado(a);
   const w = window.open('', '_blank');
   w.document.write(htmlParaImprimir);
   w.document.close();
@@ -4499,7 +4514,7 @@ function _gerarHtmlSimplificado(a) {
   <tbody>${tbodyRows}</tbody>
   <tr class="ft"><td style="text-align:right">Total da proposta</td><td style="text-align:right">${fmtV(a.valor)}</td></tr>
 </table>
-${a.texto ? `<div class="box"><pre>${esc(a.texto)}</pre></div>` : ''}
+${a.texto ? `<div class="box"><pre>${esc(comObsWifi(a.texto))}</pre></div>` : ''}
 <table>
   <thead><tr><th>Data</th><th>Forma de pagamento</th><th style="text-align:right">Total</th></tr></thead>
   <tbody><tr><td>${dataFmt}</td><td>${esc(a.pag||'—')}</td><td style="text-align:right">${fmtV(a.valor)}</td></tr></tbody>
@@ -8398,7 +8413,7 @@ function renderOutbound() {
       : '';
 
     const texto = isExp && p.prop_texto
-      ? '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">'+p.prop_texto+'</div>'
+      ? '<div style="background:#f5f4f0;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.7">'+comObsWifi(p.prop_texto)+'</div>'
       : '';
 
     let anexosCardHtml = '';
@@ -8549,7 +8564,7 @@ function renderRep() {
         propHtml = '<div style="display:flex;gap:8px;margin-bottom:10px">' +
           '<button class="btn btn-branco" onclick="event.stopPropagation();repImprimirProposta(' + p.id + ')" style="font-size:13px">🖨️ Imprimir proposta</button>' +
         '</div>' +
-        (p.prop_texto ? '<div style="font-size:13px;background:#f5f4f0;border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.7;max-height:260px;overflow-y:auto">' + p.prop_texto.replace(/</g,'&lt;') + '</div>' : '');
+        (p.prop_texto ? '<div style="font-size:13px;background:#f5f4f0;border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.7;max-height:260px;overflow-y:auto">' + comObsWifi(p.prop_texto).replace(/</g,'&lt;') + '</div>' : '');
       }
       let anexosHtml = '';
       if (p.prop_anexos) {
@@ -8641,7 +8656,7 @@ function _construirHtmlPropostaRep(p) {
         : '')
     : '';
   const nItens = pvProd > 0 ? (matP > 0 ? 2 : 1) : 0;
-  const textoEsc = (p.prop_texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const textoEsc = comObsWifi(p.prop_texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const tempAlvo = p.temperatura_alvo ? '<tr><th style="border:1px solid #ccc;padding:6px 12px;font-weight:bold;background:#f3f3f3;width:50%;text-align:left">Temperatura alvo do aquecimento</th><td style="border:1px solid #ccc;padding:6px 12px">'+p.temperatura_alvo+'°C</td></tr>' : '';
   const anexos = (() => { try { return JSON.parse(p.prop_anexos||'[]'); } catch(e) { return []; } })();
   const anexosHtml = anexos.length ? (() => {
@@ -8714,12 +8729,12 @@ async function imprimirPropRep(id) { return repImprimirProposta(id); }
 async function repImprimirProposta(id) {
   const p = repPropostas.find(x => x.id === id);
   if (!p) return;
-  let html = p.prop_html;
+  let html = comObsWifi(p.prop_html);
   if (!html) {
     try {
       const r = await fetch('/api/aprovacoes/' + id + '/html');
       const d = await r.json();
-      if (d.html_proposta) { html = d.html_proposta; p.prop_html = html; }
+      if (d.html_proposta) { html = comObsWifi(d.html_proposta); p.prop_html = html; }
     } catch(e) {}
   }
   if (!html && p.prop_texto) {
