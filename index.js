@@ -3037,29 +3037,6 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
   }
 });
 
-// Diagnóstico: testa formatos de consulta a /events para um lead e mostra a resposta crua
-app.get('/api/kommo/eventos-debug/:lead', auth, async (req, res) => {
-  const L = parseInt(req.params.lead);
-  const variantes = {
-    a_atual:        `/events?filter[entity]=lead&filter[entity_id][]=${L}&filter[type][]=outgoing_chat_message&limit=10`,
-    b_entity_array: `/events?filter[entity][]=lead&filter[entity_id][]=${L}&limit=10`,
-    c_id_simples:   `/events?filter[entity]=lead&filter[entity_id]=${L}&limit=10`,
-    d_tipo_simples: `/events?filter[entity]=lead&filter[entity_id][]=${L}&filter[type]=outgoing_chat_message&limit=10`,
-    e_sem_entidade: `/events?filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message&limit=100`,
-  };
-  const out = {};
-  for (const [k, path] of Object.entries(variantes)) {
-    try {
-      const { status, body } = await kommoGet(path);
-      const evs = (body && body._embedded?.events) || [];
-      out[k] = { status, eventos: evs.length, doLead: evs.filter(e => e.entity_id === L).length,
-        amostra: evs.slice(0, 2).map(e => ({ type: e.type, entity_type: e.entity_type, entity_id: e.entity_id, created_by: e.created_by })),
-        corpo: status !== 200 ? JSON.stringify(body).slice(0, 300) : undefined };
-    } catch (e) { out[k] = { erro: e.message }; }
-  }
-  res.json(out);
-});
-
 // ── KOMMO: follow-ups de cada lead ──
 // Sem escopo de chats não dá para ler o TEXTO das mensagens, mas os eventos
 // outgoing/incoming_chat_message dizem quando foi e quem enviou (created_by).
@@ -3090,30 +3067,38 @@ app.post('/api/kommo/followups', auth, async (req, res) => {
 
     const eventos = {}; // leadId → [{ tipo, em, por }]
     const falhas = [];  // respostas não-200 do Kommo — antes eram engolidas e viravam "0 contatos"
-    const buscarLote = async (lote) => {
-      const base = 'filter[entity]=lead&' + lote.map(id => `filter[entity_id][]=${id}`).join('&')
-        + '&filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message'
-        + (desde ? `&filter[created_at][from]=${desde}` : '') + '&limit=100';
-      for (let pg = 1; pg <= 10; pg++) {
-        const { status, body } = await kommoGet(`/events?${base}&page=${pg}`);
+    // O filtro por entity_id do /events NÃO devolve eventos de chat (testado em
+    // 15/09/2026: com entity_id só vêm mudança de etapa/campo; combinado com o tipo
+    // volta 204). Então varre as mensagens do período só pelo tipo, da mais nova
+    // para a mais antiga, e separa as dos leads pedidos.
+    const alvo = new Set(ids);
+    const base = 'filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message'
+      + (desde ? `&filter[created_at][from]=${desde}` : '') + '&order[created_at]=desc&limit=100';
+    const MAX_PAGINAS = 100; // 10 mil mensagens — teto de segurança
+    let paginas = 0, chegouAoInicio = false;
+    // 4 páginas por vez para não passar do limite de requisições do Kommo
+    for (let pg = 1; pg <= MAX_PAGINAS && !chegouAoInicio; pg += 4) {
+      const grupo = [pg, pg + 1, pg + 2, pg + 3].filter(p => p <= MAX_PAGINAS);
+      const resps = await Promise.all(grupo.map(p =>
+        kommoGet(`/events?${base}&page=${p}`).catch(e => ({ status: 0, body: e.message }))));
+      for (const { status, body } of resps) {
+        paginas++;
         if (status !== 200) {
           if (status !== 204) falhas.push(status + ' ' + JSON.stringify(body).slice(0, 200));
-          break;
+          chegouAoInicio = true; // 204 = acabaram as páginas
+          continue;
         }
         const evs = body._embedded?.events || [];
         for (const e of evs) {
+          // Garante o corte mesmo que o Kommo ignore filter[created_at]
+          if (desde && e.created_at < desde) { chegouAoInicio = true; continue; }
+          if (e.entity_type !== 'lead' || !alvo.has(e.entity_id)) continue;
           (eventos[e.entity_id] = eventos[e.entity_id] || []).push({ tipo: e.type, em: e.created_at, por: e.created_by || 0 });
         }
-        if (evs.length < 100) break;
+        if (evs.length < 100) chegouAoInicio = true;
       }
-    };
-    // /events aceita no máximo 10 entity_id por consulta; 4 lotes por vez para
-    // não passar do limite de requisições do Kommo.
-    const lotes = [];
-    for (let i = 0; i < ids.length; i += 10) lotes.push(ids.slice(i, i + 10));
-    for (let i = 0; i < lotes.length; i += 4) {
-      await Promise.all(lotes.slice(i, i + 4).map(l => buscarLote(l).catch(() => {})));
     }
+    if (!chegouAoInicio) console.warn(`[Kommo followups] parou no teto de ${MAX_PAGINAS} páginas — histórico parcial`);
 
     const diaBR = s => new Date(s * 1000).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     const por_lead = {};
@@ -3139,7 +3124,7 @@ app.post('/api/kommo/followups', auth, async (req, res) => {
         respondeu: !!(ultSaida && ultEntrada > ultSaida), // cliente respondeu depois do último contato
       };
     }
-    res.json({ por_lead, falhas: falhas.slice(0, 5) });
+    res.json({ por_lead, falhas: falhas.slice(0, 5), paginas, historico_completo: chegouAoInicio });
   } catch (e) {
     console.error('[Kommo followups]', e.message);
     res.status(500).json({ erro: e.message });
