@@ -7057,6 +7057,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
 
 // ── Follow-ups (mensagens enviadas pelas vendedoras no WhatsApp do Kommo) ──
 let _kommoFollowups = null; // null = ainda buscando
+let _kommoFupParcial = false; // a varredura parou no teto de páginas (período muito longo)
 const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], outros:['#E0E0E0','#424242'] };
 
 function _kommoDiaHoje() { return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); }
@@ -7100,7 +7101,8 @@ function renderKommoListas() {
     else {
       const semContato = leads.filter(l => !fup(l.lead_id).contatos.length).length;
       const comHoje = leads.filter(l => fup(l.lead_id).contatos.some(c => c.dia === hoje)).length;
-      res.textContent = `${leads.length} lead(s) · ${comHoje} com contato hoje · ${semContato} sem nenhum contato`;
+      res.textContent = `${leads.length} lead(s) · ${comHoje} com contato hoje · ${semContato} sem nenhum contato`
+        + (_kommoFupParcial ? ' · ⚠️ período longo: histórico parcial, encurte as datas' : '');
     }
   }
 }
@@ -7220,8 +7222,10 @@ async function carregarKommo() {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ lead_ids: _kommoLeadsCache.map(l => l.lead_id), desde })
       });
-      _kommoFollowups = rfu.ok ? ((await rfu.json()).por_lead || {}) : {};
-    } catch(e) { _kommoFollowups = {}; }
+      const jfu = rfu.ok ? await rfu.json() : {};
+      _kommoFollowups = jfu.por_lead || {};
+      _kommoFupParcial = jfu.historico_completo === false;
+    } catch(e) { _kommoFollowups = {}; _kommoFupParcial = false; }
     renderKommoListas();
 
   } catch (e) {
