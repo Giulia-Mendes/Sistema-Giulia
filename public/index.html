@@ -1242,6 +1242,24 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
+  <!-- Filtros de acompanhamento (follow-up) -->
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <span style="font-size:12px;color:var(--text2)">Vendedora</span>
+    <select id="kommo-filtro-vend" onchange="renderKommoListas()"
+      style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <option value="">Todas</option>
+    </select>
+    <span style="font-size:12px;color:var(--text2)">Follow-up</span>
+    <select id="kommo-filtro-fup" onchange="renderKommoListas()"
+      style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <option value="">Todos</option>
+      <option value="nenhum">Sem nenhum contato</option>
+      <option value="hoje">Sem contato hoje</option>
+      <option value="sem_resposta">Cliente não respondeu</option>
+    </select>
+    <span id="kommo-fup-resumo" style="font-size:12px;color:var(--text2)"></span>
+  </div>
+
   <!-- Stats -->
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
     <div class="stat"><div class="lbl">Total</div><div class="val" id="ks-total">—</div></div>
@@ -7025,14 +7043,83 @@ function renderKommoSecao(sec, leads, corBg, corText) {
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:600;font-size:13px;color:var(--text)">${nome}</span>
           ${tel ? `<span style="font-size:12px;color:var(--text2)">${tel}</span>` : ''}
+          ${l.vendedor ? `<span style="background:var(--surface2,#f5f0eb);color:var(--text);border:1px solid var(--border);border-radius:99px;padding:0 8px;font-size:11px;font-weight:600">👤 ${l.vendedor}</span>` : ''}
           ${funilBadges}
           <span style="font-size:11px;color:var(--text2);margin-left:auto">${hora}</span>
         </div>
         ${msg ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;word-break:break-word">"${msg.length > 160 ? msg.slice(0,160)+'…' : msg}"</div>` : ''}
+        ${kommoFupHtml(l.lead_id)}
       </div>
       <a href="${l.url}" target="_blank" style="flex-shrink:0;color:var(--accent);font-size:18px;margin-top:2px;text-decoration:none" title="Abrir no Kommo">↗</a>
     </div>`;
   }).join('');
+}
+
+// ── Follow-ups (mensagens enviadas pelas vendedoras no WhatsApp do Kommo) ──
+let _kommoFollowups = null; // null = ainda buscando
+const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], outros:['#E0E0E0','#424242'] };
+
+function _kommoDiaHoje() { return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); }
+
+function kommoPreencherVendedoras() {
+  const sel = document.getElementById('kommo-filtro-vend');
+  if (!sel) return;
+  const atual = sel.value;
+  const nomes = [...new Set(_kommoLeadsCache.map(l => l.vendedor).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas</option>' + nomes.map(n => `<option value="${n}">${n}</option>`).join('')
+    + '<option value="__sem">Sem vendedora</option>';
+  if ([...sel.options].some(o => o.value === atual)) sel.value = atual;
+}
+
+// Aplica os filtros de vendedora/follow-up e redesenha as quatro seções.
+// Os números dos cards de cima continuam sendo o total da campanha, sem filtro.
+function renderKommoListas() {
+  const fVend = document.getElementById('kommo-filtro-vend')?.value || '';
+  const fFup  = document.getElementById('kommo-filtro-fup')?.value || '';
+  const hoje = _kommoDiaHoje();
+  const fup = id => (_kommoFollowups && _kommoFollowups[id]) || { contatos: [] };
+  const leads = _kommoLeadsCache.filter(l => {
+    if (fVend === '__sem' ? l.vendedor : (fVend && l.vendedor !== fVend)) return false;
+    if (!fFup || !_kommoFollowups) return true;
+    const f = fup(l.lead_id);
+    if (fFup === 'nenhum') return !f.contatos.length;
+    if (fFup === 'hoje') return !f.contatos.some(c => c.dia === hoje);
+    if (fFup === 'sem_resposta') return f.contatos.length > 0 && !f.respondeu;
+    return true;
+  });
+  const secs = { s12: [], prime: [], capa: [], outros: [] };
+  for (const l of leads) {
+    const m = detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim());
+    (secs[m] || secs.outros).push(l);
+  }
+  for (const k of Object.keys(secs)) renderKommoSecao(k, secs[k], _KOMMO_CORES[k][0], _KOMMO_CORES[k][1]);
+
+  const res = document.getElementById('kommo-fup-resumo');
+  if (res) {
+    if (!_kommoFollowups) res.textContent = '⏳ Buscando follow-ups no Kommo…';
+    else {
+      const semContato = leads.filter(l => !fup(l.lead_id).contatos.length).length;
+      const comHoje = leads.filter(l => fup(l.lead_id).contatos.some(c => c.dia === hoje)).length;
+      res.textContent = `${leads.length} lead(s) · ${comHoje} com contato hoje · ${semContato} sem nenhum contato`;
+    }
+  }
+}
+
+// Linha de follow-up do card; clicando abre o histórico de contatos
+function kommoFupHtml(leadId) {
+  if (!_kommoFollowups) return '<div style="font-size:11px;color:var(--text2);margin-top:5px">⏳ carregando follow-ups…</div>';
+  const f = _kommoFollowups[leadId];
+  if (!f || !f.contatos.length) return '<div style="font-size:11px;color:var(--terra-txt,#c62828);margin-top:5px;font-weight:600">⚠️ Nenhum contato da vendedora ainda</div>';
+  const hoje = _kommoDiaHoje();
+  const ult = f.contatos[f.contatos.length - 1];
+  const resp = f.respondeu ? '<span style="color:#2e7d32">✅ cliente respondeu</span>' : '<span style="color:#b26a00">⏳ sem resposta</span>';
+  const itens = f.contatos.slice().reverse().map(c =>
+    `<div style="padding:1px 0">${fmtHoraKommo(c.em)} — <strong style="color:var(--text)">${c.por}</strong>${c.msgs > 1 ? ` <span>(${c.msgs} mensagens)</span>` : ''}</div>`).join('');
+  return `<details style="font-size:11px;color:var(--text2);margin-top:5px">
+    <summary style="cursor:pointer">💬 <strong style="color:var(--text)">${f.contatos.length} contato${f.contatos.length > 1 ? 's' : ''}</strong>
+      · último ${fmtHoraKommo(ult.em)} por ${ult.por}${ult.dia === hoje ? ' <span style="background:#e8f5e9;color:#2e7d32;border-radius:99px;padding:0 6px;font-weight:600">hoje</span>' : ''} · ${resp}</summary>
+    <div style="margin:4px 0 0 16px;line-height:1.5">${itens}</div>
+  </details>`;
 }
 
 async function carregarKommo() {
@@ -7123,11 +7210,19 @@ async function carregarKommo() {
     document.getElementById('kommo-subtitulo').textContent =
       `${_kommoLeadsCache.length} contato${_kommoLeadsCache.length !== 1 ? 's' : ''} • ${labelData}`;
 
-    // Renderiza seções
-    renderKommoSecao('s12',    s12,    '#BBDEFB', '#1565C0');
-    renderKommoSecao('prime',  prime,  '#FFE0B2', '#BF360C');
-    renderKommoSecao('capa',   capa,   '#B2DFDB', '#00695C');
-    renderKommoSecao('outros', outros, '#E0E0E0', '#424242');
+    // Mostra a lista já; os follow-ups vêm do Kommo em seguida (leva alguns segundos)
+    _kommoFollowups = null;
+    kommoPreencherVendedoras();
+    renderKommoListas();
+    try {
+      const desde = Math.floor(new Date(data + 'T00:00:00-03:00').getTime() / 1000);
+      const rfu = await fetch('/api/kommo/followups', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ lead_ids: _kommoLeadsCache.map(l => l.lead_id), desde })
+      });
+      _kommoFollowups = rfu.ok ? ((await rfu.json()).por_lead || {}) : {};
+    } catch(e) { _kommoFollowups = {}; }
+    renderKommoListas();
 
   } catch (e) {
     document.getElementById('kommo-subtitulo').textContent = 'Erro: ' + e.message;

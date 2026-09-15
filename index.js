@@ -3012,11 +3012,14 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       // Fallback: campo custom "Primeira mensagem" preenchido por Salesbot no Kommo
       const cfPrimeira = (lead?.custom_fields_values || []).find(f => /primeira\s*mensagem/i.test(f.field_name || ''));
       const textoPrimeira = talkMsgs[tkInfo.talk_id] || cfPrimeira?.values?.[0]?.value || notasPrimeira[lid] || '';
+      // Campo custom "Vendedor" que a equipe preenche no lead (ex.: "Vitória", "Marcia/Aline")
+      const cfVend = (lead?.custom_fields_values || []).find(f => /^vendedor/i.test(f.field_name || ''));
 
       resultado.push({
         lead_id: lid,
         nome,
         tel,
+        vendedor: cfVend?.values?.[0]?.value || '',
         lead_name: lead?.name || '',
         primeiro_contato: tkInfo.created_at,
         texto_primeira: textoPrimeira,
@@ -3030,6 +3033,88 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
     res.json({ total: resultado.length, data: dataStr, leads: resultado });
   } catch (e) {
     console.error('[Kommo primeiras-mensagens] Erro:', e.message);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── KOMMO: follow-ups de cada lead ──
+// Sem escopo de chats não dá para ler o TEXTO das mensagens, mas os eventos
+// outgoing/incoming_chat_message dizem quando foi e quem enviou (created_by).
+// Mensagens do Salesbot/automação vêm com created_by = 0 e não contam.
+let _kommoUsersCache = { em: 0, mapa: {} };
+async function kommoUsuarios() {
+  if (Date.now() - _kommoUsersCache.em < 30 * 60 * 1000) return _kommoUsersCache.mapa;
+  const mapa = {};
+  try {
+    for (let pg = 1; pg <= 4; pg++) {
+      const { status, body } = await kommoGet(`/users?limit=250&page=${pg}`);
+      if (status !== 200) break;
+      const us = body._embedded?.users || [];
+      us.forEach(u => { mapa[u.id] = u.name || ''; });
+      if (us.length < 250) break;
+    }
+  } catch (e) { console.warn('[Kommo users]', e.message); }
+  _kommoUsersCache = { em: Date.now(), mapa };
+  return mapa;
+}
+
+app.post('/api/kommo/followups', auth, async (req, res) => {
+  try {
+    const ids = [...new Set((req.body.lead_ids || []).map(Number).filter(Boolean))];
+    const desde = parseInt(req.body.desde) || 0; // epoch (s) do início do período
+    if (!ids.length) return res.json({ por_lead: {} });
+    const usuarios = await kommoUsuarios();
+
+    const eventos = {}; // leadId → [{ tipo, em, por }]
+    const buscarLote = async (lote) => {
+      const base = 'filter[entity]=lead&' + lote.map(id => `filter[entity_id][]=${id}`).join('&')
+        + '&filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message'
+        + (desde ? `&filter[created_at][from]=${desde}` : '') + '&limit=100';
+      for (let pg = 1; pg <= 10; pg++) {
+        const { status, body } = await kommoGet(`/events?${base}&page=${pg}`);
+        if (status !== 200) break;
+        const evs = body._embedded?.events || [];
+        for (const e of evs) {
+          (eventos[e.entity_id] = eventos[e.entity_id] || []).push({ tipo: e.type, em: e.created_at, por: e.created_by || 0 });
+        }
+        if (evs.length < 100) break;
+      }
+    };
+    // /events aceita no máximo 10 entity_id por consulta; 4 lotes por vez para
+    // não passar do limite de requisições do Kommo.
+    const lotes = [];
+    for (let i = 0; i < ids.length; i += 10) lotes.push(ids.slice(i, i + 10));
+    for (let i = 0; i < lotes.length; i += 4) {
+      await Promise.all(lotes.slice(i, i + 4).map(l => buscarLote(l).catch(() => {})));
+    }
+
+    const diaBR = s => new Date(s * 1000).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const por_lead = {};
+    for (const id of ids) {
+      const evs = (eventos[id] || []).sort((a, b) => a.em - b.em);
+      // Várias mensagens da mesma pessoa no mesmo dia contam como UM contato:
+      // é essa a unidade que se cobra num follow-up, não cada balão de mensagem.
+      const saidas = evs.filter(e => e.tipo === 'outgoing_chat_message' && e.por);
+      const contatos = [];
+      for (const e of saidas) {
+        const dia = diaBR(e.em);
+        const ult = contatos[contatos.length - 1];
+        if (ult && ult.dia === dia && ult.por_id === e.por) { ult.msgs++; continue; }
+        contatos.push({ dia, em: e.em, por_id: e.por, por: usuarios[e.por] || ('Usuário #' + e.por), msgs: 1 });
+      }
+      const ultSaida = saidas.length ? saidas[saidas.length - 1].em : 0;
+      const entradas = evs.filter(e => e.tipo === 'incoming_chat_message');
+      const ultEntrada = entradas.length ? entradas[entradas.length - 1].em : 0;
+      por_lead[id] = {
+        contatos,
+        ultimo_envio: ultSaida,
+        ultima_resposta: ultEntrada,
+        respondeu: !!(ultSaida && ultEntrada > ultSaida), // cliente respondeu depois do último contato
+      };
+    }
+    res.json({ por_lead });
+  } catch (e) {
+    console.error('[Kommo followups]', e.message);
     res.status(500).json({ erro: e.message });
   }
 });
