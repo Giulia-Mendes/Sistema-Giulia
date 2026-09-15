@@ -3037,6 +3037,29 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
   }
 });
 
+// Diagnóstico: testa formatos de consulta a /events para um lead e mostra a resposta crua
+app.get('/api/kommo/eventos-debug/:lead', auth, async (req, res) => {
+  const L = parseInt(req.params.lead);
+  const variantes = {
+    a_atual:        `/events?filter[entity]=lead&filter[entity_id][]=${L}&filter[type][]=outgoing_chat_message&limit=10`,
+    b_entity_array: `/events?filter[entity][]=lead&filter[entity_id][]=${L}&limit=10`,
+    c_id_simples:   `/events?filter[entity]=lead&filter[entity_id]=${L}&limit=10`,
+    d_tipo_simples: `/events?filter[entity]=lead&filter[entity_id][]=${L}&filter[type]=outgoing_chat_message&limit=10`,
+    e_sem_entidade: `/events?filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message&limit=100`,
+  };
+  const out = {};
+  for (const [k, path] of Object.entries(variantes)) {
+    try {
+      const { status, body } = await kommoGet(path);
+      const evs = (body && body._embedded?.events) || [];
+      out[k] = { status, eventos: evs.length, doLead: evs.filter(e => e.entity_id === L).length,
+        amostra: evs.slice(0, 2).map(e => ({ type: e.type, entity_type: e.entity_type, entity_id: e.entity_id, created_by: e.created_by })),
+        corpo: status !== 200 ? JSON.stringify(body).slice(0, 300) : undefined };
+    } catch (e) { out[k] = { erro: e.message }; }
+  }
+  res.json(out);
+});
+
 // ── KOMMO: follow-ups de cada lead ──
 // Sem escopo de chats não dá para ler o TEXTO das mensagens, mas os eventos
 // outgoing/incoming_chat_message dizem quando foi e quem enviou (created_by).
@@ -3066,13 +3089,17 @@ app.post('/api/kommo/followups', auth, async (req, res) => {
     const usuarios = await kommoUsuarios();
 
     const eventos = {}; // leadId → [{ tipo, em, por }]
+    const falhas = [];  // respostas não-200 do Kommo — antes eram engolidas e viravam "0 contatos"
     const buscarLote = async (lote) => {
       const base = 'filter[entity]=lead&' + lote.map(id => `filter[entity_id][]=${id}`).join('&')
         + '&filter[type][]=outgoing_chat_message&filter[type][]=incoming_chat_message'
         + (desde ? `&filter[created_at][from]=${desde}` : '') + '&limit=100';
       for (let pg = 1; pg <= 10; pg++) {
         const { status, body } = await kommoGet(`/events?${base}&page=${pg}`);
-        if (status !== 200) break;
+        if (status !== 200) {
+          if (status !== 204) falhas.push(status + ' ' + JSON.stringify(body).slice(0, 200));
+          break;
+        }
         const evs = body._embedded?.events || [];
         for (const e of evs) {
           (eventos[e.entity_id] = eventos[e.entity_id] || []).push({ tipo: e.type, em: e.created_at, por: e.created_by || 0 });
@@ -3112,7 +3139,7 @@ app.post('/api/kommo/followups', auth, async (req, res) => {
         respondeu: !!(ultSaida && ultEntrada > ultSaida), // cliente respondeu depois do último contato
       };
     }
-    res.json({ por_lead });
+    res.json({ por_lead, falhas: falhas.slice(0, 5) });
   } catch (e) {
     console.error('[Kommo followups]', e.message);
     res.status(500).json({ erro: e.message });
