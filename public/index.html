@@ -7121,8 +7121,48 @@ function kommoPreencherVendedoras() {
   }
 }
 
-// Aplica os filtros de vendedora/follow-up e redesenha as quatro seções.
-// Os números dos cards de cima continuam sendo o total da campanha, sem filtro.
+// Números dos cards de cima, calculados sobre os leads que passaram nos filtros
+function renderKommoStats(leads, secs, filtrando) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const lid = l => String(l.lead_id).trim();
+  set('ks-total',  leads.length);
+  set('ks-s12',    secs.s12.length);
+  set('ks-prime',  secs.prime.length);
+  set('ks-capa',   secs.capa.length);
+  set('ks-outros', secs.outros.length);
+
+  const vis = (_kommoFunil || {}).visitas || {}, props = (_kommoFunil || {}).propostas || {};
+  set('ks-visitas',   leads.filter(l => vis[lid(l)] > 0).length);
+  set('ks-propostas', leads.reduce((s, l) => s + (props[lid(l)]?.total || 0), 0));
+  set('ks-aprovadas', leads.reduce((s, l) => s + (props[lid(l)]?.aprovadas || 0), 0));
+
+  // Capas: sem filtro, todas as vendas de capa do período — inclusive de quem
+  // comprou sem ter vindo por um lead. Com filtro, só as casadas com os leads
+  // filtrados (venda sem lead não tem vendedora nem DDD para filtrar).
+  const cp = _kommoCapas || {};
+  let pedidos, valor;
+  if (!filtrando) { pedidos = cp.pedidos_periodo ?? 0; valor = cp.valor_periodo || 0; }
+  else {
+    const unicos = new Map(); // nº do pedido → valor (o mesmo pedido pode casar com 2 leads)
+    leads.forEach(l => ((cp.por_lead || {})[lid(l)] || []).forEach(c => unicos.set(c.numero, c.valor || 0)));
+    pedidos = unicos.size;
+    valor = [...unicos.values()].reduce((s, v) => s + v, 0);
+  }
+  set('ks-capas', pedidos);
+  const elv = document.getElementById('ks-capas-valor');
+  if (elv) {
+    if (pedidos > 0) {
+      elv.innerHTML = 'R$ ' + valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+        + '<br><span style="text-decoration:underline">ver quem comprou →</span>';
+    } else {
+      elv.textContent = filtrando ? 'nenhuma nos leads filtrados'
+        : (cp.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny');
+    }
+  }
+}
+
+// Aplica os filtros (vendedora, estado, follow-up), redesenha as quatro seções
+// e recalcula os cards de cima com o mesmo recorte.
 function renderKommoListas() {
   const fVend = document.getElementById('kommo-filtro-vend')?.value || '';
   const fFup  = document.getElementById('kommo-filtro-fup')?.value || '';
@@ -7149,6 +7189,7 @@ function renderKommoListas() {
     (secs[m] || secs.outros).push(l);
   }
   for (const k of Object.keys(secs)) renderKommoSecao(k, secs[k], _KOMMO_CORES[k][0], _KOMMO_CORES[k][1]);
+  renderKommoStats(leads, secs, !!(fVend || fUf || (fFup && _kommoFollowups)));
 
   const res = document.getElementById('kommo-fup-resumo');
   if (res) {
@@ -7203,22 +7244,7 @@ async function carregarKommo() {
     // Debug temporário — ver console do navegador (F12)
     _kommoLeadsCache = d.leads || [];
 
-    // Separa por modelo
-    const s12 = [], prime = [], capa = [], outros = [];
-    for (const l of _kommoLeadsCache) {
-      const m = detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim());
-      if (m === 's12') s12.push(l);
-      else if (m === 'prime') prime.push(l);
-      else if (m === 'capa') capa.push(l);
-      else outros.push(l);
-    }
-
-    // Stats
-    document.getElementById('ks-total').textContent  = _kommoLeadsCache.length;
-    document.getElementById('ks-s12').textContent    = s12.length;
-    document.getElementById('ks-prime').textContent  = prime.length;
-    if (document.getElementById('ks-capa')) document.getElementById('ks-capa').textContent = capa.length;
-    document.getElementById('ks-outros').textContent = outros.length;
+    // Os números dos cards são calculados em renderKommoStats, já com os filtros
 
     // Funil do dia: cruza os leads com visitas/propostas do Alery
     _kommoFunil = { visitas: {}, propostas: {} };
@@ -7226,13 +7252,6 @@ async function carregarKommo() {
       const rf = await fetch('/api/kommo/funil', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ lead_ids: _kommoLeadsCache.map(l => l.lead_id) }) });
       if (rf.ok) _kommoFunil = await rf.json();
     } catch(e) {}
-    const nVisitas   = Object.keys(_kommoFunil.visitas || {}).length;
-    const propVals   = Object.values(_kommoFunil.propostas || {});
-    const nPropostas = propVals.reduce((s,p) => s + (p.total||0), 0);
-    const nAprovadas = propVals.reduce((s,p) => s + (p.aprovadas||0), 0);
-    if (document.getElementById('ks-visitas'))   document.getElementById('ks-visitas').textContent   = nVisitas;
-    if (document.getElementById('ks-propostas')) document.getElementById('ks-propostas').textContent = nPropostas;
-    if (document.getElementById('ks-aprovadas')) document.getElementById('ks-aprovadas').textContent = nAprovadas;
 
     // Vendas de capa térmica: cruza os leads com os pedidos do Tiny pelo telefone
     _kommoCapas = { por_lead: {} };
@@ -7243,23 +7262,6 @@ async function carregarKommo() {
       });
       if (rc.ok) _kommoCapas = await rc.json();
     } catch(e) {}
-    const elCapas = document.getElementById('ks-capas');
-    if (elCapas) {
-      // O card mostra VENDAS (pedidos). A composição (peças, m²) fica no detalhe.
-      const pedidos  = _kommoCapas.pedidos_periodo ?? 0;
-      const casados  = _kommoCapas.leads_que_compraram ?? 0;
-      elCapas.textContent = pedidos;
-      const elv = document.getElementById('ks-capas-valor');
-      if (elv) {
-        const v = _kommoCapas.valor_periodo || 0;
-        if (pedidos > 0) {
-          elv.innerHTML = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-            + '<br><span style="text-decoration:underline">ver quem comprou →</span>';
-        } else {
-          elv.textContent = _kommoCapas.pedidos_capa_no_sistema ? 'nenhuma no período' : 'sincronize o Tiny';
-        }
-      }
-    }
 
     // Formata data para exibição
     const fmtBR = s => s.split('-').reverse().join('/');
