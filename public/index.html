@@ -1286,6 +1286,9 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
+  <!-- Conversão em visitas (só leads que podem virar visita) -->
+  <div id="kommo-conversao" style="margin-bottom:14px"></div>
+
   <!-- Seção S12 -->
   <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-s12">
     <div onclick="toggleKommoSec('s12')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
@@ -7121,6 +7124,54 @@ function kommoPreencherVendedoras() {
   }
 }
 
+// Faixas de conversão lead → visita (combinadas com a Giulia em 15/09/2026)
+const CONV_FAIXAS = [
+  { min: 23, rotulo: 'Excelente', cor: '#2e7d32', bg: '#e8f5e9' },
+  { min: 20, rotulo: 'Muito bom', cor: '#558b2f', bg: '#f1f8e9' },
+  { min: 15, rotulo: 'Bom',       cor: '#f57c00', bg: '#fff3e0' },
+  { min: 10, rotulo: 'Regular',   cor: '#ef6c00', bg: '#fff8e1' },
+  { min: 0,  rotulo: 'Ruim',      cor: '#c62828', bg: '#ffebee' },
+];
+
+// Conversão em visitas. A base são só os leads que PODEM virar visita:
+// equipamento (S12/Prime) e do RJ — capa não tem visita e fora do RJ não atende.
+function renderKommoConversao(leads) {
+  const el = document.getElementById('kommo-conversao');
+  if (!el) return;
+  const base = leads.filter(l =>
+    ['s12','prime'].includes(detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim()))
+    && kommoEstado(l.tel).uf === 'RJ');
+  if (!base.length) {
+    el.innerHTML = '<div class="card" style="padding:12px 16px;font-size:12px;color:var(--text2)">'
+      + 'Nenhum lead de equipamento do RJ neste recorte — a conversão em visitas é calculada só sobre esses.</div>';
+    return;
+  }
+  const vis = (_kommoFunil || {}).visitas || {};
+  const marcadas = base.filter(l => vis[String(l.lead_id).trim()] > 0).length;
+  const pct = (marcadas / base.length) * 100;
+  const faixa = CONV_FAIXAS.find(f => pct >= f.min);
+  const metas = [15, 20, 23].map(p => {
+    const n = Math.ceil(base.length * p / 100);
+    return { p, n, faltam: Math.max(0, n - marcadas) };
+  });
+  el.innerHTML = `<div class="card" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:700;color:var(--text)">🎯 Conversão em visitas</span>
+      <span style="font-size:30px;font-weight:700;color:${faixa.cor};line-height:1">${pct.toFixed(1).replace('.', ',')}%</span>
+      <span style="background:${faixa.bg};color:${faixa.cor};border-radius:99px;padding:2px 12px;font-size:12px;font-weight:700">${faixa.rotulo}</span>
+      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de equipamento do RJ</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${metas.map(m => `<div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+        <div style="font-size:11px;color:var(--text2)">${CONV_FAIXAS.find(f => f.min === m.p).rotulo} · ${m.p}%</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${m.n} visita${m.n === 1 ? '' : 's'}</div>
+        <div style="font-size:11px;color:${m.faltam ? faixa.cor : '#2e7d32'};font-weight:600">${m.faltam ? 'faltam ' + m.faltam : '✅ atingido'}</div>
+      </div>`).join('')}
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin:8px 0 0">Conta só visitas lançadas no Alery com o nº do lead vinculado.</p>
+  </div>`;
+}
+
 // Números dos cards de cima, calculados sobre os leads que passaram nos filtros
 function renderKommoStats(leads, secs, filtrando) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -7190,6 +7241,7 @@ function renderKommoListas() {
   }
   for (const k of Object.keys(secs)) renderKommoSecao(k, secs[k], _KOMMO_CORES[k][0], _KOMMO_CORES[k][1]);
   renderKommoStats(leads, secs, !!(fVend || fUf || (fFup && _kommoFollowups)));
+  renderKommoConversao(leads);
 
   const res = document.getElementById('kommo-fup-resumo');
   if (res) {
