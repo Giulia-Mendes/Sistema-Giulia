@@ -1249,6 +1249,11 @@ select option { background: var(--surface); color: var(--text); }
       style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
       <option value="">Todas</option>
     </select>
+    <span style="font-size:12px;color:var(--text2)">Estado</span>
+    <select id="kommo-filtro-uf" onchange="renderKommoListas()"
+      style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <option value="">Todos</option>
+    </select>
     <span style="font-size:12px;color:var(--text2)">Follow-up</span>
     <select id="kommo-filtro-fup" onchange="renderKommoListas()"
       style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
@@ -7002,6 +7007,34 @@ function fmtHoraKommo(ts) {
   return dia + ' · ' + hora;
 }
 
+// ── Estado do lead pelo DDD ──
+// RJ não é só o 21: o estado tem 21, 22 e 24.
+const DDD_UF = {
+  11:'SP',12:'SP',13:'SP',14:'SP',15:'SP',16:'SP',17:'SP',18:'SP',19:'SP',
+  21:'RJ',22:'RJ',24:'RJ', 27:'ES',28:'ES',
+  31:'MG',32:'MG',33:'MG',34:'MG',35:'MG',37:'MG',38:'MG',
+  41:'PR',42:'PR',43:'PR',44:'PR',45:'PR',46:'PR', 47:'SC',48:'SC',49:'SC',
+  51:'RS',53:'RS',54:'RS',55:'RS',
+  61:'DF',62:'GO',64:'GO',63:'TO',65:'MT',66:'MT',67:'MS',68:'AC',69:'RO',
+  71:'BA',73:'BA',74:'BA',75:'BA',77:'BA',79:'SE',
+  81:'PE',87:'PE',82:'AL',83:'PB',84:'RN',85:'CE',88:'CE',86:'PI',89:'PI',
+  91:'PA',93:'PA',94:'PA',92:'AM',97:'AM',95:'RR',96:'AP',98:'MA',99:'MA',
+};
+const RJ_REGIAO_DDD = {
+  21: 'Rio, Grande Rio e Teresópolis',
+  22: 'Região dos Lagos, Norte/Noroeste Fluminense e Nova Friburgo',
+  24: 'Sul Fluminense, Costa Verde e Petrópolis',
+};
+// { uf: 'RJ' | 'SP' | … | 'EX' (exterior) | '' (sem DDD), ddd, regiao }
+function kommoEstado(tel) {
+  let d = String(tel || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);       // +55 DDD número
+  else if (d.length >= 12) return { uf: 'EX', ddd: null, regiao: '' }; // outro país
+  if (d.length !== 10 && d.length !== 11) return { uf: '', ddd: null, regiao: '' };
+  const ddd = parseInt(d.slice(0, 2));
+  return { uf: DDD_UF[ddd] || '', ddd, regiao: RJ_REGIAO_DDD[ddd] || '' };
+}
+
 function fmtTelBR(tel) {
   if (!tel) return '';
   const n = tel.replace(/\D/g, '').replace(/^55/, '');
@@ -7022,6 +7055,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
   lista.innerHTML = leads.map(l => {
     const nome = l.nome || `Lead #${l.lead_id}`;
     const tel  = fmtTelBR(l.tel);
+    const est  = kommoEstado(l.tel);
     const hora = fmtHoraKommo(l.primeiro_contato);
     const msg  = l.texto_primeira || '';
     const ini  = (nome[0] || '?').toUpperCase();
@@ -7042,8 +7076,10 @@ function renderKommoSecao(sec, leads, corBg, corText) {
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-weight:600;font-size:13px;color:var(--text)">${nome}</span>
+          ${est.uf ? `<span title="${est.ddd ? 'DDD ' + est.ddd + (est.regiao ? ' — ' + est.regiao : '') : 'Número de fora do Brasil'}" style="border-radius:99px;padding:0 8px;font-size:11px;font-weight:700;${
+            est.uf === 'RJ' ? 'background:#e8f5e9;color:#2e7d32' : est.uf === 'EX' ? 'background:#eceff1;color:#455a64' : 'background:#fff3e0;color:#e65100'}">📍 ${est.uf === 'EX' ? 'Exterior' : est.uf}</span>` : ''}
           ${tel ? `<span style="font-size:12px;color:var(--text2)">${tel}</span>` : ''}
-          ${l.vendedor ? `<span style="background:var(--surface2,#f5f0eb);color:var(--text);border:1px solid var(--border);border-radius:99px;padding:0 8px;font-size:11px;font-weight:600">👤 ${l.vendedor}</span>` : ''}
+          ${l.vendedor ?`<span style="background:var(--surface2,#f5f0eb);color:var(--text);border:1px solid var(--border);border-radius:99px;padding:0 8px;font-size:11px;font-weight:600">👤 ${l.vendedor}</span>` : ''}
           ${funilBadges}
           <span style="font-size:11px;color:var(--text2);margin-left:auto">${hora}</span>
         </div>
@@ -7070,6 +7106,19 @@ function kommoPreencherVendedoras() {
   sel.innerHTML = '<option value="">Todas</option>' + nomes.map(n => `<option value="${n}">${n}</option>`).join('')
     + '<option value="__sem">Sem vendedora</option>';
   if ([...sel.options].some(o => o.value === atual)) sel.value = atual;
+
+  // Filtro de estado: RJ e "outros estados" sempre; depois cada UF que apareceu
+  const selUf = document.getElementById('kommo-filtro-uf');
+  if (selUf) {
+    const atualUf = selUf.value;
+    const ufsLista = _kommoLeadsCache.map(l => kommoEstado(l.tel).uf);
+    const outras = [...new Set(ufsLista.filter(u => u && u !== 'RJ' && u !== 'EX'))].sort();
+    selUf.innerHTML = '<option value="">Todos</option><option value="RJ">Rio de Janeiro (RJ)</option><option value="fora">Outros estados</option>'
+      + outras.map(u => `<option value="${u}">${u}</option>`).join('')
+      + (ufsLista.includes('EX') ? '<option value="EX">Exterior</option>' : '')
+      + (ufsLista.includes('') ? '<option value="__sem">Sem DDD</option>' : '');
+    if ([...selUf.options].some(o => o.value === atualUf)) selUf.value = atualUf;
+  }
 }
 
 // Aplica os filtros de vendedora/follow-up e redesenha as quatro seções.
@@ -7077,10 +7126,16 @@ function kommoPreencherVendedoras() {
 function renderKommoListas() {
   const fVend = document.getElementById('kommo-filtro-vend')?.value || '';
   const fFup  = document.getElementById('kommo-filtro-fup')?.value || '';
+  const fUf   = document.getElementById('kommo-filtro-uf')?.value || '';
   const hoje = _kommoDiaHoje();
   const fup = id => (_kommoFollowups && _kommoFollowups[id]) || { contatos: [] };
   const leads = _kommoLeadsCache.filter(l => {
     if (fVend === '__sem' ? l.vendedor : (fVend && l.vendedor !== fVend)) return false;
+    if (fUf) {
+      const uf = kommoEstado(l.tel).uf;
+      const foraDoRJ = !!uf && uf !== 'RJ' && uf !== 'EX';
+      if (fUf === 'fora' ? !foraDoRJ : fUf === '__sem' ? !!uf : uf !== fUf) return false;
+    }
     if (!fFup || !_kommoFollowups) return true;
     const f = fup(l.lead_id);
     if (fFup === 'nenhum') return !f.contatos.length;
@@ -7097,11 +7152,15 @@ function renderKommoListas() {
 
   const res = document.getElementById('kommo-fup-resumo');
   if (res) {
-    if (!_kommoFollowups) res.textContent = '⏳ Buscando follow-ups no Kommo…';
+    const ufs = leads.map(l => kommoEstado(l.tel).uf);
+    const nRJ = ufs.filter(u => u === 'RJ').length;
+    const nFora = ufs.filter(u => u && u !== 'RJ' && u !== 'EX').length;
+    const geo = `${leads.length} lead(s) · ${nRJ} do RJ · ${nFora} de outros estados`;
+    if (!_kommoFollowups) res.textContent = geo + ' · ⏳ buscando follow-ups no Kommo…';
     else {
       const semContato = leads.filter(l => !fup(l.lead_id).contatos.length).length;
       const comHoje = leads.filter(l => fup(l.lead_id).contatos.some(c => c.dia === hoje)).length;
-      res.textContent = `${leads.length} lead(s) · ${comHoje} com contato hoje · ${semContato} sem nenhum contato`
+      res.textContent = `${geo} · ${comHoje} com contato hoje · ${semContato} sem nenhum contato`
         + (_kommoFupParcial ? ' · ⚠️ período longo: histórico parcial, encurte as datas' : '');
     }
   }
