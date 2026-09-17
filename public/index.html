@@ -6960,7 +6960,12 @@ function abrirDetalheCapas() {
       + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
         + '<strong style="font-size:14px">' + (p.cliente || '—') + '</strong>'
         + '<span style="font-size:12px;color:var(--text2)">Pedido ' + (p.numero || '—') + ' · ' + fmtD(p.data) + '</span>'
-        + '<span style="margin-left:auto;font-size:14px;font-weight:600">' + fmtR(p.valor) + '</span>'
+        // Em destaque o valor das capas; o total do pedido fica ao lado, para conferência
+        + '<span style="margin-left:auto;text-align:right;line-height:1.3">'
+          + '<span style="font-size:14px;font-weight:600">🧊 ' + fmtR(p.valor_capas ?? p.valor) + '</span>'
+          + ((p.valor_capas != null && Math.abs((p.valor || 0) - p.valor_capas) > 0.009)
+            ? '<br><span style="font-size:11px;color:var(--text2)">pedido inteiro ' + fmtR(p.valor) + '</span>' : '')
+        + '</span>'
       + '</div>'
       + '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'
         + (p.qtd ? '<strong>' + p.qtd + ' item' + (p.qtd !== 1 ? 'ns' : '') + ' de capa</strong>' : '')
@@ -7066,7 +7071,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
     const temVisita = (_kommoFunil.visitas || {})[lidKey] > 0;
     const prop = (_kommoFunil.propostas || {})[lidKey];
     const compras = (_kommoCapas.por_lead || {})[lidKey];
-    const totalCapa = compras ? compras.reduce((s, c) => s + (c.valor || 0), 0) : 0;
+    const totalCapa = compras ? compras.reduce((s, c) => s + (c.valor_capas ?? c.valor ?? 0), 0) : 0; // só as capas do pedido
     const funilBadges =
       (temVisita ? '<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📅 Visita</span>' : '') +
       (prop && prop.aprovadas > 0
@@ -7195,7 +7200,7 @@ function renderKommoStats(leads, secs, filtrando) {
   if (!filtrando) { pedidos = cp.pedidos_periodo ?? 0; valor = cp.valor_periodo || 0; }
   else {
     const unicos = new Map(); // nº do pedido → valor (o mesmo pedido pode casar com 2 leads)
-    leads.forEach(l => ((cp.por_lead || {})[lid(l)] || []).forEach(c => unicos.set(c.numero, c.valor || 0)));
+    leads.forEach(l => ((cp.por_lead || {})[lid(l)] || []).forEach(c => unicos.set(c.numero, c.valor_capas ?? c.valor ?? 0)));
     pedidos = unicos.size;
     valor = [...unicos.values()].reduce((s, v) => s + v, 0);
   }
