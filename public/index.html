@@ -1395,7 +1395,7 @@ select option { background: var(--surface); color: var(--text); }
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
       <div class="stat"><div class="lbl">Pedidos com capa</div><div class="val" id="fech-capa-qtd" style="color:#00897B">—</div></div>
       <div class="stat"><div class="lbl">Capas vendidas</div><div class="val" id="fech-capa-un" style="color:#00897B">—</div></div>
-      <div class="stat"><div class="lbl">Valor em capas</div><div class="val" id="fech-capa-valor" style="font-size:14px">—</div></div>
+      <div class="stat"><div class="lbl">Valor em capas + enrolador</div><div class="val" id="fech-capa-valor" style="font-size:14px">—</div></div>
       <div class="stat"><div class="lbl">Valor total dos pedidos</div><div class="val" id="fech-capa-total" style="font-size:14px">—</div></div>
     </div>
   </div>
@@ -6976,8 +6976,9 @@ function abrirDetalheCapas() {
         ? '<div style="background:var(--surface2,#f5f0eb);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
           + p.itens.map(i =>
               '<div style="display:flex;gap:8px;font-size:12px;padding:2px 0">'
-              + '<span style="color:' + (i.eh_capa ? 'var(--text)' : 'var(--text2)') + '">'
-                + (i.eh_capa ? '🧊 ' : '• ')
+              // Em destaque o que soma no valor da venda de capa (capa e enrolador)
+              + '<span style="color:' + (i.eh_capa || i.conta_valor ? 'var(--text)' : 'var(--text2)') + '">'
+                + (i.eh_capa ? '🧊 ' : i.conta_valor ? '↻ ' : '• ')
                 + (i.qtd ? String(i.qtd).replace('.', ',') + '× ' : '')
                 + i.descricao
               + '</span>'

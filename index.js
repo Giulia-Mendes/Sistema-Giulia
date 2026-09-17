@@ -1254,6 +1254,15 @@ function itemEhCapa(descricao, sku) {
   if (/enrolador|carretel|suporte|reparo|emenda/.test(t)) return false;
   return t.includes('capa termica') || (t.includes('capa') && t.includes('termic'));
 }
+// Enrolador da capa: não é uma capa (não conta como peça), mas entra no valor
+// de venda de capa — decisão da Giulia em 17/09/2026. Suporte e outros acessórios não.
+function itemEhEnroladorCapa(descricao) {
+  const t = _normTxt(descricao);
+  return t.includes('enrolador') && !/mangueira|suporte/.test(t);
+}
+function itemEntraNoValorCapa(descricao, sku) {
+  return itemEhCapa(descricao, sku) || itemEhEnroladorCapa(descricao);
+}
 // Telefone comparável. Os últimos 8 dígitos são estáveis mesmo com DDI e com o "9" extra
 // do celular (que entra à frente do número), então servem de chave. O DDD, quando existe
 // nos dois lados, é usado para desempatar e evitar casar clientes de estados diferentes.
@@ -2192,14 +2201,14 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
     const noPeriodo = (de && ate)
       ? pedidos.filter(p => p.data >= de && p.data <= ate)
       : pedidos;
-    // Valor só das capas dentro do pedido: o pedido pode trazer enrolador, suporte
-    // e outros produtos, e o card de capas não pode somar esses itens.
+    // Valor da venda de capa dentro do pedido: capa + enrolador. O pedido pode trazer
+    // aquecedor, suporte e outros produtos, que não entram nesse valor.
     // Sem itens gravados (sincronização antiga) não há como separar — usa o total.
     const valorCapas = p => {
       try {
         const its = JSON.parse(p.itens || '[]');
         if (!its.length) return p.valor || 0;
-        return Math.round(its.filter(i => itemEhCapa(i.descricao, i.sku))
+        return Math.round(its.filter(i => itemEntraNoValorCapa(i.descricao, i.sku))
           .reduce((s, i) => s + (i.qtd || 0) * (i.valor || 0), 0) * 100) / 100;
       } catch { return p.valor || 0; }
     };
@@ -2302,6 +2311,7 @@ app.post('/api/kommo/vendas-capa', auth, (req, res) => {
             valor: i.valor || 0,
             total: Math.round((i.qtd || 0) * (i.valor || 0) * 100) / 100,
             eh_capa: itemEhCapa(i.descricao, i.sku),
+            conta_valor: itemEntraNoValorCapa(i.descricao, i.sku), // capa ou enrolador
           })),
           lead_id: leadCasado ? String(leadCasado.lead_id) : (p.lead_id || ''),
           lead_nome: leadCasado ? (leadCasado.nome || '') : '',
@@ -2443,7 +2453,9 @@ app.get('/api/fechamentos/capas', auth, (req, res) => {
         // A capa é vendida por m²: qtd_capas conta peças, metros_capa guarda a metragem
         qtd_capas: itensCapa.length,
         metros_capa: Math.round(itensCapa.reduce((s, i) => s + (i.qtd || 0), 0) * 100) / 100,
-        valor_capas: itensCapa.reduce((s, i) => s + (i.qtd || 0) * (i.valor || 0), 0),
+        // Capa + enrolador (mesma regra do card de capas da página do Kommo)
+        valor_capas: Math.round(itens.filter(i => itemEntraNoValorCapa(i.descricao, i.sku))
+          .reduce((s, i) => s + (i.qtd || 0) * (i.valor || 0), 0) * 100) / 100,
         produtos: itensCapa.map(i => i.descricao),
       };
     });
