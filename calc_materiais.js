@@ -102,11 +102,24 @@ function bitolaPara(modeloChave, distanciaM) {
   return reg.bitola[faixa] ?? null;
 }
 
-// Disjuntor e DR a partir da corrente (tabela do manual Ortum Prime)
-function protecaoPara(correnteA) {
-  const tab = REGRAS.disjuntor_por_corrente;
+// Bitola, disjuntor e DR pela CORRENTE do equipamento, como manda o manual.
+// A planilha de distância cuida só da queda de tensão e chega a indicar cabo que
+// não aguenta a corrente da máquina (SB 130, 32 A, aparecia com 2,5 mm² em 10 m).
+// Por isso esta tabela é o piso: a bitola final é a maior das duas.
+// Usa a tabela do manual da própria linha quando existe; a da Sibrape vai
+// até 80 A e cobre o resto (as bitolas das duas coincidem; mudam os disjuntores).
+function protecaoPara(correnteA, linha = '') {
   const i = Number(correnteA) || 0;
-  return tab.find(f => i <= f.ate_a) || tab[tab.length - 1];
+  const sib = REGRAS.corrente_manual_sibrape.faixas;
+  const ehOrtum = /ortum/i.test(linha);
+  const ort = REGRAS.disjuntor_por_corrente;
+  if (ehOrtum && i <= ort[ort.length - 1].ate_a) {
+    const f = ort.find(x => i <= x.ate_a);
+    return { ...f, fonte: 'manual Ortum Prime' };
+  }
+  const f = sib.find(x => i <= x.ate_a);
+  if (!f) return { ...sib[sib.length - 1], fonte: 'tabela Sibrape', acima_da_tabela: true };
+  return { ...f, fonte: ehOrtum ? 'tabela Sibrape (manual Ortum só vai até 32 A)' : 'tabela Sibrape' };
 }
 
 // Estima a corrente pela potência de entrada (W) em 220V, quando não há valor de placa
@@ -138,11 +151,25 @@ function calcularMateriais(laudo = {}, modelo = '') {
   if (!distTubo)  avisos.push('Distância até a casa de máquinas não informada no laudo — tubulação não calculada.');
   if (!distCabo)  avisos.push('Distância até o quadro elétrico não informada no laudo — cabo elétrico não calculado.');
 
-  const bitola = chave ? bitolaPara(chave, distCabo) : null;
-  if (chave && distCabo > 60) avisos.push('Distância acima de 60 m: a tabela do fabricante para nessa faixa. Confirme a bitola com o eletricista.');
-
+  const linha = chave ? (REGRAS.cabos_por_modelo[chave]?.linha || '') : '';
   const corrente = chave ? correnteEstimada(chave) : null;
-  const prot = corrente ? protecaoPara(corrente) : null;
+  const prot = corrente ? protecaoPara(corrente, linha) : null;
+
+  // Duas exigências diferentes: a corrente que o cabo precisa aguentar (manual)
+  // e a queda de tensão na distância (planilha do fabricante). Vale a maior.
+  const bitolaDist     = chave ? bitolaPara(chave, distCabo) : null;
+  const bitolaCorrente = prot ? prot.fase_mm2 : null;
+  const bitola = (bitolaDist == null && bitolaCorrente == null)
+    ? null : Math.max(bitolaDist || 0, bitolaCorrente || 0);
+
+  if (chave && distCabo > 60) avisos.push('Distância acima de 60 m: a tabela do fabricante para nessa faixa. Confirme a bitola com o eletricista.');
+  if (bitolaCorrente && bitolaDist && bitolaCorrente > bitolaDist) {
+    avisos.push(`Cabo pela corrente: ${corrente}A exigem ${bitolaCorrente}mm² pelo manual, `
+      + `acima dos ${bitolaDist}mm² que a tabela de distância indicaria para ${distCabo}m. Usado ${bitola}mm².`);
+  }
+  if (prot?.acima_da_tabela) {
+    avisos.push(`Corrente de ${corrente}A acima da tabela do manual (vai até 80A) — confirme cabo e disjuntor com o eletricista.`);
+  }
 
   const itens = [];
   // Materiais são comprados em unidades inteiras (barras, metros), então sempre arredonda para cima.

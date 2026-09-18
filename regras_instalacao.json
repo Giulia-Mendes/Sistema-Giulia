@@ -43,6 +43,66 @@
    "dr_ma": 30
   }
  ],
+ "corrente_manual_sibrape": {
+  "_fonte": "Tabela Sibrape — Alimentação MONOFÁSICA (manual, foto enviada pelo Caio em 17/09/2026)",
+  "_obs": "fase_mm2 = cabo L/N/T (3 x mm²). Cabo de sinal/controle: N x 0,5 mm². Vale como piso de corrente; a bitola final é a maior entre esta e a tabela de distância.",
+  "faixas": [
+   {
+    "ate_a": 10,
+    "fase_mm2": 2.5,
+    "disjuntor_a": 16,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 18,
+    "fase_mm2": 2.5,
+    "disjuntor_a": 25,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 25,
+    "fase_mm2": 4,
+    "disjuntor_a": 32,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 32,
+    "fase_mm2": 6,
+    "disjuntor_a": 40,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 45,
+    "fase_mm2": 10,
+    "disjuntor_a": 50,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 55,
+    "fase_mm2": 16,
+    "disjuntor_a": 63,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 60,
+    "fase_mm2": 16,
+    "disjuntor_a": 70,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 70,
+    "fase_mm2": 25,
+    "disjuntor_a": 80,
+    "dr_ma": 30
+   },
+   {
+    "ate_a": 80,
+    "fase_mm2": 25,
+    "disjuntor_a": 100,
+    "dr_ma": 30
+   }
+  ]
+ },
  "obrigatorios": [
   "Contator",
   "Rele de sobrecarga",
