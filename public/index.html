@@ -1718,6 +1718,44 @@ select option { background: var(--surface); color: var(--text); }
         <input type="text" id="l-dias-outro" placeholder="Ex: 6 dias" style="margin-top:6px;display:none">
       </div>
     </div>
+    <!-- Vistoria prévia: registra o que JÁ existia no local, para a empresa se
+         resguardar depois da instalação. Não entra no cálculo de materiais. -->
+    <p class="sec" style="margin:16px 0 4px">🔎 Vistoria prévia — como o local já estava</p>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px">Prova do que existia antes da obra. Não influencia o orçamento.</p>
+
+    <p style="font-size:12px;font-weight:700;color:#1565c0;margin:10px 0 6px">💧 Hidráulica</p>
+    <div class="campo"><label>A filtração funcionou por mais de 30 min sem intercorrência?</label>
+      <select id="l-filtracao30"><option value="">Selecione</option><option>Sim</option><option>Não</option><option>Não se aplica</option></select>
+    </div>
+    <div class="campo"><label>O conjunto filtrante apresenta vazamento?</label>
+      <select id="l-vaz-filtrante" onchange="toggleLaudoCampo(this,'l-vaz-filtrante-obs','Sim')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+      <input type="text" id="l-vaz-filtrante-obs" placeholder="Onde? Ex: válvula vazando, motobomba vazando" style="margin-top:6px;display:none">
+    </div>
+    <div class="campo"><label>Existe outro ponto de vazamento na hidráulica?</label>
+      <select id="l-vaz-outros" onchange="toggleLaudoCampo(this,'l-vaz-outros-obs','Sim')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+      <input type="text" id="l-vaz-outros-obs" placeholder="Onde fica o vazamento" style="margin-top:6px;display:none">
+    </div>
+    <div class="campo"><label>Motobombas do arranjo hidráulico</label>
+      <div id="l-motobombas"></div>
+      <button type="button" class="btn btn-branco" style="font-size:12px;padding:4px 10px;margin-top:6px" onclick="addMotobomba()">+ Adicionar motobomba</button>
+    </div>
+    <div class="campo"><label>Alguma outra anomalia detectada?</label>
+      <select id="l-anomalia" onchange="toggleLaudoCampo(this,'l-anomalia-obs','Sim')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+      <textarea id="l-anomalia-obs" rows="2" placeholder="Ruídos, vazamentos, desconformidade com normas — o que precisa ser informado antes da instalação" style="margin-top:6px;display:none"></textarea>
+    </div>
+
+    <p style="font-size:12px;font-weight:700;color:#e65100;margin:14px 0 6px">⚡ Elétrica</p>
+    <div class="campo"><label>O quadro geral possui DR?</label>
+      <select id="l-qg-dr"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+    </div>
+    <div class="campo"><label>O quadro geral possui DPS?</label>
+      <select id="l-qg-dps"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+    </div>
+    <div class="campo"><label>Possui 220V na casa de máquinas?</label>
+      <select id="l-220-maq" onchange="toggleLaudoCampo(this,'l-220-maq-obs','Não')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+      <textarea id="l-220-maq-obs" rows="2" placeholder="O que é preciso para levar 220V até lá e a estimativa de custo/material" style="margin-top:6px;display:none"></textarea>
+    </div>
+
     <div class="campo"><label>Observações</label><textarea id="l-obs" rows="3" placeholder="Acesso, dificuldades, condições do local..."></textarea></div>
     <div class="campo"><label>Material necessário</label><textarea id="l-material" rows="2" placeholder="Ex: tubo 3/4 (20m), cabo 6mm..."></textarea></div>
     <div class="campo"><label>Valor estimado do material (R$)</label><input type="text" inputmode="decimal" id="l-valor-mat" placeholder="0,00" onblur="formatMoedaInput(this)"></div>
@@ -2652,6 +2690,28 @@ function setFiltroVisita(f) {
   });
   renderVisitas();
 }
+// Resumo da vistoria prévia para o card da visita. Marca com ⚠️ o que é problema
+// já existente no local — é isso que serve de prova depois da instalação.
+function resumoVistoria(l) {
+  if (!l) return '';
+  const linhas = [];
+  const alerta = (cond, txt) => linhas.push((cond ? '⚠️ ' : '') + txt);
+  if (l.filtracao30) alerta(l.filtracao30 === 'Não', 'Filtração 30 min sem intercorrência: ' + l.filtracao30);
+  if (l.vaz_filtrante) alerta(l.vaz_filtrante === 'Sim', 'Vazamento no conjunto filtrante: ' + l.vaz_filtrante + (l.vaz_filtrante_obs ? ' — ' + l.vaz_filtrante_obs : ''));
+  if (l.vaz_outros) alerta(l.vaz_outros === 'Sim', 'Outro vazamento na hidráulica: ' + l.vaz_outros + (l.vaz_outros_obs ? ' — ' + l.vaz_outros_obs : ''));
+  if (Array.isArray(l.motobombas) && l.motobombas.length) {
+    linhas.push('Motobombas: ' + l.motobombas.map(m => {
+      const selo = m.selo === 'Sim, tem selo' ? ' ⚠️ já rebobinada' : m.selo === 'Não localizado' ? ' (selo não localizado)' : '';
+      return [m.potencia, m.marca].filter(Boolean).join(' ') + selo;
+    }).join(' · '));
+  }
+  if (l.anomalia) alerta(l.anomalia === 'Sim', 'Outra anomalia: ' + l.anomalia + (l.anomalia_obs ? ' — ' + l.anomalia_obs : ''));
+  if (l.qg_dr) alerta(l.qg_dr === 'Não', 'DR no quadro geral: ' + l.qg_dr);
+  if (l.qg_dps) alerta(l.qg_dps === 'Não', 'DPS no quadro geral: ' + l.qg_dps);
+  if (l.v220_maquinas) alerta(l.v220_maquinas === 'Não', '220V na casa de máquinas: ' + l.v220_maquinas + (l.v220_maquinas_obs ? ' — ' + l.v220_maquinas_obs : ''));
+  return linhas.map(t => '• ' + t).join('<br>');
+}
+
 // Retorna 'sem_laudo' | 'incompleto' | 'completo' e lista de campos faltando
 function getLaudoStatus(v) {
   if (!v.laudo) return { status: 'sem_laudo', faltando: [] };
@@ -2706,6 +2766,7 @@ function renderVisitas() {
           (l.tipo ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Tipo</div><div style="font-size:13px">' + l.tipo + '</div>' : '') +
           (l.tensao ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Tensão</div><div style="font-size:13px">' + l.tensao + '</div>' : '') +
           (l.obs ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Observações</div><div style="font-size:13px">' + l.obs + '</div>' : '') +
+          (resumoVistoria(l) ? '<div style="font-size:12px;color:#888780;margin:8px 0 2px">🔎 Vistoria prévia</div><div style="font-size:13px;line-height:1.7">' + resumoVistoria(l) + '</div>' : '') +
           (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
           '</div>';
       }
@@ -2871,6 +2932,43 @@ function togglePrainha() {
   wrap.style.display = document.getElementById('l-tem-prainha').checked ? '' : 'none';
   calcVolLaudo();
 }
+// ── Vistoria prévia do laudo ──
+// Mostra o campo de detalhe só quando a resposta exige explicação
+function toggleLaudoCampo(sel, campoId, valorQueMostra) {
+  const campo = document.getElementById(campoId);
+  if (!campo) return;
+  const mostra = sel.value === valorQueMostra;
+  campo.style.display = mostra ? '' : 'none';
+  if (!mostra) campo.value = '';
+}
+
+// Pode haver mais de uma motobomba no arranjo, então a lista é dinâmica.
+// O selo de reparo (sugestão do técnico) indica bomba já rebobinada — registrar
+// isso antes da obra evita responder depois por um defeito que já existia.
+let laudoMotobombas = [];
+function renderMotobombas() {
+  const wrap = document.getElementById('l-motobombas');
+  if (!wrap) return;
+  if (!laudoMotobombas.length) {
+    wrap.innerHTML = '<p style="font-size:12px;color:var(--text2);margin:0">Nenhuma motobomba registrada.</p>';
+    return;
+  }
+  wrap.innerHTML = laudoMotobombas.map((m, i) => `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface2,#f5f0eb);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+    <span style="font-size:12px;font-weight:700;color:var(--text2)">${i + 1}</span>
+    <input type="text" value="${(m.potencia||'').replace(/"/g,'&quot;')}" placeholder="Potência (ex: 1/2 CV)" oninput="laudoMotobombas[${i}].potencia=this.value" style="flex:1;min-width:120px;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <input type="text" value="${(m.marca||'').replace(/"/g,'&quot;')}" placeholder="Marca/modelo" oninput="laudoMotobombas[${i}].marca=this.value" style="flex:1;min-width:120px;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <select onchange="laudoMotobombas[${i}].selo=this.value" title="Selo de garantia de reparo indica bomba já rebobinada" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+      <option value=""${!m.selo?' selected':''}>Selo de reparo?</option>
+      <option${m.selo==='Sim, tem selo'?' selected':''}>Sim, tem selo</option>
+      <option${m.selo==='Não tem selo'?' selected':''}>Não tem selo</option>
+      <option${m.selo==='Não localizado'?' selected':''}>Não localizado</option>
+    </select>
+    <button type="button" onclick="rmMotobomba(${i})" title="Remover" style="border:none;background:none;color:var(--terra-txt,#c62828);cursor:pointer;font-size:16px;padding:0 4px">×</button>
+  </div>`).join('');
+}
+function addMotobomba() { laudoMotobombas.push({ potencia: '', marca: '', selo: '' }); renderMotobombas(); }
+function rmMotobomba(i) { laudoMotobombas.splice(i, 1); renderMotobombas(); }
+
 function abrirLaudo(id) {
   laudoVisitaId = id; fotosTmp = [];
   const v = visitas.find(x => x.id === id);
@@ -2897,6 +2995,21 @@ function abrirLaudo(id) {
   if (_ckDisj) _ckDisj.checked = !!l.disj_livre;
   const _ckSup = document.getElementById('l-suporte');
   if (_ckSup) _ckSup.checked = !!l.suporte;
+  // Vistoria prévia
+  _sv('l-filtracao30', l.filtracao30);
+  _sv('l-vaz-filtrante', l.vaz_filtrante);   _sv('l-vaz-filtrante-obs', l.vaz_filtrante_obs);
+  _sv('l-vaz-outros', l.vaz_outros);         _sv('l-vaz-outros-obs', l.vaz_outros_obs);
+  _sv('l-anomalia', l.anomalia);             _sv('l-anomalia-obs', l.anomalia_obs);
+  _sv('l-qg-dr', l.qg_dr);
+  _sv('l-qg-dps', l.qg_dps);
+  _sv('l-220-maq', l.v220_maquinas);         _sv('l-220-maq-obs', l.v220_maquinas_obs);
+  [['l-vaz-filtrante','l-vaz-filtrante-obs','Sim'], ['l-vaz-outros','l-vaz-outros-obs','Sim'],
+   ['l-anomalia','l-anomalia-obs','Sim'], ['l-220-maq','l-220-maq-obs','Não']].forEach(([s, c, v]) => {
+    const el = document.getElementById(s), campo = document.getElementById(c);
+    if (el && campo) campo.style.display = el.value === v ? '' : 'none';
+  });
+  laudoMotobombas = Array.isArray(l.motobombas) ? l.motobombas.map(m => ({ ...m })) : [];
+  renderMotobombas();
   document.getElementById('l-obs').value = l.obs || '';
   document.getElementById('l-material').value = l.material || '';
   setMoedaInput('l-valor-mat', l.valorMat);
@@ -4369,7 +4482,20 @@ async function salvarLaudo() {
     suporte: !!document.getElementById('l-suporte')?.checked,
     curva90: document.getElementById('l-curva90')?.value || '',
     joelho90: document.getElementById('l-joelho90')?.value || '',
-    joelho45: document.getElementById('l-joelho45')?.value || ''
+    joelho45: document.getElementById('l-joelho45')?.value || '',
+    // Vistoria prévia — estado do local antes da obra (não entra no cálculo)
+    filtracao30:        document.getElementById('l-filtracao30')?.value || '',
+    vaz_filtrante:      document.getElementById('l-vaz-filtrante')?.value || '',
+    vaz_filtrante_obs:  document.getElementById('l-vaz-filtrante-obs')?.value || '',
+    vaz_outros:         document.getElementById('l-vaz-outros')?.value || '',
+    vaz_outros_obs:     document.getElementById('l-vaz-outros-obs')?.value || '',
+    motobombas:         laudoMotobombas.filter(m => m.potencia || m.marca || m.selo),
+    anomalia:           document.getElementById('l-anomalia')?.value || '',
+    anomalia_obs:       document.getElementById('l-anomalia-obs')?.value || '',
+    qg_dr:              document.getElementById('l-qg-dr')?.value || '',
+    qg_dps:             document.getElementById('l-qg-dps')?.value || '',
+    v220_maquinas:      document.getElementById('l-220-maq')?.value || '',
+    v220_maquinas_obs:  document.getElementById('l-220-maq-obs')?.value || ''
   };
   await fetch('/api/visitas/' + laudoVisitaId + '/laudo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ laudo, fotos: fotosTmp }) });
   fecharModal('modal-laudo'); laudoVisitaId = null; fotosTmp = [];
