@@ -1724,8 +1724,8 @@ select option { background: var(--surface); color: var(--text); }
     <p style="font-size:11px;color:var(--text2);margin:0 0 10px">Prova do que existia antes da obra. Não influencia o orçamento.</p>
 
     <p style="font-size:12px;font-weight:700;color:#1565c0;margin:10px 0 6px">💧 Hidráulica</p>
-    <div class="campo"><label>A filtração funcionou por mais de 30 min sem intercorrência?</label>
-      <select id="l-filtracao30"><option value="">Selecione</option><option>Sim</option><option>Não</option><option>Não se aplica</option></select>
+    <div class="campo"><label>A filtração funcionou por mais de 10 min sem intercorrência?</label>
+      <select id="l-filtracao10"><option value="">Selecione</option><option>Sim</option><option>Não</option><option>Não se aplica</option></select>
     </div>
     <div class="campo"><label>O conjunto filtrante apresenta vazamento?</label>
       <select id="l-vaz-filtrante" onchange="toggleLaudoCampo(this,'l-vaz-filtrante-obs','Sim')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
@@ -2696,7 +2696,8 @@ function resumoVistoria(l) {
   if (!l) return '';
   const linhas = [];
   const alerta = (cond, txt) => linhas.push((cond ? '⚠️ ' : '') + txt);
-  if (l.filtracao30) alerta(l.filtracao30 === 'Não', 'Filtração 30 min sem intercorrência: ' + l.filtracao30);
+  const filtracao = l.filtracao10 ?? l.filtracao30; // filtracao30: laudos de antes da mudança
+  if (filtracao) alerta(filtracao === 'Não', 'Filtração 10 min sem intercorrência: ' + filtracao);
   if (l.vaz_filtrante) alerta(l.vaz_filtrante === 'Sim', 'Vazamento no conjunto filtrante: ' + l.vaz_filtrante + (l.vaz_filtrante_obs ? ' — ' + l.vaz_filtrante_obs : ''));
   if (l.vaz_outros) alerta(l.vaz_outros === 'Sim', 'Outro vazamento na hidráulica: ' + l.vaz_outros + (l.vaz_outros_obs ? ' — ' + l.vaz_outros_obs : ''));
   if (Array.isArray(l.motobombas) && l.motobombas.length) {
@@ -2996,7 +2997,7 @@ function abrirLaudo(id) {
   const _ckSup = document.getElementById('l-suporte');
   if (_ckSup) _ckSup.checked = !!l.suporte;
   // Vistoria prévia
-  _sv('l-filtracao30', l.filtracao30);
+  _sv('l-filtracao10', l.filtracao10 ?? l.filtracao30); // filtracao30: laudos salvos antes de virar 10 min
   _sv('l-vaz-filtrante', l.vaz_filtrante);   _sv('l-vaz-filtrante-obs', l.vaz_filtrante_obs);
   _sv('l-vaz-outros', l.vaz_outros);         _sv('l-vaz-outros-obs', l.vaz_outros_obs);
   _sv('l-anomalia', l.anomalia);             _sv('l-anomalia-obs', l.anomalia_obs);
@@ -4484,7 +4485,7 @@ async function salvarLaudo() {
     joelho90: document.getElementById('l-joelho90')?.value || '',
     joelho45: document.getElementById('l-joelho45')?.value || '',
     // Vistoria prévia — estado do local antes da obra (não entra no cálculo)
-    filtracao30:        document.getElementById('l-filtracao30')?.value || '',
+    filtracao10:        document.getElementById('l-filtracao10')?.value || '',
     vaz_filtrante:      document.getElementById('l-vaz-filtrante')?.value || '',
     vaz_filtrante_obs:  document.getElementById('l-vaz-filtrante-obs')?.value || '',
     vaz_outros:         document.getElementById('l-vaz-outros')?.value || '',
