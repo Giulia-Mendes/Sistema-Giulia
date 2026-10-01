@@ -1745,6 +1745,9 @@ select option { background: var(--surface); color: var(--text); }
     </div>
 
     <p style="font-size:12px;font-weight:700;color:#e65100;margin:14px 0 6px">⚡ Elétrica</p>
+    <div class="campo"><label>Possui aterramento?</label>
+      <select id="l-aterramento"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+    </div>
     <div class="campo"><label>O quadro geral possui DR?</label>
       <select id="l-qg-dr"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
     </div>
@@ -2707,6 +2710,7 @@ function resumoVistoria(l) {
     }).join(' · '));
   }
   if (l.anomalia) alerta(l.anomalia === 'Sim', 'Outra anomalia: ' + l.anomalia + (l.anomalia_obs ? ' — ' + l.anomalia_obs : ''));
+  if (l.aterramento) alerta(l.aterramento === 'Não', 'Aterramento: ' + l.aterramento);
   if (l.qg_dr) alerta(l.qg_dr === 'Não', 'DR no quadro geral: ' + l.qg_dr);
   if (l.qg_dps) alerta(l.qg_dps === 'Não', 'DPS no quadro geral: ' + l.qg_dps);
   if (l.v220_maquinas) alerta(l.v220_maquinas === 'Não', '220V na casa de máquinas: ' + l.v220_maquinas + (l.v220_maquinas_obs ? ' — ' + l.v220_maquinas_obs : ''));
@@ -3001,6 +3005,7 @@ function abrirLaudo(id) {
   _sv('l-vaz-filtrante', l.vaz_filtrante);   _sv('l-vaz-filtrante-obs', l.vaz_filtrante_obs);
   _sv('l-vaz-outros', l.vaz_outros);         _sv('l-vaz-outros-obs', l.vaz_outros_obs);
   _sv('l-anomalia', l.anomalia);             _sv('l-anomalia-obs', l.anomalia_obs);
+  _sv('l-aterramento', l.aterramento);
   _sv('l-qg-dr', l.qg_dr);
   _sv('l-qg-dps', l.qg_dps);
   _sv('l-220-maq', l.v220_maquinas);         _sv('l-220-maq-obs', l.v220_maquinas_obs);
@@ -4493,6 +4498,7 @@ async function salvarLaudo() {
     motobombas:         laudoMotobombas.filter(m => m.potencia || m.marca || m.selo),
     anomalia:           document.getElementById('l-anomalia')?.value || '',
     anomalia_obs:       document.getElementById('l-anomalia-obs')?.value || '',
+    aterramento:        document.getElementById('l-aterramento')?.value || '',
     qg_dr:              document.getElementById('l-qg-dr')?.value || '',
     qg_dps:             document.getElementById('l-qg-dps')?.value || '',
     v220_maquinas:      document.getElementById('l-220-maq')?.value || '',
