@@ -1266,11 +1266,12 @@ select option { background: var(--surface); color: var(--text); }
   </div>
 
   <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:8px">
     <div class="stat"><div class="lbl">Total</div><div class="val" id="ks-total">—</div></div>
     <div class="stat"><div class="lbl">Ortum S12</div><div class="val" id="ks-s12" style="color:#1976D2">—</div></div>
     <div class="stat"><div class="lbl">Prime Inv.</div><div class="val" id="ks-prime" style="color:#E64A19">—</div></div>
     <div class="stat"><div class="lbl">Capa térmica</div><div class="val" id="ks-capa" style="color:#00897B">—</div></div>
+    <div class="stat"><div class="lbl">Manta armada</div><div class="val" id="ks-manta" style="color:#6A1B9A">—</div></div>
     <div class="stat"><div class="lbl">Outros</div><div class="val" id="ks-outros" style="color:#666">—</div></div>
   </div>
 
@@ -1320,6 +1321,17 @@ select option { background: var(--surface); color: var(--text); }
       <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-capa">▼</span>
     </div>
     <div id="kommo-lista-capa" style="padding:4px 0"></div>
+  </div>
+
+  <!-- Seção Manta Armada -->
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-manta">
+    <div onclick="toggleKommoSec('manta')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">🛡️</span>
+      <span style="font-weight:600;font-size:14px;color:#6A1B9A">Manta armada</span>
+      <span id="kommo-badge-manta" style="background:#6A1B9A;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-manta">▼</span>
+    </div>
+    <div id="kommo-lista-manta" style="padding:4px 0"></div>
   </div>
 
   <!-- Seção Outros -->
@@ -7041,7 +7053,7 @@ window.addEventListener('error', ev => {
     setTimeout(() => { t.style.display = 'none'; }, 8000);
   } catch(e) {}
 });
-const _kommoSecs = { s12: true, prime: true, capa: true, outros: true };
+const _kommoSecs = { s12: true, prime: true, capa: true, manta: true, outros: true };
 
 function kommoHoje() {
   const hoje = new Date();
@@ -7138,6 +7150,8 @@ function detectarModelo(texto) {
   const t = texto.toLowerCase();
   if (t.includes('s12')) return 's12';
   if (t.includes('prime') || t.includes('full inverter') || t.includes('inverter')) return 'prime';
+  // Manta armada (revestimento) ≠ manta térmica, que é como alguns chamam a capa
+  if (t.includes('manta')) return /termic|térmic/.test(t) ? 'capa' : 'manta';
   if (t.includes('capa') || t.includes('termica') || t.includes('térmica')) return 'capa';
   // Anúncio de capa térmica: mensagem padrão genérica "Olá! Posso ter mais informações sobre isso?"
   if (t.includes('posso ter mais informa')) return 'capa';
@@ -7247,7 +7261,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
 // ── Follow-ups (mensagens enviadas pelas vendedoras no WhatsApp do Kommo) ──
 let _kommoFollowups = null; // null = ainda buscando
 let _kommoFupParcial = false; // a varredura parou no teto de páginas (período muito longo)
-const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], outros:['#E0E0E0','#424242'] };
+const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], manta:['#E1BEE7','#6A1B9A'], outros:['#E0E0E0','#424242'] };
 
 function _kommoDiaHoje() { return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); }
 
@@ -7284,16 +7298,17 @@ const CONV_FAIXAS = [
 ];
 
 // Conversão em visitas. A base são só os leads que PODEM virar visita:
-// equipamento (S12/Prime) e do RJ — capa não tem visita e fora do RJ não atende.
+// S12, Prime e manta armada, do RJ — capa não tem visita e fora do RJ não atende.
+const MODELOS_COM_VISITA = ['s12', 'prime', 'manta'];
 function renderKommoConversao(leads) {
   const el = document.getElementById('kommo-conversao');
   if (!el) return;
   const base = leads.filter(l =>
-    ['s12','prime'].includes(detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim()))
+    MODELOS_COM_VISITA.includes(detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim()))
     && kommoEstado(l.tel).uf === 'RJ');
   if (!base.length) {
     el.innerHTML = '<div class="card" style="padding:12px 16px;font-size:12px;color:var(--text2)">'
-      + 'Nenhum lead de equipamento do RJ neste recorte — a conversão em visitas é calculada só sobre esses.</div>';
+      + 'Nenhum lead de visita do RJ neste recorte (S12, Prime e manta armada) — a conversão é calculada só sobre esses.</div>';
     return;
   }
   const vis = (_kommoFunil || {}).visitas || {};
@@ -7309,7 +7324,7 @@ function renderKommoConversao(leads) {
       <span style="font-size:13px;font-weight:700;color:var(--text)">🎯 Conversão em visitas</span>
       <span style="font-size:30px;font-weight:700;color:${faixa.cor};line-height:1">${pct.toFixed(1).replace('.', ',')}%</span>
       <span style="background:${faixa.bg};color:${faixa.cor};border-radius:99px;padding:2px 12px;font-size:12px;font-weight:700">${faixa.rotulo}</span>
-      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de equipamento do RJ</span>
+      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de visita do RJ (S12, Prime e manta)</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${metas.map(m => `<div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:8px 10px">
@@ -7330,6 +7345,7 @@ function renderKommoStats(leads, secs, filtrando) {
   set('ks-s12',    secs.s12.length);
   set('ks-prime',  secs.prime.length);
   set('ks-capa',   secs.capa.length);
+  set('ks-manta',  secs.manta.length);
   set('ks-outros', secs.outros.length);
 
   const vis = (_kommoFunil || {}).visitas || {}, props = (_kommoFunil || {}).propostas || {};
@@ -7384,7 +7400,7 @@ function renderKommoListas() {
     if (fFup === 'sem_resposta') return f.contatos.length > 0 && !f.respondeu;
     return true;
   });
-  const secs = { s12: [], prime: [], capa: [], outros: [] };
+  const secs = { s12: [], prime: [], capa: [], manta: [], outros: [] };
   for (const l of leads) {
     const m = detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim());
     (secs[m] || secs.outros).push(l);
