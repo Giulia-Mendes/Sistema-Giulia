@@ -1216,6 +1216,25 @@ app.get('/api/tiny/debug', auth, adminOnly, async (req, res) => {
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ── CACHE DE LEADS DO KOMMO ──
+// O texto da primeira mensagem nem sempre volta do Kommo (o token não lê conversas;
+// depende da nota do Salesbot e da API de talks, que falha em parte dos leads).
+// Sem guardar, a classificação do lead mudava a cada F5 e as contagens dançavam.
+// Aqui o que já veio uma vez fica gravado e serve de base nas próximas consultas.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kommo_leads (
+    lead_id INTEGER PRIMARY KEY,
+    nome TEXT,
+    tel TEXT,
+    vendedor TEXT,
+    lead_name TEXT,
+    texto_primeira TEXT,
+    primeiro_contato INTEGER,
+    atualizado_em TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_kommo_leads_contato ON kommo_leads(primeiro_contato);
+`);
+
 // ── TINY PEDIDOS LOJA FÍSICA ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS tiny_pedidos (
@@ -2945,7 +2964,20 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
 
     const leadIds = Object.keys(leadTalkMap).map(Number);
     if (leadIds.length === 0) {
-      return res.json({ total: 0, data: dataStr, leads: [] });
+      // Nenhuma conversa voltou do Kommo. Pode ser período realmente vazio ou falha
+      // da API — nos dois casos devolve o que já está guardado para o período.
+      const guardados = db.prepare('SELECT * FROM kommo_leads WHERE primeiro_contato >= ? AND primeiro_contato <= ? ORDER BY primeiro_contato')
+        .all(inicio, fim);
+      return res.json({
+        total: guardados.length, data: dataStr,
+        leads: guardados.map(c => ({
+          lead_id: c.lead_id, nome: c.nome || `Lead #${c.lead_id}`, tel: c.tel || '',
+          vendedor: c.vendedor || '', lead_name: c.lead_name || '',
+          primeiro_contato: c.primeiro_contato, texto_primeira: c.texto_primeira || '',
+          url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${c.lead_id}`, do_cache: true,
+        })),
+        cache: { texto_completado: 0, leads_do_cache: guardados.length },
+      });
     }
 
     // 2. Busca detalhes dos leads em lotes de 50 (nome, pipeline, custom fields)
@@ -3051,10 +3083,60 @@ app.get('/api/kommo/primeiras-mensagens', auth, async (req, res) => {
       });
     }
 
+    // Grava o que veio e completa o que faltou com o que já estava guardado.
+    // Campo vazio nunca sobrescreve um valor bom que já existe no banco.
+    const guardar = db.prepare(`INSERT INTO kommo_leads
+      (lead_id, nome, tel, vendedor, lead_name, texto_primeira, primeiro_contato, atualizado_em)
+      VALUES (?,?,?,?,?,?,?,datetime('now','localtime'))
+      ON CONFLICT(lead_id) DO UPDATE SET
+        nome           = CASE WHEN TRIM(COALESCE(excluded.nome,'')) != '' AND excluded.nome NOT LIKE 'Lead #%' THEN excluded.nome ELSE kommo_leads.nome END,
+        tel            = CASE WHEN TRIM(COALESCE(excluded.tel,'')) != '' THEN excluded.tel ELSE kommo_leads.tel END,
+        vendedor       = CASE WHEN TRIM(COALESCE(excluded.vendedor,'')) != '' THEN excluded.vendedor ELSE kommo_leads.vendedor END,
+        lead_name      = CASE WHEN TRIM(COALESCE(excluded.lead_name,'')) != '' THEN excluded.lead_name ELSE kommo_leads.lead_name END,
+        texto_primeira = CASE WHEN TRIM(COALESCE(excluded.texto_primeira,'')) != '' THEN excluded.texto_primeira ELSE kommo_leads.texto_primeira END,
+        primeiro_contato = COALESCE(excluded.primeiro_contato, kommo_leads.primeiro_contato),
+        atualizado_em  = datetime('now','localtime')`);
+    const lerCache = db.prepare('SELECT * FROM kommo_leads WHERE lead_id = ?');
+    let completados = 0;
+    for (const l of resultado) {
+      try {
+        guardar.run(l.lead_id, l.nome, l.tel, l.vendedor, l.lead_name, l.texto_primeira, l.primeiro_contato);
+        if (!l.texto_primeira || !l.tel || !l.vendedor) {
+          const c = lerCache.get(l.lead_id);
+          if (c) {
+            if (!l.texto_primeira && c.texto_primeira) { l.texto_primeira = c.texto_primeira; completados++; }
+            if (!l.tel && c.tel) l.tel = c.tel;
+            if (!l.vendedor && c.vendedor) l.vendedor = c.vendedor;
+            if ((!l.nome || /^Lead #/.test(l.nome)) && c.nome) l.nome = c.nome;
+          }
+        }
+      } catch (e) { console.warn('[Kommo cache]', e.message); }
+    }
+
+    // Se a API do Kommo falhar numa consulta (acontece), os leads do período que já
+    // estão guardados entram mesmo assim — a página para de oscilar entre F5.
+    const vistos = new Set(resultado.map(l => l.lead_id));
+    let doCache = 0;
+    try {
+      const guardados = db.prepare('SELECT * FROM kommo_leads WHERE primeiro_contato >= ? AND primeiro_contato <= ?').all(inicio, fim);
+      for (const c of guardados) {
+        if (vistos.has(c.lead_id)) continue;
+        doCache++;
+        resultado.push({
+          lead_id: c.lead_id, nome: c.nome || `Lead #${c.lead_id}`, tel: c.tel || '',
+          vendedor: c.vendedor || '', lead_name: c.lead_name || '',
+          primeiro_contato: c.primeiro_contato, texto_primeira: c.texto_primeira || '',
+          url: `https://${KOMMO_SUBDOMAIN}.kommo.com/leads/detail/${c.lead_id}`,
+          do_cache: true,
+        });
+      }
+    } catch (e) { console.warn('[Kommo cache leitura]', e.message); }
+
     // Ordena por hora do primeiro contato (talk.created_at = hora exata da 1ª mensagem)
     resultado.sort((a, b) => (a.primeiro_contato || 0) - (b.primeiro_contato || 0));
 
-    res.json({ total: resultado.length, data: dataStr, leads: resultado });
+    res.json({ total: resultado.length, data: dataStr, leads: resultado,
+      cache: { texto_completado: completados, leads_do_cache: doCache } });
   } catch (e) {
     console.error('[Kommo primeiras-mensagens] Erro:', e.message);
     res.status(500).json({ erro: e.message });
