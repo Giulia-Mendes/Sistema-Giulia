@@ -7303,16 +7303,22 @@ const MODELOS_COM_VISITA = ['s12', 'prime', 'manta'];
 function renderKommoConversao(leads) {
   const el = document.getElementById('kommo-conversao');
   if (!el) return;
+  const vis = (_kommoFunil || {}).visitas || {};
+  const temVisita = l => vis[String(l.lead_id).trim()] > 0;
+  // Lead com visita marcada entra na base mesmo sem cair em S12/Prime/manta: a visita
+  // é prova de que era lead de visita, e a classificação pelo texto falha quando o
+  // Kommo não devolve a primeira mensagem ou quando o cliente escreve de outro jeito.
+  // Sem isso, o card contava 1 de 3 visitas e não batia com "Visitas marcadas".
   const base = leads.filter(l =>
-    MODELOS_COM_VISITA.includes(detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim()))
-    && kommoEstado(l.tel).uf === 'RJ');
+    (MODELOS_COM_VISITA.includes(detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim()))
+      && kommoEstado(l.tel).uf === 'RJ')
+    || temVisita(l));
   if (!base.length) {
     el.innerHTML = '<div class="card" style="padding:12px 16px;font-size:12px;color:var(--text2)">'
-      + 'Nenhum lead de visita do RJ neste recorte (S12, Prime e manta armada) — a conversão é calculada só sobre esses.</div>';
+      + 'Nenhum lead de visita do RJ neste recorte (S12, Prime e manta armada), nem visita marcada.</div>';
     return;
   }
-  const vis = (_kommoFunil || {}).visitas || {};
-  const marcadas = base.filter(l => vis[String(l.lead_id).trim()] > 0).length;
+  const marcadas = base.filter(temVisita).length;
   const pct = (marcadas / base.length) * 100;
   const faixa = CONV_FAIXAS.find(f => pct >= f.min);
   const metas = [15, 20, 23].map(p => {
@@ -7324,7 +7330,7 @@ function renderKommoConversao(leads) {
       <span style="font-size:13px;font-weight:700;color:var(--text)">🎯 Conversão em visitas</span>
       <span style="font-size:30px;font-weight:700;color:${faixa.cor};line-height:1">${pct.toFixed(1).replace('.', ',')}%</span>
       <span style="background:${faixa.bg};color:${faixa.cor};border-radius:99px;padding:2px 12px;font-size:12px;font-weight:700">${faixa.rotulo}</span>
-      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de visita do RJ (S12, Prime e manta)</span>
+      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de visita do RJ</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${metas.map(m => `<div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:8px 10px">
@@ -7333,7 +7339,7 @@ function renderKommoConversao(leads) {
         <div style="font-size:11px;color:${m.faltam ? faixa.cor : '#2e7d32'};font-weight:600">${m.faltam ? 'faltam ' + m.faltam : '✅ atingido'}</div>
       </div>`).join('')}
     </div>
-    <p style="font-size:11px;color:var(--text2);margin:8px 0 0">Conta só visitas lançadas no Alery com o nº do lead vinculado.</p>
+    <p style="font-size:11px;color:var(--text2);margin:8px 0 0">Base: leads de S12, Prime e manta armada do RJ, mais qualquer lead com visita marcada. Conta só visitas lançadas no Alery com o nº do lead vinculado.</p>
   </div>`;
 }
 
