@@ -873,6 +873,37 @@ app.put('/api/metas', auth, (req, res) => {
   res.json({ sucesso: true });
 });
 
+// ── METAS POR TIPO DE EVENTO (visita, instalação, retorno, entrega) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS metas_eventos (
+    tipo TEXT NOT NULL,
+    ano INTEGER NOT NULL,
+    mes INTEGER NOT NULL,
+    meta INTEGER DEFAULT 0,
+    PRIMARY KEY (tipo, ano, mes)
+  );
+`);
+const TIPOS_EVENTO = ['visita', 'instalacao', 'retorno', 'entrega'];
+
+app.get('/api/metas-eventos', auth, (req, res) => {
+  const { ano, mes } = req.query;
+  const rows = (ano && mes)
+    ? db.prepare('SELECT * FROM metas_eventos WHERE ano=? AND mes=?').all(ano, mes)
+    : db.prepare('SELECT * FROM metas_eventos').all();
+  res.json(rows);
+});
+
+app.put('/api/metas-eventos', auth, (req, res) => {
+  const { tipo, ano, mes } = req.body || {};
+  const meta = parseInt(req.body?.meta) || 0;
+  if (!TIPOS_EVENTO.includes(tipo)) return res.status(400).json({ erro: 'Tipo de evento inválido.' });
+  if (!ano || !mes) return res.status(400).json({ erro: 'Informe ano e mês.' });
+  db.prepare(`INSERT INTO metas_eventos (tipo,ano,mes,meta) VALUES (?,?,?,?)
+    ON CONFLICT(tipo,ano,mes) DO UPDATE SET meta=excluded.meta`).run(tipo, ano, mes, meta);
+  audit(req, 'ATUALIZAR_META_EVENTO', 'metas_eventos', 0, null, { tipo, ano, mes, meta });
+  res.json({ sucesso: true });
+});
+
 // ── AUDITORIA ──
 app.get('/api/auditoria', auth, adminOnly, (req, res) => {
   res.json(db.prepare('SELECT * FROM auditoria ORDER BY momento DESC LIMIT 1000').all());
