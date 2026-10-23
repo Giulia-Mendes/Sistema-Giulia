@@ -139,7 +139,7 @@ function gcalCorPorTecnico(tecnicos) {
 // Monta o objeto de evento Google Calendar a partir de uma visita do banco
 function gcalEventFromVisita(v) {
   const tecnicos = (() => { try { return JSON.parse(v.tecnicos || '[]'); } catch { return []; } })();
-  const tipoLabel = v.tipo === 'instalacao' ? 'Instalação' : v.tipo === 'retorno' ? 'Retorno' : v.tipo === 'manutencao' ? 'Manutenção' : 'Visita Técnica';
+  const tipoLabel = v.tipo === 'instalacao' ? 'Instalação' : v.tipo === 'retorno' ? 'Retorno' : v.tipo === 'entrega' ? 'Entrega' : v.tipo === 'manutencao' ? 'Manutenção' : 'Visita Técnica';
   const title = `${tipoLabel} – ${v.nome}`;
   const tecNomes = tecnicos.map(t => t.split('|')[0]).join(', ');
   const desc = [
