@@ -108,7 +108,13 @@ const GCAL_COR_TECNICO = {
 };
 const GCAL_COR_SEM_TECNICO = '8';       // Grafite (cinza) — falta definir quem vai
 const GCAL_COR_EQUIPE = '3';            // Uva (roxo) — dois ou mais técnicos na mesma visita
-const GCAL_CORES_EXTRAS = ['5', '11', '9', '4', '2', '1']; // para técnicos novos
+// Duplas que saem juntas quase sempre têm cor própria: assim o roxo passa a
+// significar "a dupla levou mais alguém", que é a informação que interessa.
+// Vale só para a combinação exata; com um terceiro técnico volta a ser roxo.
+const GCAL_COR_DUPLA_FIXA = [
+  { tokens: ['wesley', 'roque'], cor: '4' }, // Flamingo (rosa)
+];
+const GCAL_CORES_EXTRAS = ['11', '9', '2', '1']; // para técnicos novos (fora as reservadas)
 
 function gcalCorPorTecnico(tecnicos) {
   // Tira acento só para comparar, para o mesmo técnico escrito de dois jeitos não virar dois
@@ -122,7 +128,12 @@ function gcalCorPorTecnico(tecnicos) {
   if (!nomes.length) return GCAL_COR_SEM_TECNICO;
   // Dois ou mais técnicos têm cor própria: antes a visita ficava com a cor de quem
   // fosse escolhido primeiro, então a mesma dupla mudava de cor conforme a ordem.
-  if (nomes.length > 1) return GCAL_COR_EQUIPE;
+  if (nomes.length > 1) {
+    const fixa = GCAL_COR_DUPLA_FIXA.find(d =>
+      d.tokens.length === nomes.length &&
+      d.tokens.every(tok => nomes.some(n => semAcento(n).includes(tok))));
+    return fixa ? fixa.cor : GCAL_COR_EQUIPE;
+  }
   const nome = nomes[0];
   // Cor do cadastro de técnicos; o mapa fixo abaixo cobre quem ainda não tem cadastro
   try {
@@ -1318,8 +1329,8 @@ app.post('/api/tecnicos', auth, (req, res) => {
   // Reaproveita o cadastro antigo se o mesmo nome foi removido antes
   const removido = db.prepare('SELECT id FROM tecnicos WHERE ativo=0 AND LOWER(nome)=LOWER(?)').get(nome);
   const usadas = db.prepare('SELECT cor FROM tecnicos WHERE ativo=1 AND cor IS NOT NULL').all().map(r => r.cor);
-  // Não repete cor e não usa as reservadas: 3 (dois técnicos) e 8 (sem técnico)
-  const cor = ['7','10','6','5','11','9','4','2','1'].find(c => !usadas.includes(c)) || '1';
+  // Não repete cor e não usa as reservadas: 3 (dois técnicos), 8 (sem técnico) e 4 (dupla fixa)
+  const cor = ['7','10','6','5','11','9','2','1'].find(c => !usadas.includes(c)) || '1';
   let id;
   if (removido) {
     db.prepare('UPDATE tecnicos SET ativo=1, cpf=?, cor=? WHERE id=?').run(cpf || null, cor, removido.id);
