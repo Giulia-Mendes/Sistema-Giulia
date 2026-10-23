@@ -2648,8 +2648,11 @@ function tecnicoForaDoCadastro(tecnicos) {
   return (tecnicos || []).find(t => !cadastrados.includes(String(t).split('|')[0].trim().toLowerCase()));
 }
 
+// Só os checkboxes da lista de técnicos. Pegar todos da tela trazia junto o
+// "enviar para o Kommo", que vem marcado e sem valor — virava um técnico "on".
 function getTecs() {
-  return Array.from(document.querySelectorAll('#tela-visita input[type=checkbox]:checked')).map(c => c.value);
+  return Array.from(document.querySelectorAll('#tec-lista input[type=checkbox]:checked, #outro-tec-check:checked'))
+    .map(c => c.value).filter(v => v && v !== 'on');
 }
 function addTec() {
   const n = document.getElementById('outro-tec-nome').value.trim();
@@ -2715,7 +2718,8 @@ function addTecEdit() {
   document.getElementById('ev-outro-tec-cpf').value = '';
 }
 function getTecsEdit() {
-  return Array.from(document.querySelectorAll('#modal-edit-visita input[type=checkbox]:checked')).map(c => c.value);
+  return Array.from(document.querySelectorAll('#ev-tec-lista input[type=checkbox]:checked, #ev-outro-tec-check:checked'))
+    .map(c => c.value).filter(v => v && v !== 'on');
 }
 function abrirEditarVisita(id) {
   editandoVisitaId = id;

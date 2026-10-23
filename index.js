@@ -1263,6 +1263,25 @@ app.get('/api/tiny/debug', auth, adminOnly, async (req, res) => {
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 
+// Limpeza única: o checkbox "enviar para o Kommo" não tinha value e era salvo como
+// técnico "on", aparecendo na descrição do evento do Google Agenda.
+try {
+  const jaLimpo = db.prepare("SELECT valor FROM config WHERE chave='tecnicos_on_limpos'").get();
+  if (!jaLimpo) {
+    const upd = db.prepare('UPDATE visitas SET tecnicos=? WHERE id=?');
+    let n = 0;
+    for (const v of db.prepare("SELECT id, tecnicos FROM visitas WHERE tecnicos LIKE '%\"on\"%'").all()) {
+      try {
+        const lista = JSON.parse(v.tecnicos || '[]').filter(t => String(t).trim() !== 'on');
+        upd.run(JSON.stringify(lista), v.id);
+        n++;
+      } catch (e) { /* registro corrompido: deixa como está */ }
+    }
+    db.prepare("INSERT INTO config (chave,valor) VALUES ('tecnicos_on_limpos','1')").run();
+    if (n) console.log(`[limpeza] "on" removido de ${n} visita(s)`);
+  }
+} catch (e) { console.warn('[limpeza tecnicos on]', e.message); }
+
 // ── TÉCNICOS ──
 // Antes a lista ficava fixa no HTML; agora é cadastro, para a equipe mudar sozinha.
 db.exec(`
