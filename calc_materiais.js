@@ -143,6 +143,7 @@ function calcularMateriais(laudo = {}, modelo = '') {
   const curva90    = num(laudo.curva90);
   const joelho90   = num(laudo.joelho90);
   const joelho45   = num(laudo.joelho45);
+  const teExtra    = num(laudo.te);   // além dos 2 do by-pass
   const precisaSup = !!laudo.suporte;
   const temDisj    = !!laudo.disj_livre;
 
@@ -185,7 +186,8 @@ function calcularMateriais(laudo = {}, modelo = '') {
   const metrosTubo = distTubo * 2 * (1 + FOLGA_PCT);
   add('Tubo Soldável 50x3m', metrosTubo / METROS_POR_BARRA, 'UN', `${distTubo}m ida e volta + ${FOLGA_PCT * 100}% folga`, 'tubo soldavel 50');
   add('Registro de Esfera Soldável 50mm C/ União', 3, 'UN', 'by-pass (entrada, saída e desvio)', 'registro esfera soldavel 50 uniao');
-  add('TE Soldável 50mm', 2, 'UN', 'by-pass', 'te soldavel 50');
+  add('TE Soldável 50mm', 2 + teExtra, 'UN',
+    teExtra ? `2 do by-pass + ${teExtra} do laudo` : 'by-pass', 'te soldavel 50');
   add('Curva 90 Soldável 50mm', curva90, 'UN', 'informado no laudo', 'curva 90 soldavel 50');
   add('Joelho 90 Soldável 50mm', joelho90, 'UN', 'informado no laudo', 'joelho 90 soldavel 50');
   add('Joelho 45 Soldável 50mm', joelho45, 'UN', 'informado no laudo', 'joelho 45 soldavel 50');

@@ -612,6 +612,38 @@ app.delete('/api/visitas/:id', auth, async (req, res) => {
     }
   }
 });
+// ── VÍDEOS DO LAUDO ──
+// Foto é gravada como base64 dentro do banco; vídeo não pode ser, senão o volume
+// enche (já aconteceu). Aqui o arquivo vai para o disco e o laudo guarda só o caminho.
+const MIDIA_DIR = path.join(DATA_DIR, 'midia');
+if (!fs.existsSync(MIDIA_DIR)) fs.mkdirSync(MIDIA_DIR, { recursive: true });
+const VIDEO_MAX_MB = 25;
+
+app.post('/api/visitas/:id/video', auth, (req, res) => {
+  try {
+    const { dados, nome } = req.body || {};
+    const m = String(dados || '').match(/^data:(video\/[a-z0-9.+-]+);base64,(.+)$/i);
+    if (!m) return res.status(400).json({ erro: 'Envie um arquivo de vídeo.' });
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > VIDEO_MAX_MB * 1024 * 1024) {
+      return res.status(413).json({ erro: `Vídeo acima de ${VIDEO_MAX_MB} MB. Grave um trecho menor.` });
+    }
+    const ext = (m[1].split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '').slice(0, 5);
+    const arquivo = `v${parseInt(req.params.id) || 0}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    fs.writeFileSync(path.join(MIDIA_DIR, arquivo), buf);
+    audit(req, 'ANEXAR_VIDEO', 'visitas', req.params.id, null, { arquivo, mb: +(buf.length / 1048576).toFixed(1) });
+    res.json({ sucesso: true, url: '/api/midia/' + arquivo, nome: nome || arquivo, tamanho: buf.length });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+app.get('/api/midia/:arquivo', auth, (req, res) => {
+  // Só o nome do arquivo: barra ou ".." aqui viraria leitura de outro diretório
+  const nome = path.basename(String(req.params.arquivo || ''));
+  const caminho = path.join(MIDIA_DIR, nome);
+  if (!caminho.startsWith(MIDIA_DIR) || !fs.existsSync(caminho)) return res.status(404).json({ erro: 'Arquivo não encontrado.' });
+  res.sendFile(caminho);
+});
+
 app.get('/api/visitas/:id/fotos', auth, (req, res) => {
   const row = db.prepare('SELECT fotos FROM visitas WHERE id=?').get(req.params.id);
   if (!row) return res.json([]);

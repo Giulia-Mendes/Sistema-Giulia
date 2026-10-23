@@ -1725,6 +1725,7 @@ select option { background: var(--surface); color: var(--text); }
       <div class="campo"><label>Curvas 90° (un)</label><input type="number" id="l-curva90" min="0" step="1" placeholder="0"></div>
       <div class="campo"><label>Joelhos 90° (un)</label><input type="number" id="l-joelho90" min="0" step="1" placeholder="0"></div>
       <div class="campo"><label>Joelhos 45° (un)</label><input type="number" id="l-joelho45" min="0" step="1" placeholder="0"></div>
+      <div class="campo"><label>Tês 50mm (além do by-pass)</label><input type="number" id="l-te" min="0" step="1" placeholder="0"></div>
       <div class="campo">
         <label>Dias p/ instalação</label>
         <select id="l-dias" onchange="document.getElementById('l-dias-outro').style.display=this.value==='outro'?'':'none'">
@@ -1782,6 +1783,14 @@ select option { background: var(--surface); color: var(--text); }
 
     <p class="sec" style="margin-top:8px">Fotos do local</p>
     <div class="foto-grid" id="foto-grid"></div>
+
+    <p class="sec" style="margin-top:12px">Vídeos do local</p>
+    <div id="video-lista"></div>
+    <label class="btn btn-branco" style="font-size:12px;padding:6px 12px;display:inline-block;cursor:pointer;margin-top:4px">
+      🎥 Adicionar vídeo
+      <input type="file" accept="video/*" style="display:none" onchange="addVideoLaudo(this)">
+    </label>
+    <p style="font-size:11px;color:var(--text2);margin:4px 0 0">Até 25 MB por vídeo. Grave trechos curtos do que importa.</p>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-branco" onclick="fecharModal('modal-laudo')">Cancelar</button>
@@ -2859,6 +2868,10 @@ function renderVisitas() {
           (l.tensao ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Tensão</div><div style="font-size:13px">' + l.tensao + '</div>' : '') +
           (l.obs ? '<div style="font-size:12px;color:#888780;margin:4px 0 2px">Observações</div><div style="font-size:13px">' + l.obs + '</div>' : '') +
           (resumoVistoria(l) ? '<div style="font-size:12px;color:#888780;margin:8px 0 2px">🔎 Vistoria prévia</div><div style="font-size:13px;line-height:1.7">' + resumoVistoria(l) + '</div>' : '') +
+          (Array.isArray(l.videos) && l.videos.length
+            ? '<div style="font-size:12px;color:#888780;margin:8px 0 4px">' + l.videos.length + ' vídeo(s)</div>'
+              + l.videos.map((vd, i) => '<a href="' + vd.url + '" target="_blank" style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:99px;padding:2px 10px;font-size:12px;text-decoration:none;margin:0 6px 6px 0">🎥 ' + (vd.nome || ('vídeo ' + (i+1))) + '</a>').join('')
+            : '') +
           (v.fotos && v.fotos.length ? '<div style="font-size:12px;color:#888780;margin:8px 0 6px">' + v.fotos.length + ' foto(s)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + v.fotos.map((f,i) => '<img src="' + f + '" onclick="abrirLightbox(\'' + f + '\',\'foto_' + i + '\')" style="width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer">').join('') + '</div>' : '') +
           '</div>';
       }
@@ -3077,6 +3090,7 @@ function abrirLaudo(id) {
   _sv('l-curva90', l.curva90);
   _sv('l-joelho90', l.joelho90);
   _sv('l-joelho45', l.joelho45);
+  _sv('l-te', l.te);
   const _ckDisj = document.getElementById('l-disj-livre');
   if (_ckDisj) _ckDisj.checked = !!l.disj_livre;
   const _ckSup = document.getElementById('l-suporte');
@@ -3107,6 +3121,8 @@ function abrirLaudo(id) {
   else { sd.value = ''; io.style.display = 'none'; }
   fotosTmp = [...(v.fotos || [])];
   renderFotos();
+  videosTmp = Array.isArray(l.videos) ? l.videos.map(x => ({ ...x })) : [];
+  renderVideosLaudo();
   abrirModal('modal-laudo');
 }
 function renderFotos() {
@@ -3121,6 +3137,48 @@ function renderFotos() {
   g.innerHTML = h;
 }
 function abrirFotoLaudo(i) { if (fotosTmp[i]) abrirLightbox(fotosTmp[i], 'foto_' + i); }
+
+// ── Vídeos do laudo ──
+// O arquivo vai para o disco do servidor; o laudo guarda só o endereço dele.
+let videosTmp = [];
+function renderVideosLaudo() {
+  const wrap = document.getElementById('video-lista');
+  if (!wrap) return;
+  if (!videosTmp.length) { wrap.innerHTML = '<p style="font-size:12px;color:var(--text2);margin:0">Nenhum vídeo.</p>'; return; }
+  wrap.innerHTML = videosTmp.map((v, i) =>
+    '<div style="display:flex;align-items:center;gap:8px;background:var(--surface2,#f5f0eb);border-radius:8px;padding:7px 10px;margin-bottom:6px">'
+    + '<span style="font-size:15px">🎥</span>'
+    + '<a href="' + v.url + '" target="_blank" style="flex:1;font-size:12px;color:var(--text);text-decoration:none;word-break:break-all">'
+      + (v.nome || 'vídeo ' + (i+1)) + (v.tamanho ? ' <span style="color:var(--text2)">(' + (v.tamanho/1048576).toFixed(1).replace('.',',') + ' MB)</span>' : '')
+    + '</a>'
+    + '<button type="button" onclick="rmVideoLaudo(' + i + ')" title="Remover" style="border:none;background:none;color:var(--terra-txt,#c62828);cursor:pointer;font-size:16px">×</button>'
+    + '</div>').join('');
+}
+async function addVideoLaudo(inp) {
+  const file = inp.files[0];
+  inp.value = '';
+  if (!file) return;
+  if (file.size > 25 * 1024 * 1024) {
+    alert('Esse vídeo tem ' + (file.size/1048576).toFixed(1) + ' MB. O limite é 25 MB — grave um trecho menor.');
+    return;
+  }
+  if (!laudoVisitaId) { alert('Salve a visita antes de anexar vídeo.'); return; }
+  const wrap = document.getElementById('video-lista');
+  if (wrap) wrap.insertAdjacentHTML('beforeend', '<p id="video-subindo" style="font-size:12px;color:var(--text2);margin:0">⏳ enviando vídeo…</p>');
+  try {
+    const dados = await new Promise((ok, erro) => { const r = new FileReader(); r.onload = e => ok(e.target.result); r.onerror = erro; r.readAsDataURL(file); });
+    const r = await fetch('/api/visitas/' + laudoVisitaId + '/video', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ dados, nome: file.name })
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(d.erro || 'Não foi possível enviar o vídeo.'); }
+    else videosTmp.push({ url: d.url, nome: d.nome, tamanho: d.tamanho });
+  } catch (e) { alert('Erro ao enviar o vídeo.'); }
+  document.getElementById('video-subindo')?.remove();
+  renderVideosLaudo();
+}
+function rmVideoLaudo(i) { videosTmp.splice(i, 1); renderVideosLaudo(); }
 function addFotos(inp) {
   const files = Array.from(inp.files);
   inp.value = '';
@@ -4570,6 +4628,8 @@ async function salvarLaudo() {
     curva90: document.getElementById('l-curva90')?.value || '',
     joelho90: document.getElementById('l-joelho90')?.value || '',
     joelho45: document.getElementById('l-joelho45')?.value || '',
+    te: document.getElementById('l-te')?.value || '',
+    videos: videosTmp,
     // Vistoria prévia — estado do local antes da obra (não entra no cálculo)
     filtracao10:        document.getElementById('l-filtracao10')?.value || '',
     vaz_filtrante:      document.getElementById('l-vaz-filtrante')?.value || '',
