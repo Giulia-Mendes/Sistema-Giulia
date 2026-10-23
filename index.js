@@ -107,13 +107,23 @@ const GCAL_COR_TECNICO = {
   'caio': '6',
 };
 const GCAL_COR_SEM_TECNICO = '8';       // Grafite (cinza) — falta definir quem vai
-const GCAL_CORES_EXTRAS = ['3', '5', '11', '9', '4', '2', '1']; // para técnicos novos
+const GCAL_COR_EQUIPE = '3';            // Uva (roxo) — dois ou mais técnicos na mesma visita
+const GCAL_CORES_EXTRAS = ['5', '11', '9', '4', '2', '1']; // para técnicos novos
 
 function gcalCorPorTecnico(tecnicos) {
-  if (!tecnicos || !tecnicos.length) return GCAL_COR_SEM_TECNICO;
-  // Com mais de um técnico, usa a cor do primeiro da lista
-  const nome = String(tecnicos[0] || '').split('|')[0].trim().toLowerCase();
-  if (!nome) return GCAL_COR_SEM_TECNICO;
+  // Tira acento só para comparar, para o mesmo técnico escrito de dois jeitos não virar dois
+  const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const nomes = [];
+  for (const t of (tecnicos || [])) {
+    const nome = String(t || '').split('|')[0].trim().toLowerCase();
+    if (!nome) continue;
+    if (!nomes.some(n => semAcento(n) === semAcento(nome))) nomes.push(nome);
+  }
+  if (!nomes.length) return GCAL_COR_SEM_TECNICO;
+  // Dois ou mais técnicos têm cor própria: antes a visita ficava com a cor de quem
+  // fosse escolhido primeiro, então a mesma dupla mudava de cor conforme a ordem.
+  if (nomes.length > 1) return GCAL_COR_EQUIPE;
+  const nome = nomes[0];
   if (GCAL_COR_TECNICO[nome]) return GCAL_COR_TECNICO[nome];
   // Técnico não cadastrado: cor estável derivada do nome (o mesmo nome sempre recebe a mesma cor)
   let h = 0;
