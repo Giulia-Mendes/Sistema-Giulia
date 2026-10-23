@@ -124,6 +124,11 @@ function gcalCorPorTecnico(tecnicos) {
   // fosse escolhido primeiro, então a mesma dupla mudava de cor conforme a ordem.
   if (nomes.length > 1) return GCAL_COR_EQUIPE;
   const nome = nomes[0];
+  // Cor do cadastro de técnicos; o mapa fixo abaixo cobre quem ainda não tem cadastro
+  try {
+    const t = db.prepare('SELECT cor FROM tecnicos WHERE ativo=1 AND LOWER(nome)=LOWER(?)').get(nome);
+    if (t?.cor) return t.cor;
+  } catch (e) { /* banco ainda não pronto: segue para o mapa fixo */ }
   if (GCAL_COR_TECNICO[nome]) return GCAL_COR_TECNICO[nome];
   // Técnico não cadastrado: cor estável derivada do nome (o mesmo nome sempre recebe a mesma cor)
   let h = 0;
@@ -1224,6 +1229,64 @@ app.get('/api/tiny/debug', auth, adminOnly, async (req, res) => {
       detalhe_primeiro: detalhe?.retorno
     });
   } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── TÉCNICOS ──
+// Antes a lista ficava fixa no HTML; agora é cadastro, para a equipe mudar sozinha.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tecnicos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    cpf TEXT,
+    cor TEXT,
+    ativo INTEGER DEFAULT 1,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+`);
+// Semente única, marcada no config para não voltar se a Giulia remover todos.
+try {
+  const jaSemeado = db.prepare("SELECT valor FROM config WHERE chave='tecnicos_semeados'").get();
+  if (!jaSemeado) {
+    const ins = db.prepare('INSERT INTO tecnicos (nome,cpf,cor) VALUES (?,?,?)');
+    ins.run('José Wesley Mendes da Silva', '15417106496', '10'); // Manjericão
+    ins.run('Caio Molon', '30170217850', '6');                   // Tangerina
+    db.prepare("INSERT INTO config (chave,valor) VALUES ('tecnicos_semeados','1')").run();
+  }
+} catch (e) { console.warn('[tecnicos] semente:', e.message); }
+
+app.get('/api/tecnicos', auth, (req, res) => {
+  res.json(db.prepare('SELECT id,nome,cpf,cor FROM tecnicos WHERE ativo=1 ORDER BY nome').all());
+});
+
+app.post('/api/tecnicos', auth, (req, res) => {
+  const nome = String(req.body?.nome || '').trim();
+  const cpf  = String(req.body?.cpf || '').replace(/\D/g, '');
+  if (!nome) return res.status(400).json({ erro: 'Informe o nome do técnico.' });
+  const jaExiste = db.prepare('SELECT id FROM tecnicos WHERE ativo=1 AND LOWER(nome)=LOWER(?)').get(nome);
+  if (jaExiste) return res.status(409).json({ erro: 'Já existe um técnico com esse nome.' });
+  // Reaproveita o cadastro antigo se o mesmo nome foi removido antes
+  const removido = db.prepare('SELECT id FROM tecnicos WHERE ativo=0 AND LOWER(nome)=LOWER(?)').get(nome);
+  const usadas = db.prepare('SELECT cor FROM tecnicos WHERE ativo=1 AND cor IS NOT NULL').all().map(r => r.cor);
+  // Não repete cor e não usa as reservadas: 3 (dois técnicos) e 8 (sem técnico)
+  const cor = ['7','10','6','5','11','9','4','2','1'].find(c => !usadas.includes(c)) || '1';
+  let id;
+  if (removido) {
+    db.prepare('UPDATE tecnicos SET ativo=1, cpf=?, cor=? WHERE id=?').run(cpf || null, cor, removido.id);
+    id = removido.id;
+  } else {
+    id = db.prepare('INSERT INTO tecnicos (nome,cpf,cor) VALUES (?,?,?)').run(nome, cpf || null, cor).lastInsertRowid;
+  }
+  audit(req, 'ADICIONAR_TECNICO', 'tecnicos', id, null, { nome, cpf, cor });
+  res.json({ sucesso: true, id, nome, cpf, cor });
+});
+
+// Remoção é lógica: as visitas antigas continuam mostrando quem foi
+app.delete('/api/tecnicos/:id', auth, (req, res) => {
+  const t = db.prepare('SELECT * FROM tecnicos WHERE id=?').get(req.params.id);
+  if (!t) return res.status(404).json({ erro: 'Técnico não encontrado.' });
+  db.prepare('UPDATE tecnicos SET ativo=0 WHERE id=?').run(req.params.id);
+  audit(req, 'REMOVER_TECNICO', 'tecnicos', t.id, t, null);
+  res.json({ sucesso: true });
 });
 
 // ── CACHE DE LEADS DO KOMMO ──
