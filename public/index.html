@@ -559,9 +559,6 @@ select option { background: var(--surface); color: var(--text); }
     </div>
   </div>
 
-  <!-- Metas do mês, uma para cada tipo de evento -->
-  <div id="dash-metas-eventos" style="margin-bottom:24px"></div>
-
   <!-- Cards de métricas (4 períodos + sparkline) -->
   <div id="dash-metricas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:24px"></div>
 
@@ -2374,85 +2371,6 @@ function irPara(tela, btn) {
 // ═══ MODAIS ═══
 function abrirModal(id) { document.getElementById(id).classList.add('aberto'); }
 function fecharModal(id) { document.getElementById(id).classList.remove('aberto'); }
-
-// ═══ METAS POR TIPO DE EVENTO ═══
-// Cada tipo tem a própria meta mensal: visita técnica não acumula instalação,
-// retorno nem entrega — cada um é contado e cobrado separadamente.
-const TIPOS_EVENTO_META = [
-  { tipo: 'visita',     rotulo: 'Visitas técnicas', icone: '🔍', cor: 'var(--accent)' },
-  { tipo: 'instalacao', rotulo: 'Instalações',      icone: '🔧', cor: 'var(--mineral-txt)' },
-  { tipo: 'retorno',    rotulo: 'Retornos',         icone: '🔄', cor: '#E65100' },
-  { tipo: 'entrega',    rotulo: 'Entregas',         icone: '📦', cor: '#1565C0' },
-];
-let metasEventos = [];
-async function carregarMetasEventos() {
-  const h = new Date();
-  try {
-    metasEventos = await fetch(`/api/metas-eventos?ano=${h.getFullYear()}&mes=${h.getMonth()+1}`)
-      .then(r => r.ok ? r.json() : []);
-  } catch (e) { metasEventos = []; }
-}
-function renderMetasEventos(listaVisitas) {
-  const el = document.getElementById('dash-metas-eventos');
-  if (!el) return;
-  const hoje = new Date();
-  const ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
-  const pref = `${ano}-${String(mes).padStart(2,'0')}`;
-  const podeEditar = usuarioLogado && ['admin','gerente'].includes(usuarioLogado.role);
-  const doMes = (listaVisitas || []).filter(v => String(v.data || '').startsWith(pref));
-  // Evento sem tipo salvo é visita técnica (os antigos foram criados antes dos outros tipos)
-  const contaTipo = t => doMes.filter(v => (v.tipo || 'visita') === t).length;
-  const mesLabel = hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-  el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px">'
-    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">'
-      + '<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">🎯 Metas do mês</span>'
-      + '<span style="font-size:12px;color:var(--text2)">' + mesLabel + '</span>'
-    + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">'
-    + TIPOS_EVENTO_META.map(t => {
-        const meta = metasEventos.find(m => m.tipo === t.tipo)?.meta || 0;
-        const feito = contaTipo(t.tipo);
-        const pct = meta > 0 ? Math.min(100, (feito / meta) * 100) : 0;
-        const bateu = meta > 0 && feito >= meta;
-        const cor = bateu ? '#2e7d32' : pct >= 70 ? '#f57c00' : t.cor;
-        return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
-          + '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">' + t.icone + ' ' + t.rotulo + '</div>'
-          + '<div style="display:flex;align-items:baseline;gap:4px">'
-            + '<span style="font-size:24px;font-weight:800;color:' + cor + ';line-height:1">' + feito + '</span>'
-            + '<span style="font-size:13px;color:var(--text2)">/ ' + (meta || '—') + '</span>'
-          + '</div>'
-          + (meta > 0
-            ? '<div style="height:6px;background:var(--surface2,#efe9e0);border-radius:3px;overflow:hidden;margin-top:6px">'
-              + '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + cor + '"></div></div>'
-              + '<div style="font-size:11px;color:' + (bateu ? '#2e7d32' : 'var(--text2)') + ';margin-top:3px;font-weight:600">'
-              + (bateu ? '✅ meta batida' : 'faltam ' + (meta - feito)) + '</div>'
-            : '<div style="font-size:11px;color:var(--text2);margin-top:6px">sem meta definida</div>')
-          + (podeEditar
-            ? '<div style="display:flex;align-items:center;gap:4px;margin-top:8px">'
-              + '<input type="number" min="0" step="1" value="' + (meta || '') + '" placeholder="meta" id="meta-ev-' + t.tipo + '" '
-                + 'style="width:64px;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">'
-              + '<button class="btn btn-branco" style="font-size:11px;padding:2px 8px" onclick="salvarMetaEvento(\'' + t.tipo + '\')">✓</button>'
-              + '</div>'
-            : '')
-          + '</div>';
-      }).join('')
-    + '</div></div>';
-}
-async function salvarMetaEvento(tipo) {
-  const input = document.getElementById('meta-ev-' + tipo);
-  if (!input) return;
-  const hoje = new Date();
-  try {
-    const r = await fetch('/api/metas-eventos', {
-      method: 'PUT', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ tipo, ano: hoje.getFullYear(), mes: hoje.getMonth()+1, meta: parseInt(input.value) || 0 })
-    });
-    if (!r.ok) { alert('Não foi possível salvar a meta.'); return; }
-    await carregarMetasEventos();
-    renderDashboard();
-  } catch (e) { alert('Erro de conexão.'); }
-}
 
 // ═══ TIPO EVENTO ═══
 function selecionarTipo(t) {
@@ -4501,7 +4419,7 @@ async function carregarPedidos() {
   try { const r = await fetch('/api/pedidos'); pedidos = await r.json(); } catch(e) { pedidos = []; }
 }
 async function carregarTudo() {
-  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTecnicos(), carregarMetasEventos(), carregarTinyPedidos(), carregarPedidos(), carregarOrcamentos(), carregarComissionamento()]);
+  await Promise.allSettled([carregarVisitas(), carregarAprovacoes(), carregarInstalacoes(), carregarVendedoras(), carregarTecnicos(), carregarTinyPedidos(), carregarPedidos(), carregarOrcamentos(), carregarComissionamento()]);
   renderVisitas(); renderAprovacao(); renderResumoInst(); renderInstalacoes();
   const hoje = new Date();
   const de = document.getElementById('dash-de'), ate = document.getElementById('dash-ate');
@@ -5308,8 +5226,6 @@ function renderDashboard() {
   const vAprov = (de, ate) => allAprov.filter(a => inP(a.aprovado_em || a.criado_em, de, ate)).reduce((s,a) => s+(a.valor||0), 0);
   const gPed  = (de, ate) => allPeds.filter(p => inP(p.data, de, ate)).length;
   const vPed  = (de, ate) => allPeds.filter(p => inP(p.data, de, ate)).reduce((s,p) => s+(p.valor||0), 0);
-
-  renderMetasEventos(allVs);
 
   // Renderiza cards
   const metEl = document.getElementById('dash-metricas');
