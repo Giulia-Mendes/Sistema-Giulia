@@ -111,10 +111,11 @@ const GCAL_COR_EQUIPE = '3';            // Uva (roxo) — dois ou mais técnicos
 // Duplas que saem juntas quase sempre têm cor própria: assim o roxo passa a
 // significar "a dupla levou mais alguém", que é a informação que interessa.
 // Vale só para a combinação exata; com um terceiro técnico volta a ser roxo.
+// Wesley e Roque são a equipe de sempre: sozinhos ou juntos ficam no mesmo verde.
 const GCAL_COR_DUPLA_FIXA = [
-  { tokens: ['wesley', 'roque'], cor: '4' }, // Flamingo (rosa)
+  { tokens: ['wesley', 'roque'], cor: '10' }, // Manjericão (verde)
 ];
-const GCAL_CORES_EXTRAS = ['11', '9', '2', '1']; // para técnicos novos (fora as reservadas)
+const GCAL_CORES_EXTRAS = ['11', '9', '4', '2', '1']; // para técnicos novos (fora as reservadas)
 
 function gcalCorPorTecnico(tecnicos) {
   // Tira acento só para comparar, para o mesmo técnico escrito de dois jeitos não virar dois
@@ -1340,6 +1341,18 @@ app.post('/api/tecnicos', auth, (req, res) => {
   }
   audit(req, 'ADICIONAR_TECNICO', 'tecnicos', id, null, { nome, cpf, cor });
   res.json({ sucesso: true, id, nome, cpf, cor });
+});
+
+// Troca a cor de agenda de um técnico. Cor repetida é permitida de propósito:
+// dois técnicos que formam a equipe fixa usam a mesma cor.
+app.put('/api/tecnicos/:id', auth, (req, res) => {
+  const t = db.prepare('SELECT * FROM tecnicos WHERE id=?').get(req.params.id);
+  if (!t) return res.status(404).json({ erro: 'Técnico não encontrado.' });
+  const cor = String(req.body?.cor || '').trim();
+  if (!/^(1[01]|[1-9])$/.test(cor)) return res.status(400).json({ erro: 'Cor inválida (use 1 a 11).' });
+  db.prepare('UPDATE tecnicos SET cor=? WHERE id=?').run(cor, t.id);
+  audit(req, 'ATUALIZAR_COR_TECNICO', 'tecnicos', t.id, { cor: t.cor }, { cor });
+  res.json({ sucesso: true, id: t.id, nome: t.nome, cor });
 });
 
 // Remoção é lógica: as visitas antigas continuam mostrando quem foi
