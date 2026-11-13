@@ -1264,6 +1264,12 @@ select option { background: var(--surface); color: var(--text); }
       style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
       <option value="">Todos</option>
     </select>
+    <span style="font-size:12px;color:var(--text2)">Contar visitas por</span>
+    <select id="kommo-modo-visita" onchange="renderKommoListas()"
+      style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <option value="visita">Data da visita</option>
+      <option value="lead">Entrada do lead</option>
+    </select>
     <span style="font-size:12px;color:var(--text2)">Follow-up</span>
     <select id="kommo-filtro-fup" onchange="renderKommoListas()"
       style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
@@ -7462,7 +7468,10 @@ function renderKommoConversao(leads) {
       + 'Nenhum lead de visita do RJ neste recorte (S12, Prime e manta armada), nem visita marcada.</div>';
     return;
   }
-  const marcadas = base.filter(temVisita).length;
+  // No modo "data da visita" o numerador são as visitas agendadas no período —
+  // pode passar de 100%, porque vêm de leads que entraram antes.
+  const porDataVisita = kommoModoVisita() === 'visita';
+  const marcadas = porDataVisita ? kommoVisitasNoPeriodo().length : base.filter(temVisita).length;
   const pct = (marcadas / base.length) * 100;
   const faixa = CONV_FAIXAS.find(f => pct >= f.min);
   const metas = [15, 20, 23].map(p => {
@@ -7474,7 +7483,7 @@ function renderKommoConversao(leads) {
       <span style="font-size:13px;font-weight:700;color:var(--text)">🎯 Conversão em visitas</span>
       <span style="font-size:30px;font-weight:700;color:${faixa.cor};line-height:1">${pct.toFixed(1).replace('.', ',')}%</span>
       <span style="background:${faixa.bg};color:${faixa.cor};border-radius:99px;padding:2px 12px;font-size:12px;font-weight:700">${faixa.rotulo}</span>
-      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} em ${base.length} leads de visita do RJ</span>
+      <span style="font-size:12px;color:var(--text2);margin-left:auto">${marcadas} visita${marcadas === 1 ? '' : 's'} ${porDataVisita ? 'marcadas no período' : 'de leads do período'} · ${base.length} leads de visita do RJ</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${metas.map(m => `<div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:8px 10px">
@@ -7483,11 +7492,37 @@ function renderKommoConversao(leads) {
         <div style="font-size:11px;color:${m.faltam ? faixa.cor : '#2e7d32'};font-weight:600">${m.faltam ? 'faltam ' + m.faltam : '✅ atingido'}</div>
       </div>`).join('')}
     </div>
-    <p style="font-size:11px;color:var(--text2);margin:8px 0 0">Base: leads de S12, Prime e manta armada do RJ, mais qualquer lead com visita marcada. Conta só visitas lançadas no Alery com o nº do lead vinculado.</p>
+    <p style="font-size:11px;color:var(--text2);margin:8px 0 0">${porDataVisita
+      ? 'Visitas técnicas com data dentro do período, mesmo que o lead tenha entrado antes. Dividido pelos leads de visita do RJ que entraram no período.'
+      : 'Só leads que entraram no período e que renderam visita, independentemente da data dela.'} Base: S12, Prime e manta armada do RJ, mais qualquer lead com visita marcada.</p>
   </div>`;
 }
 
 // Números dos cards de cima, calculados sobre os leads que passaram nos filtros
+// Período escolhido nos campos de data da página do Kommo
+function kommoPeriodo() {
+  const de = document.getElementById('kommo-data')?.value || '';
+  const ate = document.getElementById('kommo-data-fim')?.value || de;
+  return { de, ate };
+}
+function kommoModoVisita() { return document.getElementById('kommo-modo-visita')?.value || 'visita'; }
+
+// Visitas AGENDADAS para o período, pela data da visita — é a conta que a Giulia
+// faz na semana. O outro modo conta leads do período que renderam visita, o que
+// deixa de fora a visita marcada agora para um lead que entrou semanas atrás.
+function kommoVisitasNoPeriodo() {
+  const { de, ate } = kommoPeriodo();
+  if (!de) return [];
+  const fVend = document.getElementById('kommo-filtro-vend')?.value || '';
+  return (visitas || []).filter(v => {
+    const d = String(v.data || '').slice(0, 10);
+    if (!(d >= de && d <= ate)) return false;
+    if (['instalacao','retorno','entrega'].includes(v.tipo)) return false; // só visita técnica
+    if (fVend && fVend !== '__sem' && String(v.vendedora || '') !== fVend) return false;
+    return true;
+  });
+}
+
 function renderKommoStats(leads, secs, filtrando) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   const lid = l => String(l.lead_id).trim();
@@ -7499,7 +7534,9 @@ function renderKommoStats(leads, secs, filtrando) {
   set('ks-outros', secs.outros.length);
 
   const vis = (_kommoFunil || {}).visitas || {}, props = (_kommoFunil || {}).propostas || {};
-  set('ks-visitas',   leads.filter(l => vis[lid(l)] > 0).length);
+  set('ks-visitas', kommoModoVisita() === 'visita'
+    ? kommoVisitasNoPeriodo().length                 // marcadas para o período
+    : leads.filter(l => vis[lid(l)] > 0).length);    // leads do período que viraram visita
   set('ks-propostas', leads.reduce((s, l) => s + (props[lid(l)]?.total || 0), 0));
   set('ks-aprovadas', leads.reduce((s, l) => s + (props[lid(l)]?.aprovadas || 0), 0));
 
