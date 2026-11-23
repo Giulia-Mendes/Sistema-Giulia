@@ -153,8 +153,14 @@ function calcularMateriais(laudo = {}, modelo = '') {
   if (!distCabo)  avisos.push('Distância até o quadro elétrico não informada no laudo — cabo elétrico não calculado.');
 
   const linha = chave ? (REGRAS.cabos_por_modelo[chave]?.linha || '') : '';
-  const corrente = chave ? correnteEstimada(chave) : null;
-  const prot = corrente ? protecaoPara(corrente, linha) : null;
+  // Tabela do técnico: corrente, cabo, disjuntor e contatora medidos por modelo.
+  // Vale mais que a corrente estimada pela potência e que a tabela genérica do manual.
+  const eletrica = chave ? (REGRAS.eletrica_por_modelo?.modelos || {})[chave] : null;
+  const corrente = eletrica ? eletrica.corrente_a : (chave ? correnteEstimada(chave) : null);
+  const prot = eletrica
+    ? { fase_mm2: eletrica.cabo_mm2, disjuntor_a: eletrica.disjuntor_a, dr_ma: 30, fonte: 'tabela do técnico' }
+    : (corrente ? protecaoPara(corrente, linha) : null);
+  const contatoraA = eletrica ? eletrica.contatora_a : null;
 
   // Duas exigências diferentes: a corrente que o cabo precisa aguentar (manual)
   // e a queda de tensão na distância (planilha do fabricante). Vale a maior.
@@ -164,6 +170,12 @@ function calcularMateriais(laudo = {}, modelo = '') {
     ? null : Math.max(bitolaDist || 0, bitolaCorrente || 0);
 
   if (chave && distCabo > 60) avisos.push('Distância acima de 60 m: a tabela do fabricante para nessa faixa. Confirme a bitola com o eletricista.');
+  // A tabela do técnico foi medida para até 30 m; acima disso o cabo tem que ser redimensionado
+  const limiteTec = REGRAS.eletrica_por_modelo?._distancia_max_m || 30;
+  if (eletrica && distCabo > limiteTec) {
+    avisos.push(`Distância de ${distCabo}m acima dos ${limiteTec}m que a tabela do técnico cobre: `
+      + `cabo redimensionado para ${bitola}mm² pela tabela de distância. Confirme com o técnico antes de comprar.`);
+  }
   if (bitolaCorrente && bitolaDist && bitolaCorrente > bitolaDist) {
     avisos.push(`Cabo pela corrente: ${corrente}A exigem ${bitolaCorrente}mm² pelo manual, `
       + `acima dos ${bitolaDist}mm² que a tabela de distância indicaria para ${distCabo}m. Usado ${bitola}mm².`);
@@ -212,7 +224,14 @@ function calcularMateriais(laudo = {}, modelo = '') {
       `disjuntor curva c ${prot.disjuntor_a}a`);
     add(`IDR/DR ${prot.dr_ma}mA`, 1, 'UN', 'obrigatório pelo manual', 'idr dr diferencial');
   }
-  add('Contator 9A 220V', 2, 'UN', 'bomba de calor + motobomba', 'contator 9a 220v');
+  // A contatora da bomba de calor segue a tabela do técnico; a da motobomba é 9A.
+  // Quando a do equipamento também é 9A, viram duas do mesmo item.
+  if (contatoraA && contatoraA !== 9) {
+    add(`Contator ${contatoraA}A 220V`, 1, 'UN', `bomba de calor (${corrente}A)`, `contator ${contatoraA}a 220v`);
+    add('Contator 9A 220V', 1, 'UN', 'motobomba', 'contator 9a 220v');
+  } else {
+    add('Contator 9A 220V', 2, 'UN', 'bomba de calor + motobomba', 'contator 9a 220v');
+  }
   add('Relé de Sobrecarga', 1, 'UN', corrente ? `faixa compatível com ${corrente}A` : 'obrigatório pelo manual', 'rele sobrecarga');
   add('DPS - Proteção contra Surtos', 1, 'UN', 'obrigatório pelo manual', 'dps surto');
   add('Caixa de Passagem/Comando', 1, 'UN', '', 'caixa rohdbox');
@@ -232,6 +251,7 @@ function calcularMateriais(laudo = {}, modelo = '') {
     resumo: {
       modelo, modelo_tabela: chave, potencia_w: chave ? REGRAS.cabos_por_modelo[chave].potencia_w : null,
       corrente_estimada_a: corrente, bitola_mm2: bitola,
+      corrente_de_tabela: !!eletrica, contatora_a: contatoraA,
       disjuntor_a: prot?.disjuntor_a ?? null, dr_ma: prot?.dr_ma ?? null,
       distancia_tubo_m: distTubo, distancia_cabo_m: distCabo,
     },

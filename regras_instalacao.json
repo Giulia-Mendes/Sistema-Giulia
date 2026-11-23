@@ -103,6 +103,158 @@
    }
   ]
  },
+ "eletrica_por_modelo": {
+  "_fonte": "Tabela do técnico Caio Molon (23/11/2026) — corrente, cabo, disjuntor e contatora por modelo",
+  "_obs": "Nome comercial Aquex Inverter convertido para a chave por BTU (AQ 4 inv = AQ 14 IN). S 110: disjuntor e contatora informados pela Giulia.",
+  "modelos": {
+   "SB 14": {
+    "corrente_a": 4,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "SB 24": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "SB 30": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "SB 43": {
+    "corrente_a": 13,
+    "cabo_mm2": 4,
+    "disjuntor_a": 20,
+    "contatora_a": 18
+   },
+   "SB 50": {
+    "corrente_a": 16,
+    "cabo_mm2": 4,
+    "disjuntor_a": 20,
+    "contatora_a": 18
+   },
+   "SB 60": {
+    "corrente_a": 16,
+    "cabo_mm2": 4,
+    "disjuntor_a": 20,
+    "contatora_a": 18
+   },
+   "SB 71": {
+    "corrente_a": 21,
+    "cabo_mm2": 6,
+    "disjuntor_a": 32,
+    "contatora_a": 25
+   },
+   "SB 82": {
+    "corrente_a": 28,
+    "cabo_mm2": 6,
+    "disjuntor_a": 32,
+    "contatora_a": 32
+   },
+   "SB 110": {
+    "corrente_a": 28,
+    "cabo_mm2": 6,
+    "disjuntor_a": 32,
+    "contatora_a": 32
+   },
+   "SB 130": {
+    "corrente_a": 32,
+    "cabo_mm2": 10,
+    "disjuntor_a": 40,
+    "contatora_a": 32
+   },
+   "AQ 14 IN": {
+    "corrente_a": 4,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "AQ 24 IN": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "AQ 30 IN": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "AQ 43 IN": {
+    "corrente_a": 13,
+    "cabo_mm2": 2.5,
+    "disjuntor_a": 16,
+    "contatora_a": 12
+   },
+   "AQ 50 IN": {
+    "corrente_a": 16,
+    "cabo_mm2": 4,
+    "disjuntor_a": 25,
+    "contatora_a": 18
+   },
+   "S 24": {
+    "corrente_a": 6.8,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "S 31": {
+    "corrente_a": 7.5,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "S 38": {
+    "corrente_a": 8.4,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9
+   },
+   "S 44": {
+    "corrente_a": 9.5,
+    "cabo_mm2": 2.5,
+    "disjuntor_a": 16,
+    "contatora_a": 12
+   },
+   "S 51": {
+    "corrente_a": 10.6,
+    "cabo_mm2": 2.5,
+    "disjuntor_a": 16,
+    "contatora_a": 12
+   },
+   "S 58": {
+    "corrente_a": 12.6,
+    "cabo_mm2": 4,
+    "disjuntor_a": 20,
+    "contatora_a": 18
+   },
+   "S 72": {
+    "corrente_a": 17,
+    "cabo_mm2": 4,
+    "disjuntor_a": 20,
+    "contatora_a": 18
+   },
+   "S 90": {
+    "corrente_a": 20.5,
+    "cabo_mm2": 6,
+    "disjuntor_a": 32,
+    "contatora_a": 25
+   },
+   "S 110": {
+    "corrente_a": 26.2,
+    "cabo_mm2": 10,
+    "disjuntor_a": 32,
+    "contatora_a": 32
+   }
+  },
+  "_validade": "Dimensionamento vale até 30 m entre o equipamento e o quadro. Acima disso é preciso redimensionar o cabo.",
+  "_distancia_max_m": 30
+ },
  "obrigatorios": [
   "Contator",
   "Rele de sobrecarga",
