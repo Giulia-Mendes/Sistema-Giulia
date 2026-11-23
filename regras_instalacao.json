@@ -250,10 +250,53 @@
     "cabo_mm2": 10,
     "disjuntor_a": 32,
     "contatora_a": 32
+   },
+   "AQ 12": {
+    "corrente_a": 4,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9,
+    "herdado_de": "AQ 14 IN"
+   },
+   "AQ 15": {
+    "corrente_a": 4,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9,
+    "herdado_de": "AQ 14 IN"
+   },
+   "AQ 21": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9,
+    "herdado_de": "AQ 24 IN"
+   },
+   "AQ 28": {
+    "corrente_a": 8.2,
+    "cabo_mm2": 1.5,
+    "disjuntor_a": 10,
+    "contatora_a": 9,
+    "herdado_de": "AQ 30 IN"
+   },
+   "AQ42": {
+    "corrente_a": 13,
+    "cabo_mm2": 2.5,
+    "disjuntor_a": 16,
+    "contatora_a": 12,
+    "herdado_de": "AQ 43 IN"
+   },
+   "AQ 50": {
+    "corrente_a": 16,
+    "cabo_mm2": 4,
+    "disjuntor_a": 25,
+    "contatora_a": 18,
+    "herdado_de": "AQ 50 IN"
    }
   },
   "_validade": "Dimensionamento vale até 30 m entre o equipamento e o quadro. Acima disso é preciso redimensionar o cabo.",
-  "_distancia_max_m": 30
+  "_distancia_max_m": 30,
+  "_heranca": "Aquex on/off não está na tabela do técnico: herda do inverter de BTU equivalente."
  },
  "obrigatorios": [
   "Contator",

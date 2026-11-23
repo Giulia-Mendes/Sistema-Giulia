@@ -170,6 +170,10 @@ function calcularMateriais(laudo = {}, modelo = '') {
     ? null : Math.max(bitolaDist || 0, bitolaCorrente || 0);
 
   if (chave && distCabo > 60) avisos.push('Distância acima de 60 m: a tabela do fabricante para nessa faixa. Confirme a bitola com o eletricista.');
+  if (eletrica?.herdado_de) {
+    avisos.push(`Dados elétricos herdados do ${eletrica.herdado_de} (inverter de capacidade equivalente): `
+      + `a tabela do técnico não traz a linha on/off desse modelo.`);
+  }
   // A tabela do técnico foi medida para até 30 m; acima disso o cabo tem que ser redimensionado
   const limiteTec = REGRAS.eletrica_por_modelo?._distancia_max_m || 30;
   if (eletrica && distCabo > limiteTec) {
