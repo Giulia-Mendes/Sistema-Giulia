@@ -1288,6 +1288,7 @@ select option { background: var(--surface); color: var(--text); }
     <div class="stat"><div class="lbl">Prime Inv.</div><div class="val" id="ks-prime" style="color:#E64A19">—</div></div>
     <div class="stat"><div class="lbl">Capa térmica</div><div class="val" id="ks-capa" style="color:#00897B">—</div></div>
     <div class="stat"><div class="lbl">Manta armada</div><div class="val" id="ks-manta" style="color:#6A1B9A">—</div></div>
+    <div class="stat"><div class="lbl">Black Friday</div><div class="val" id="ks-black" style="color:#212121">—</div></div>
     <div class="stat"><div class="lbl">Outros</div><div class="val" id="ks-outros" style="color:#666">—</div></div>
   </div>
 
@@ -1348,6 +1349,18 @@ select option { background: var(--surface); color: var(--text); }
       <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-manta">▼</span>
     </div>
     <div id="kommo-lista-manta" style="padding:4px 0"></div>
+  </div>
+
+  <!-- Seção Black Friday -->
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden" id="kommo-sec-black">
+    <div onclick="toggleKommoSec('black')" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2,#f5f0eb)">
+      <span style="font-size:15px">🏷️</span>
+      <span style="font-weight:600;font-size:14px;color:#212121">Black Friday</span>
+      <span id="kommo-badge-black" style="background:#212121;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+      <span id="kommo-fechou-black" style="font-size:12px;color:var(--text2)"></span>
+      <span style="margin-left:auto;color:var(--text2);font-size:12px" id="kommo-toggle-black">▼</span>
+    </div>
+    <div id="kommo-lista-black" style="padding:4px 0"></div>
   </div>
 
   <!-- Seção Outros -->
@@ -7192,6 +7205,7 @@ async function toggleUsuario(id, ativo) {
 let _kommoLeadsCache = [];
 let _kommoFunil = { visitas: {}, propostas: {} };
 let _kommoCapas = { por_lead: {} };
+let _kommoVendas = { por_lead: {} }; // quem fechou pedido, de qualquer produto
 
 // Erros JS silenciosos viram aviso visível (facilita suporte)
 window.addEventListener('error', ev => {
@@ -7203,7 +7217,7 @@ window.addEventListener('error', ev => {
     setTimeout(() => { t.style.display = 'none'; }, 8000);
   } catch(e) {}
 });
-const _kommoSecs = { s12: true, prime: true, capa: true, manta: true, outros: true };
+const _kommoSecs = { s12: true, prime: true, capa: true, manta: true, black: true, outros: true };
 
 function kommoHoje() {
   const hoje = new Date();
@@ -7300,6 +7314,9 @@ function detectarModelo(texto) {
   const t = texto.toLowerCase();
   if (t.includes('s12')) return 's12';
   if (t.includes('prime') || t.includes('full inverter') || t.includes('inverter')) return 'prime';
+  // Campanha de Black Friday: vem antes dos produtos porque o que interessa
+  // é a origem do lead, mesmo quando ele cita capa ou aquecedor na mensagem
+  if (/black\s*-?\s*friday|blackfriday/.test(t)) return 'black';
   // Manta armada (revestimento) ≠ manta térmica, que é como alguns chamam a capa
   if (t.includes('manta')) return /termic|térmic/.test(t) ? 'capa' : 'manta';
   if (t.includes('capa') || t.includes('termica') || t.includes('térmica')) return 'capa';
@@ -7356,6 +7373,17 @@ function renderKommoSecao(sec, leads, corBg, corText) {
   const badge = document.getElementById('kommo-badge-' + sec);
   const lista  = document.getElementById('kommo-lista-' + sec);
   if (badge) badge.textContent = leads.length;
+  // Quantos dessa seção já viraram pedido (usado no cabeçalho da Black Friday)
+  const elFechou = document.getElementById('kommo-fechou-' + sec);
+  if (elFechou) {
+    const pedidosPorLead = _kommoVendas.por_lead || {};
+    const fecharam = leads.filter(l => (pedidosPorLead[String(l.lead_id).trim()] || []).length);
+    const total = fecharam.reduce((s, l) =>
+      s + (pedidosPorLead[String(l.lead_id).trim()] || []).reduce((a, p) => a + (p.valor || 0), 0), 0);
+    elFechou.textContent = fecharam.length
+      ? `· ${fecharam.length} fechou${fecharam.length > 1 ? 'ram' : ''} · ` + fmtR(total)
+      : (leads.length ? '· ninguém fechou ainda' : '');
+  }
   if (!lista) return;
   if (!leads.length) {
     lista.innerHTML = `<div style="padding:14px 16px;color:var(--text2);font-size:13px;text-align:center">Nenhum contato</div>`;
@@ -7383,6 +7411,13 @@ function renderKommoSecao(sec, leads, corBg, corText) {
       (prop && prop.aprovadas > 0
         ? '<span style="background:#e8f5e9;color:#2e7d32;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">✅ Aprovada</span>'
         : (prop && prop.total > 0 ? '<span style="background:#e0f2f1;color:#0e7490;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">📝 Proposta</span>' : '')) +
+      (() => { // fechou pedido de qualquer produto (não só capa)
+        const peds = (_kommoVendas.por_lead || {})[lidKey];
+        if (!peds || !peds.length || compras) return ''; // capa já tem selo próprio
+        const v = peds.reduce((s, p) => s + (p.valor || 0), 0);
+        return '<span title="Pedido ' + peds.map(p => p.numero).join(', ') + '" style="background:#C8E6C9;color:#1B5E20;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">🛒 Fechou'
+          + (v > 0 ? ' · ' + fmtR(v) : '') + '</span>';
+      })() +
       (compras ? '<span title="Pedido ' + compras.map(c => c.numero).join(', ') + '" style="background:#B2DFDB;color:#00695C;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600">🧊 Comprou capa'
         + (totalCapa > 0 ? ' · R$ ' + totalCapa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '') + '</span>' : '');
     return `<div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
@@ -7411,7 +7446,7 @@ function renderKommoSecao(sec, leads, corBg, corText) {
 // ── Follow-ups (mensagens enviadas pelas vendedoras no WhatsApp do Kommo) ──
 let _kommoFollowups = null; // null = ainda buscando
 let _kommoFupParcial = false; // a varredura parou no teto de páginas (período muito longo)
-const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], manta:['#E1BEE7','#6A1B9A'], outros:['#E0E0E0','#424242'] };
+const _KOMMO_CORES = { s12:['#BBDEFB','#1565C0'], prime:['#FFE0B2','#BF360C'], capa:['#B2DFDB','#00695C'], manta:['#E1BEE7','#6A1B9A'], black:['#CFD8DC','#212121'], outros:['#E0E0E0','#424242'] };
 
 function _kommoDiaHoje() { return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); }
 
@@ -7531,6 +7566,7 @@ function renderKommoStats(leads, secs, filtrando) {
   set('ks-prime',  secs.prime.length);
   set('ks-capa',   secs.capa.length);
   set('ks-manta',  secs.manta.length);
+  set('ks-black',  secs.black.length);
   set('ks-outros', secs.outros.length);
 
   const vis = (_kommoFunil || {}).visitas || {}, props = (_kommoFunil || {}).propostas || {};
@@ -7587,7 +7623,7 @@ function renderKommoListas() {
     if (fFup === 'sem_resposta') return f.contatos.length > 0 && !f.respondeu;
     return true;
   });
-  const secs = { s12: [], prime: [], capa: [], manta: [], outros: [] };
+  const secs = { s12: [], prime: [], capa: [], manta: [], black: [], outros: [] };
   for (const l of leads) {
     const m = detectarModelo(((l.texto_primeira||'') + ' ' + (l.lead_name||'')).trim());
     (secs[m] || secs.outros).push(l);
@@ -7666,6 +7702,16 @@ async function carregarKommo() {
         body: JSON.stringify({ de: data, ate: dataFim, leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel, nome: l.nome })) })
       });
       if (rc.ok) _kommoCapas = await rc.json();
+    } catch(e) {}
+
+    // Quem fechou pedido, de qualquer produto — usado na Black Friday e nos selos
+    _kommoVendas = { por_lead: {} };
+    try {
+      const rv = await fetch('/api/kommo/vendas', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ de: data, ate: dataFim, leads: _kommoLeadsCache.map(l => ({ lead_id: l.lead_id, tel: l.tel, nome: l.nome })) })
+      });
+      if (rv.ok) _kommoVendas = await rv.json();
     } catch(e) {}
 
     // Formata data para exibição

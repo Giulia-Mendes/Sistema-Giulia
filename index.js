@@ -2356,6 +2356,66 @@ app.post('/api/kommo/funil', auth, (req, res) => {
 
 // ── KOMMO: cruza leads de capa térmica com vendas do Tiny (por telefone) ──
 // Recebe [{lead_id, tel}] e devolve quem comprou capa, casando pelos últimos 8 dígitos do telefone.
+// Casa leads do Kommo com pedidos do Tiny: telefone, nome completo ou lead vinculado.
+// Mesma lógica usada nas capas, aqui sem filtrar produto — serve para saber quem
+// fechou, independentemente do que comprou (Black Friday, aquecedor, o que for).
+function casarLeadsComPedidos(leads, pedidos) {
+  const porTel = {};
+  for (const p of pedidos) {
+    const k = telKey(p.telefone);
+    if (k) (porTel[k] = porTel[k] || []).push(p);
+  }
+  const nomeKey = s => _normTxt(s).replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+  const porNome = {};
+  for (const p of pedidos) {
+    const n = nomeKey(p.cliente);
+    if (n && n.includes(' ')) (porNome[n] = porNome[n] || []).push(p);
+  }
+  const casados = {};
+  for (const l of leads) {
+    const achados = [];
+    let origem = '';
+    const k = telKey(l.tel);
+    if (k && porTel[k]) achados.push(...porTel[k].filter(p => telCombina(p.telefone, l.tel)));
+    if (achados.length) origem = 'telefone';
+    const n = nomeKey(l.nome);
+    if (!achados.length && n && porNome[n]) { achados.push(...porNome[n]); if (achados.length) origem = 'nome'; }
+    for (const p of pedidos) {
+      if (p.lead_id && String(p.lead_id).trim() === String(l.lead_id).trim() && !achados.includes(p)) {
+        achados.push(p);
+        origem = origem || 'lead';
+      }
+    }
+    if (achados.length) {
+      casados[String(l.lead_id)] = achados.map(p => ({
+        numero: p.numero, cliente: p.cliente, valor: p.valor || 0, data: p.data, casado_por: origem,
+      }));
+    }
+  }
+  return casados;
+}
+
+// Quem já fechou pedido, de qualquer produto
+app.post('/api/kommo/vendas', auth, (req, res) => {
+  try {
+    const leads = Array.isArray(req.body?.leads) ? req.body.leads.slice(0, 3000) : [];
+    const de  = /^\d{4}-\d{2}-\d{2}$/.test(req.body?.de  || '') ? req.body.de  : null;
+    const ate = /^\d{4}-\d{2}-\d{2}$/.test(req.body?.ate || '') ? req.body.ate : null;
+    // O pedido costuma sair depois do primeiro contato, então a busca vai até hoje
+    const pedidos = (de
+      ? db.prepare('SELECT id,numero,cliente,valor,data,telefone,lead_id FROM tiny_pedidos WHERE data >= ?').all(de)
+      : db.prepare('SELECT id,numero,cliente,valor,data,telefone,lead_id FROM tiny_pedidos').all());
+    const casados = casarLeadsComPedidos(leads, pedidos);
+    const vals = Object.values(casados).flat();
+    res.json({
+      por_lead: casados,
+      leads_que_fecharam: Object.keys(casados).length,
+      valor_total: Math.round(vals.reduce((s, p) => s + (p.valor || 0), 0) * 100) / 100,
+      periodo_pedidos: { de, ate },
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 app.post('/api/kommo/vendas-capa', auth, (req, res) => {
   try {
     const leads = Array.isArray(req.body?.leads) ? req.body.leads.slice(0, 3000) : [];
